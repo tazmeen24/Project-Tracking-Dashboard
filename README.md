@@ -36,9 +36,6 @@ Authentication | JWT (OAuth2PasswordBearer)
 Config | `.env` with python-dotenv & pydantic-settings
 
 # Installation & Setup
-
-# Backend Setup (FastAPI)
-
 # Prerequisites:
 
 - Python 3.9+
