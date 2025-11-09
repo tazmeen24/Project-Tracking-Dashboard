@@ -1,0 +1,61 @@
+#  Project Tracking Dashboard
+
+# PYTHON / FASTAPI 
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.sqlite
+.env
+venv/
+env/
+.venv/
+instance/
+.mypy_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+.tox/
+dist/
+build/
+.eggs/
+*.egg-info/
+*.log
+
+# REACT / NODE FRONTEND 
+node_modules/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS / EDITOR FILES 
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# TEST / COVERAGE 
+coverage/
+.nyc_output/
+.jest/
+*.cover
+*.lcov
+
+# ARCHIVES / TEMP 
+*.zip
+*.tar.gz
+*.tgz
+*.tmp
+*.bak
