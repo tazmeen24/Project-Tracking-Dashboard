@@ -30,15 +30,12 @@ It allows organizations to manage research or institutional projects - including
 
 Layer | Technology
 
-Backend | FastAPI, PostgreSQL, Pydantic, psycopg2, Uvicorn
-Frontend | React.js, Tailwind CSS, Recharts, Lucide React
-Authentication | JWT (OAuth2PasswordBearer)
-Config | `.env` with python-dotenv & pydantic-settings
+|Backend | FastAPI, PostgreSQL, Pydantic, psycopg2, Uvicorn
+|Frontend | React.js, Tailwind CSS, Recharts, Lucide React
+|Authentication | JWT (OAuth2PasswordBearer)
+|Config | `.env` with python-dotenv & pydantic-settings
 
 # Installation & Setup
-
-# Backend Setup (FastAPI)
-
 # Prerequisites:
 
 - Python 3.9+
