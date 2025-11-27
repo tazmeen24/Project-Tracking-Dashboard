@@ -1,4 +1,4 @@
-# app/routes/projects.py
+# backend/app/routes/projects.py
 from fastapi import APIRouter, HTTPException, Query
 from psycopg2.extras import RealDictCursor
 import json
@@ -22,7 +22,7 @@ async def create_project(project: ProjectCreate):
             cur.execute(
                 """INSERT INTO projects 
                    (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id) 
-                  VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                 (
                     project.project_no,
                     project.title,
@@ -36,7 +36,7 @@ async def create_project(project: ProjectCreate):
             project_result = cur.fetchone()
             project_id = project_result['project_id']
             
-            # Create investigator record
+            # ✅ Create investigator record
             cur.execute(
                 """INSERT INTO investigators 
                    (project_id, principal_investigator, pi_email, pi_mobile, 
@@ -46,7 +46,7 @@ async def create_project(project: ProjectCreate):
                  project.co_investigator, project.co_email, project.co_mobile)
             )
             
-            # Create budget allocations 
+            # Create budget allocations
             budget_heads = [
                 ('manpower', project.manpower_allocation, project.manpower_breakdown),
                 ('equipment', project.equipment_allocation, project.equipment_breakdown),
@@ -87,7 +87,7 @@ async def create_project(project: ProjectCreate):
             
             conn.commit()
             
-            
+            # Return project with investigators and budget
             cur.execute("""
                 SELECT p.*, 
                        i.principal_investigator, i.pi_email, i.pi_mobile,
@@ -113,6 +113,7 @@ async def create_project(project: ProjectCreate):
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
 
 @router.get("")
 async def get_projects():
@@ -143,7 +144,7 @@ async def get_projects():
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
                 LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN project_head_summary phs ON p.project_id = phs.project_id
-                GROUP BY p.project_id, tg.name, fa.name
+                GROUP BY p.project_id, tg.name, fa.name, i.id
                 ORDER BY p.start_date DESC
             """)
             results = cur.fetchall()
@@ -153,9 +154,10 @@ async def get_projects():
     finally:
         conn.close()
 
+
 @router.get("/{project_id}")
 async def get_project(project_id: int):
-    """Get single project details"""
+    """Get single project details with investigators"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -169,6 +171,12 @@ async def get_project(project_id: int):
                     fa.name AS funding_agency_name,
                     p.start_date,
                     p.end_date,
+                    i.principal_investigator,
+                    i.pi_email,
+                    i.pi_mobile,
+                    i.co_investigator,
+                    i.co_email,
+                    i.co_mobile,
                     COALESCE(SUM(phs.planned_allocation), 0) AS planned_allocation,
                     COALESCE(SUM(phs.funds_received), 0) AS funds_received,
                     COALESCE(SUM(phs.actual_expenditure), 0) AS actual_expenditure,
@@ -177,9 +185,10 @@ async def get_project(project_id: int):
                 FROM projects p
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+                LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN project_head_summary phs ON p.project_id = phs.project_id
                 WHERE p.project_id = %s
-                GROUP BY p.project_id, tg.name, fa.name
+                GROUP BY p.project_id, tg.name, fa.name, i.id
             """, (project_id,))
             result = cur.fetchone()
             if not result:
@@ -189,6 +198,7 @@ async def get_project(project_id: int):
         raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
     finally:
         conn.close()
+
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: int):
@@ -208,6 +218,7 @@ async def delete_project(project_id: int):
     finally:
         conn.close()
 
+
 @router.get("/{project_id}/manpower-allocation-breakdown")
 async def get_project_manpower_allocation_breakdown(project_id: int):
     """Get manpower allocation breakdown for project"""
@@ -224,6 +235,7 @@ async def get_project_manpower_allocation_breakdown(project_id: int):
     finally:
         conn.close()
 
+
 @router.get("/{project_id}/equipment-allocation-breakdown")
 async def get_project_equipment_allocation_breakdown(project_id: int):
     """Get equipment allocation breakdown for project"""
@@ -239,6 +251,7 @@ async def get_project_equipment_allocation_breakdown(project_id: int):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 
 @router.get("/{project_id}/approved-manpower-roles")
 async def get_approved_manpower_roles(project_id: int):
@@ -267,6 +280,7 @@ async def get_approved_manpower_roles(project_id: int):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 
 @router.get("/{project_id}/approved-equipment-items")
 async def get_approved_equipment_items(project_id: int):
