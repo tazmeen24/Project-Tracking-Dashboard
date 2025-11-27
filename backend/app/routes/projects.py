@@ -1,5 +1,7 @@
 # backend/app/routes/projects.py
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from datetime import datetime
+from typing import Optional
 from psycopg2.extras import RealDictCursor
 import json
 
@@ -308,3 +310,166 @@ async def get_approved_equipment_items(project_id: int):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@router.get("/{project_id}/budget-breakdown-comparison")
+async def get_budget_breakdown_comparison(
+    project_id: int,
+    as_of_date: Optional[str] = Query(None, description="Cumulative as of date in YYYY-MM-DD format"),
+    start_date: Optional[str] = Query(None, description="Start date for range filter in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date for range filter in YYYY-MM-DD format"),
+    conn = Depends(get_db_connection)
+):
+    """
+    Get budget breakdown comparison showing allocated vs received vs spent
+    
+    This endpoint supports two modes:
+    1. Cumulative mode (as_of_date): Returns data from project start up to specified date
+       Example: ?as_of_date=2025-11-27
+    
+    2. Range mode (start_date & end_date): Returns data for a specific date range
+       Example: ?start_date=2025-01-01&end_date=2025-11-27
+    
+    Returns breakdown for all budget heads (manpower, equipment, consumables, etc.)
+    """
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Validate project exists
+            cur.execute("SELECT 1 FROM projects WHERE project_id = %s", (project_id,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Determine filter mode
+            if start_date and end_date:
+                # Date range mode
+                date_condition_fr = "fr.date_received BETWEEN %s AND %s"
+                date_condition_be = "be.date_incurred BETWEEN %s AND %s"
+                date_condition_m = "m.date_incurred BETWEEN %s AND %s"
+                date_condition_e = "e.purchase_date BETWEEN %s AND %s"
+                date_params = [start_date, end_date] * 4
+                filter_label = f"between {start_date} and {end_date}"
+            else:
+                # As of date mode (cumulative)
+                filter_date = as_of_date if as_of_date else datetime.now().strftime('%Y-%m-%d')
+                date_condition_fr = "fr.date_received <= %s"
+                date_condition_be = "be.date_incurred <= %s"
+                date_condition_m = "m.date_incurred <= %s"
+                date_condition_e = "e.purchase_date <= %s"
+                date_params = [filter_date] * 4
+                filter_label = f"as of {filter_date}"
+            
+            # Query budget breakdown with date filtering
+            cur.execute(f"""
+                SELECT 
+                    ba.head,
+                    COALESCE(ba.allocated_amount, 0) as approved_budget,
+                    COALESCE(SUM(CASE 
+                        WHEN {date_condition_fr} THEN fr.amount 
+                        ELSE 0 
+                    END), 0) as funds_received,
+                    COALESCE(SUM(CASE 
+                        WHEN {date_condition_be} THEN be.amount 
+                        ELSE 0 
+                    END), 0) as expenditure_general,
+                    COALESCE(SUM(CASE 
+                        WHEN {date_condition_m} THEN m.salary_per_month * m.months * m.num_personnel 
+                        ELSE 0 
+                    END), 0) as expenditure_manpower,
+                    COALESCE(SUM(CASE 
+                        WHEN {date_condition_e} THEN e.quantity * e.unit_cost 
+                        ELSE 0 
+                    END), 0) as expenditure_equipment
+                FROM budget_allocation ba
+                LEFT JOIN funds_received fr ON ba.project_id = fr.project_id AND ba.head = fr.head
+                LEFT JOIN budget_expenditure be ON ba.project_id = be.project_id AND ba.head = be.head
+                LEFT JOIN manpower m ON ba.project_id = m.project_id AND ba.head = 'manpower'
+                LEFT JOIN equipment e ON ba.project_id = e.project_id AND ba.head = 'equipment'
+                WHERE ba.project_id = %s
+                GROUP BY ba.head, ba.allocated_amount
+                ORDER BY ba.head
+            """, (*date_params, project_id))
+            
+            results = cur.fetchall()
+            
+            # Process results
+            processed_results = []
+            for row in results:
+                total_expenditure = (
+                    float(row['expenditure_general']) +
+                    float(row['expenditure_manpower']) +
+                    float(row['expenditure_equipment'])
+                )
+                processed_results.append({
+                    'head': row['head'],
+                    'approved_budget': float(row['approved_budget']),
+                    'funds_received': float(row['funds_received']),
+                    'total_expenditure': total_expenditure,
+                    'unspent_balance': float(row['funds_received']) - total_expenditure
+                })
+            
+            return {
+                'project_id': project_id,
+                'filter_type': 'range' if start_date and end_date else 'as_of',
+                'filter_label': filter_label,
+                'data': processed_results
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+
+
+# Optional: Add these helper endpoints if they don't exist yet
+
+@router.get("/{project_id}/manpower-plan-vs-actual")
+async def get_manpower_plan_vs_actual(
+    project_id: int,
+    conn = Depends(get_db_connection)
+):
+    """Get manpower plan vs actual using database view"""
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM manpower_plan_vs_actual WHERE project_id = %s",
+                (project_id,)
+            )
+            results = cur.fetchall()
+            return [dict(row) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+
+
+@router.get("/{project_id}/equipment-plan-vs-actual")
+async def get_equipment_plan_vs_actual(
+    project_id: int,
+    conn = Depends(get_db_connection)
+):
+    """Get equipment plan vs actual using database view"""
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM equipment_plan_vs_actual WHERE project_id = %s",
+                (project_id,)
+            )
+            results = cur.fetchall()
+            return [dict(row) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+
+
+@router.get("/{project_id}/funds-breakdown-summary")
+async def get_funds_breakdown_summary(
+    project_id: int,
+    conn = Depends(get_db_connection)
+):
+    """Get funds breakdown summary using database view"""
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM funds_breakdown_summary WHERE project_id = %s",
+                (project_id,)
+            )
+            results = cur.fetchall()
+            return [dict(row) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
