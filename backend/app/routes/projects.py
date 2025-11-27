@@ -11,17 +11,18 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.post("")
 async def create_project(project: ProjectCreate):
-    """Create a new project with budget allocations"""
+    """Create a new project with budget allocations and investigator details"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             validate_foreign_key("funding_agencies", "agency_id", project.funding_agency_id, conn)
             validate_foreign_key("technical_groups", "group_id", project.technical_group_id, conn)
             
+            # Create project
             cur.execute(
                 """INSERT INTO projects 
-                   (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id, principal_investigator, co_pi) 
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                   (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id) 
+                  VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                 (
                     project.project_no,
                     project.title,
@@ -29,15 +30,23 @@ async def create_project(project: ProjectCreate):
                     project.start_date,
                     project.end_date if project.end_date else None,
                     project.funding_agency_id,
-                    project.technical_group_id,
-                    project.principal_investigator,
-                    project.co_pi
+                    project.technical_group_id
                 )
             )
             project_result = cur.fetchone()
             project_id = project_result['project_id']
             
-            # Create budget allocations
+            # Create investigator record
+            cur.execute(
+                """INSERT INTO investigators 
+                   (project_id, principal_investigator, pi_email, pi_mobile, 
+                    co_investigator, co_email, co_mobile)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (project_id, project.principal_investigator, project.pi_email, project.pi_mobile,
+                 project.co_investigator, project.co_email, project.co_mobile)
+            )
+            
+            # Create budget allocations 
             budget_heads = [
                 ('manpower', project.manpower_allocation, project.manpower_breakdown),
                 ('equipment', project.equipment_allocation, project.equipment_breakdown),
@@ -78,8 +87,11 @@ async def create_project(project: ProjectCreate):
             
             conn.commit()
             
+            
             cur.execute("""
                 SELECT p.*, 
+                       i.principal_investigator, i.pi_email, i.pi_mobile,
+                       i.co_investigator, i.co_email, i.co_mobile,
                        json_agg(
                            json_build_object(
                                'head', ba.head,
@@ -87,9 +99,10 @@ async def create_project(project: ProjectCreate):
                            )
                        ) as budget_allocations
                 FROM projects p
+                LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN budget_allocation ba ON p.project_id = ba.project_id
                 WHERE p.project_id = %s
-                GROUP BY p.project_id
+                GROUP BY p.project_id, i.id
             """, (project_id,))
             
             final_result = cur.fetchone()
@@ -116,14 +129,19 @@ async def get_projects():
                        fa.name AS funding_agency_name,
                        p.start_date,
                        p.end_date,
-                       p.principal_investigator,
-                       p.co_pi,
+                       i.principal_investigator,
+                       i.pi_email,
+                       i.pi_mobile,
+                       i.co_investigator,
+                       i.co_email,
+                       i.co_mobile,
                        COALESCE(SUM(phs.planned_allocation), 0) AS planned_allocation,
                        COALESCE(SUM(phs.funds_received), 0) AS funds_received,
                        COALESCE(SUM(phs.actual_expenditure), 0) AS actual_expenditure
                 FROM projects p
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+                LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN project_head_summary phs ON p.project_id = phs.project_id
                 GROUP BY p.project_id, tg.name, fa.name
                 ORDER BY p.start_date DESC

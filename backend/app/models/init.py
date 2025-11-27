@@ -4,7 +4,10 @@ from .project import (
     ManpowerBreakdownItem,
     EquipmentBreakdownItem,
     ProjectCreate,
-    TechnicalGroupCreate
+    TechnicalGroupCreate,
+    InvestigatorCreate,          
+    InvestigatorUpdate,          
+    InvestigatorResponse
 )
 from .budget import (
     BudgetAllocationCreate,
@@ -24,7 +27,7 @@ from .expenditure import (
 
 __all__ = [
     "Token", "TokenData", "User", "UserInDB", "UserCreate",
-    "ManpowerBreakdownItem", "EquipmentBreakdownItem", "ProjectCreate", "TechnicalGroupCreate",
+    "ManpowerBreakdownItem", "EquipmentBreakdownItem", "ProjectCreate", "TechnicalGroupCreate","InvestigatorCreate", "InvestigatorUpdate", "InvestigatorResponse",
     "BudgetAllocationCreate", "FundsReceivedCreate", "FundsReceivedUpdate",
     "ManpowerFundsBreakdownCreate", "EquipmentFundsBreakdownCreate",
     "ManpowerCreate", "ManpowerUpdate", "EquipmentCreate", "EquipmentUpdate",

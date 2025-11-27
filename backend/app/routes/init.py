@@ -9,7 +9,8 @@ from . import (
     manpower,
     equipment,
     expenditure,
-    reports
+    reports,
+    investigators
 )
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "manpower",
     "equipment",
     "expenditure",
-    "reports"
+    "reports",
+    "investigators"
 ]
