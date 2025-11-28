@@ -6,7 +6,7 @@ from psycopg2.extras import RealDictCursor
 import json
 
 from ..database import get_db_connection, validate_foreign_key
-from ..models.project import ProjectCreate
+from ..models.project import ProjectCreate, ProjectUpdate
 from ..utils.json_encoder import DecimalEncoder
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -20,11 +20,12 @@ async def create_project(project: ProjectCreate):
             validate_foreign_key("funding_agencies", "agency_id", project.funding_agency_id, conn)
             validate_foreign_key("technical_groups", "group_id", project.technical_group_id, conn)
             
-            # Create project
+            # Create project with new fields
             cur.execute(
                 """INSERT INTO projects 
-                   (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id) 
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                   (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id,
+                    project_category, project_type, PFMS_id) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                 (
                     project.project_no,
                     project.title,
@@ -32,13 +33,16 @@ async def create_project(project: ProjectCreate):
                     project.start_date,
                     project.end_date if project.end_date else None,
                     project.funding_agency_id,
-                    project.technical_group_id
+                    project.technical_group_id,
+                    project.project_category,
+                    project.project_type,
+                    project.PFMS_id if project.PFMS_id else None
                 )
             )
             project_result = cur.fetchone()
             project_id = project_result['project_id']
             
-            # ✅ Create investigator record
+            # Create investigator record
             cur.execute(
                 """INSERT INTO investigators 
                    (project_id, principal_investigator, pi_email, pi_mobile, 
@@ -128,6 +132,9 @@ async def get_projects():
                        p.project_no,
                        p.title,
                        p.alias,
+                       p.project_category,
+                       p.project_type,
+                       p.PFMS_id,
                        tg.name AS technical_group_name,
                        fa.name AS funding_agency_name,
                        p.start_date,
@@ -169,6 +176,9 @@ async def get_project(project_id: int):
                     p.project_no,
                     p.title,
                     p.alias,
+                    p.project_category,
+                    p.project_type,
+                    p.PFMS_id,
                     tg.name AS technical_group_name,
                     fa.name AS funding_agency_name,
                     p.start_date,
@@ -178,42 +188,124 @@ async def get_project(project_id: int):
                     i.pi_mobile,
                     i.co_investigator,
                     i.co_email,
-                    i.co_mobile,
-                    COALESCE(SUM(phs.planned_allocation), 0) AS planned_allocation,
-                    COALESCE(SUM(phs.funds_received), 0) AS funds_received,
-                    COALESCE(SUM(phs.actual_expenditure), 0) AS actual_expenditure,
-                    COALESCE(SUM(phs.planned_allocation), 0) - COALESCE(SUM(phs.actual_expenditure), 0) AS budget_balance,
-                    COALESCE(SUM(phs.funds_received), 0) - COALESCE(SUM(phs.actual_expenditure), 0) AS funding_balance
+                    i.co_mobile
                 FROM projects p
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
                 LEFT JOIN investigators i ON p.project_id = i.project_id
-                LEFT JOIN project_head_summary phs ON p.project_id = phs.project_id
                 WHERE p.project_id = %s
-                GROUP BY p.project_id, tg.name, fa.name, i.id
             """, (project_id,))
-            result = cur.fetchone()
-            if not result:
+            project = cur.fetchone()
+            
+            if not project:
                 raise HTTPException(status_code=404, detail="Project not found")
-            return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+                
+            return json.loads(json.dumps(dict(project), cls=DecimalEncoder))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
     finally:
         conn.close()
 
 
-@router.delete("/{project_id}")
-async def delete_project(project_id: int):
-    """Delete a project"""
+@router.put("/{project_id}")
+async def update_project(project_id: int, project: ProjectUpdate):
+    """Update project details"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("DELETE FROM projects WHERE project_id = %s RETURNING *", (project_id,))
-            result = cur.fetchone()
-            if not result:
+            # Check if project exists
+            cur.execute("SELECT * FROM projects WHERE project_id = %s", (project_id,))
+            existing_project = cur.fetchone()
+            
+            if not existing_project:
                 raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Build dynamic update query
+            update_fields = []
+            values = []
+            
+            if project.project_no is not None:
+                update_fields.append("project_no = %s")
+                values.append(project.project_no)
+            
+            if project.title is not None:
+                update_fields.append("title = %s")
+                values.append(project.title)
+            
+            if project.alias is not None:
+                update_fields.append("alias = %s")
+                values.append(project.alias)
+            
+            if project.start_date is not None:
+                update_fields.append("start_date = %s")
+                values.append(project.start_date)
+            
+            if project.end_date is not None:
+                update_fields.append("end_date = %s")
+                values.append(project.end_date)
+            
+            if project.funding_agency_id is not None:
+                validate_foreign_key("funding_agencies", "agency_id", project.funding_agency_id, conn)
+                update_fields.append("funding_agency_id = %s")
+                values.append(project.funding_agency_id)
+            
+            if project.technical_group_id is not None:
+                validate_foreign_key("technical_groups", "group_id", project.technical_group_id, conn)
+                update_fields.append("technical_group_id = %s")
+                values.append(project.technical_group_id)
+            
+            if project.project_category is not None:
+                update_fields.append("project_category = %s")
+                values.append(project.project_category)
+            
+            if project.project_type is not None:
+                update_fields.append("project_type = %s")
+                values.append(project.project_type)
+            
+            if project.PFMS_id is not None:
+                update_fields.append("PFMS_id = %s")
+                values.append(project.PFMS_id)
+            
+            if not update_fields:
+                raise HTTPException(status_code=400, detail="No fields to update")
+            
+            # Additional validation for category-type relationship
+            new_category = project.project_category if project.project_category is not None else existing_project['project_category']
+            new_type = project.project_type if project.project_type is not None else existing_project['project_type']
+            
+            if new_category == 'sponsored' and new_type not in ['PFMS', 'NON-PFMS']:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="When project_category is 'sponsored', project_type must be either 'PFMS' or 'NON-PFMS'"
+                )
+            elif new_category == 'non-sponsored' and new_type != 'contract-research':
+                raise HTTPException(
+                    status_code=400,
+                    detail="When project_category is 'non-sponsored', project_type must be 'contract-research'"
+                )
+            
+            # Validate PFMS_id requirement
+            new_PFMS_id = project.PFMS_id if project.PFMS_id is not None else existing_project.get('PFMS_id')
+            if new_category == 'sponsored' and new_type == 'PFMS' and not new_PFMS_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="PFMS_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
+                )
+            
+            values.append(project_id)
+            query = f"UPDATE projects SET {', '.join(update_fields)} WHERE project_id = %s RETURNING *"
+            
+            cur.execute(query, values)
+            updated_project = cur.fetchone()
             conn.commit()
-            return {"message": "Project deleted successfully"}
+            
+            return json.loads(json.dumps(dict(updated_project), cls=DecimalEncoder))
+            
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -221,43 +313,9 @@ async def delete_project(project_id: int):
         conn.close()
 
 
-@router.get("/{project_id}/manpower-allocation-breakdown")
-async def get_project_manpower_allocation_breakdown(project_id: int):
-    """Get manpower allocation breakdown for project"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM manpower_allocation_breakdown WHERE project_id = %s",
-                (project_id,)
-            )
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-@router.get("/{project_id}/equipment-allocation-breakdown")
-async def get_project_equipment_allocation_breakdown(project_id: int):
-    """Get equipment allocation breakdown for project"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM equipment_allocation_breakdown WHERE project_id = %s",
-                (project_id,)
-            )
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-@router.get("/{project_id}/approved-manpower-roles")
-async def get_approved_manpower_roles(project_id: int):
-    """Get list of approved manpower roles with availability"""
+@router.get("/{project_id}/manpower-remaining")
+async def get_manpower_remaining(project_id: int):
+    """Get remaining manpower positions to be filled"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -265,14 +323,13 @@ async def get_approved_manpower_roles(project_id: int):
                 SELECT 
                     mab.role,
                     mab.salary_per_month,
-                    mab.months,
-                    SUM(mab.num_personnel) as approved_posts,
-                    COALESCE(SUM(m.num_personnel), 0) as assigned_posts,
-                    SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) as available_posts
+                    SUM(mab.num_personnel) as planned_positions,
+                    COALESCE(SUM(m.num_personnel), 0) as filled_positions,
+                    SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) as remaining_positions
                 FROM manpower_allocation_breakdown mab
                 LEFT JOIN manpower m ON mab.project_id = m.project_id AND mab.role = m.role
                 WHERE mab.project_id = %s
-                GROUP BY mab.role, mab.salary_per_month, mab.months
+                GROUP BY mab.role, mab.salary_per_month
                 HAVING SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) > 0
                 ORDER BY mab.role
             """, (project_id,))
@@ -283,10 +340,9 @@ async def get_approved_manpower_roles(project_id: int):
     finally:
         conn.close()
 
-
-@router.get("/{project_id}/approved-equipment-items")
-async def get_approved_equipment_items(project_id: int):
-    """Get list of approved equipment items with availability"""
+@router.get("/{project_id}/equipment-remaining")
+async def get_equipment_remaining(project_id: int):
+    """Get remaining equipment to be purchased"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -294,9 +350,9 @@ async def get_approved_equipment_items(project_id: int):
                 SELECT 
                     eab.item_name,
                     eab.unit_cost,
-                    SUM(eab.quantity) as approved_quantity,
+                    SUM(eab.quantity) as planned_quantity,
                     COALESCE(SUM(e.quantity), 0) as purchased_quantity,
-                    SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) as available_quantity
+                    SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) as remaining_quantity
                 FROM equipment_allocation_breakdown eab
                 LEFT JOIN equipment e ON eab.project_id = e.project_id AND eab.item_name = e.name
                 WHERE eab.project_id = %s
@@ -473,3 +529,117 @@ async def get_funds_breakdown_summary(
             return [dict(row) for row in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+#  Delete project
+@router.delete("/{project_id}")
+async def delete_project(project_id: int):
+    """Delete a project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("DELETE FROM projects WHERE project_id = %s RETURNING *", (project_id,))
+            result = cur.fetchone()
+            if not result:
+                raise HTTPException(status_code=404, detail="Project not found")
+            conn.commit()
+            return {"message": "Project deleted successfully"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+#  Get manpower allocation breakdown
+@router.get("/{project_id}/manpower-allocation-breakdown")
+async def get_project_manpower_allocation_breakdown(project_id: int):
+    """Get manpower allocation breakdown for project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM manpower_allocation_breakdown WHERE project_id = %s",
+                (project_id,)
+            )
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+#  Get equipment allocation breakdown
+@router.get("/{project_id}/equipment-allocation-breakdown")
+async def get_project_equipment_allocation_breakdown(project_id: int):
+    """Get equipment allocation breakdown for project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM equipment_allocation_breakdown WHERE project_id = %s",
+                (project_id,)
+            )
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+#  Get approved manpower roles
+@router.get("/{project_id}/approved-manpower-roles")
+async def get_approved_manpower_roles(project_id: int):
+    """Get list of approved manpower roles with availability"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT 
+                    mab.role,
+                    mab.salary_per_month,
+                    mab.months,
+                    SUM(mab.num_personnel) as approved_posts,
+                    COALESCE(SUM(m.num_personnel), 0) as assigned_posts,
+                    SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) as available_posts
+                FROM manpower_allocation_breakdown mab
+                LEFT JOIN manpower m ON mab.project_id = m.project_id AND mab.role = m.role
+                WHERE mab.project_id = %s
+                GROUP BY mab.role, mab.salary_per_month, mab.months
+                HAVING SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) > 0
+                ORDER BY mab.role
+            """, (project_id,))
+            results = cur.fetchall()
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+# MISSING ROUTE 5: Get approved equipment items
+@router.get("/{project_id}/approved-equipment-items")
+async def get_approved_equipment_items(project_id: int):
+    """Get list of approved equipment items with availability"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT 
+                    eab.item_name,
+                    eab.unit_cost,
+                    SUM(eab.quantity) as approved_quantity,
+                    COALESCE(SUM(e.quantity), 0) as purchased_quantity,
+                    SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) as available_quantity
+                FROM equipment_allocation_breakdown eab
+                LEFT JOIN equipment e ON eab.project_id = e.project_id AND eab.item_name = e.name
+                WHERE eab.project_id = %s
+                GROUP BY eab.item_name, eab.unit_cost
+                HAVING SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) > 0
+                ORDER BY eab.item_name
+            """, (project_id,))
+            results = cur.fetchall()
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
