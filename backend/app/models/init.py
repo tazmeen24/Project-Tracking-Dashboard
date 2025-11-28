@@ -26,6 +26,15 @@ from .expenditure import (
     BudgetExpenditureCreate,
     BudgetExpenditureUpdate
 )
+from .funding_agency import (
+    FundingAgencyCreate,
+    FundingAgencyUpdate,
+    FundingAgencyResponse,
+    FundingAgencyDetailsCreate,
+    FundingAgencyDetailsUpdate,
+    FundingAgencyDetailsResponse,
+    FundingAgencyFullResponse
+)
 
 __all__ = [
     "Token", "TokenData", "User", "UserInDB", "UserCreate",
@@ -36,5 +45,8 @@ __all__ = [
     "BudgetAllocationCreate", "FundsReceivedCreate", "FundsReceivedUpdate",
     "ManpowerFundsBreakdownCreate", "EquipmentFundsBreakdownCreate",
     "ManpowerCreate", "ManpowerUpdate", "EquipmentCreate", "EquipmentUpdate",
-    "BudgetExpenditureCreate", "BudgetExpenditureUpdate"
+    "BudgetExpenditureCreate", "BudgetExpenditureUpdate",
+    "FundingAgencyCreate", "FundingAgencyUpdate", "FundingAgencyResponse",
+    "FundingAgencyDetailsCreate", "FundingAgencyDetailsUpdate", 
+    "FundingAgencyDetailsResponse", "FundingAgencyFullResponse"
 ]

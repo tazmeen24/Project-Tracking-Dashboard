@@ -10,7 +10,8 @@ from . import (
     equipment,
     expenditure,
     reports,
-    investigators
+    investigators,
+    agency_details
 )
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     "equipment",
     "expenditure",
     "reports",
-    "investigators"
+    "investigators",
+    "agency_details"
 ]
