@@ -1,0 +1,233 @@
+// pages/Dashboard.js
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useProject } from '../contexts/ProjectContext';
+import {
+  TrendingUp,
+  Users,
+  Clock,
+  FolderOpen,
+  CheckCircle2,
+  Calendar,
+  DollarSign,
+} from 'lucide-react';
+import Card from '../components/common/Card';
+import { formatCurrency, getProjectStatus } from '../utils/helpers';
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const { dashboardStats, projects, loadInitialData, loading } = useProject();
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  const recentProjects = projects.slice(0, 5);
+
+  const stats = [
+    {
+      label: 'Total Projects',
+      value: dashboardStats.totalProjects,
+      change: `${dashboardStats.activeProjects} active`,
+      icon: FolderOpen,
+      trend: 'neutral',
+      color: 'blue',
+    },
+    {
+      label: 'Total Allocation',
+      value: formatCurrency(dashboardStats.totalAllocation),
+      change: 'Budget allocated',
+      icon: DollarSign,
+      trend: 'neutral',
+      color: 'emerald',
+    },
+    {
+      label: 'Total Funds',
+      value: formatCurrency(dashboardStats.totalFunds),
+      change: 'Funds received',
+      icon: CheckCircle2,
+      trend: 'up',
+      color: 'indigo',
+    },
+    {
+      label: 'Balance',
+      value: formatCurrency(dashboardStats.balance),
+      change: 'Available balance',
+      icon: TrendingUp,
+      trend: 'neutral',
+      color: 'purple',
+    },
+  ];
+
+  const colorClasses = {
+    blue: 'from-blue-500 to-blue-600',
+    emerald: 'from-emerald-500 to-emerald-600',
+    indigo: 'from-indigo-500 to-indigo-600',
+    purple: 'from-purple-500 to-purple-600',
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+          <span className="text-slate-700 font-medium text-lg">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-4xl font-bold text-slate-900 mb-2">Dashboard</h1>
+        <p className="text-slate-600 text-lg">
+          Welcome back! Here's an overview of your projects and finances.
+        </p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card
+            key={index}
+            hover
+            className="relative overflow-hidden"
+            style={{
+              animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
+            }}
+          >
+            {/* Gradient Background */}
+            <div
+              className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${
+                colorClasses[stat.color]
+              } rounded-full -mr-16 -mt-16 opacity-10`}
+            ></div>
+
+            <div className="relative">
+              <div className="flex items-start justify-between mb-4">
+                <div
+                  className={`w-12 h-12 bg-gradient-to-br ${
+                    colorClasses[stat.color]
+                  } rounded-xl flex items-center justify-center shadow-lg`}
+                >
+                  <stat.icon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  {stat.label}
+                </span>
+              </div>
+              <div className="text-3xl font-bold text-slate-900 mb-2">
+                {stat.value}
+              </div>
+              <div className="text-sm flex items-center gap-1 text-slate-600">
+                {stat.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-600" />}
+                {stat.change}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Recent Projects */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-slate-900">Recent Projects</h2>
+          <button
+            onClick={() => navigate('/projects')}
+            className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+          >
+            View all →
+          </button>
+        </div>
+
+        <div className="grid gap-4">
+          {recentProjects.length > 0 ? (
+            recentProjects.map((project, index) => (
+              <Card
+                key={project.project_id}
+                hover
+                onClick={() => navigate(`/projects/${project.project_id}`)}
+                className="cursor-pointer"
+                style={{
+                  animation: `slideInRight 0.6s ease-out ${index * 0.1}s both`,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {project.title}
+                      </h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          getProjectStatus(project) === 'Active'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}
+                      >
+                        {getProjectStatus(project)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(project.start_date).toLocaleDateString()}
+                      </span>
+                      <span>{project.project_no}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
+                    <div className="text-xl font-bold text-slate-900">
+                      {formatCurrency(
+                        (project.manpower_allocation || 0) +
+                          (project.equipment_allocation || 0) +
+                          (project.consumables_allocation || 0) +
+                          (project.contingency_allocation || 0) +
+                          (project.travel_training_allocation || 0) +
+                          (project.overhead_allocation || 0)
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="text-center py-12">
+              <FolderOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-600">No projects yet. Create your first project!</p>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default Dashboard;
