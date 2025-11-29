@@ -1,20 +1,42 @@
 // pages/ProjectsPage.js
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, X, Calendar, Eye, Edit, Trash2, MoreVertical, DollarSign, TrendingDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useProject } from '../contexts/ProjectContext';
-import Button from '../components/common/Button';
-import Modal from '../components/common/Modal';
-import Input from '../components/common/Input';
-import ProjectForm from '../components/projects/ProjectForm';
-import { formatCurrency } from '../utils/helpers';
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  Search,
+  Filter,
+  X,
+  Calendar,
+  Eye,
+  Edit,
+  Trash2,
+  MoreVertical,
+  DollarSign,
+  TrendingDown,
+  AlertCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useProject } from "../contexts/ProjectContext";
+import Button from "../components/common/Button";
+import Modal from "../components/common/Modal";
+import Input from "../components/common/Input";
+import ProjectForm from "../components/projects/ProjectForm";
+import { formatCurrency } from "../utils/helpers";
+import axios from "axios";
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 const ProjectsPage = () => {
   const navigate = useNavigate();
-  const { projects, loading, refreshProjects, fundingAgencies, technicalGroups } = useProject();
+  const {
+    projects,
+    loading,
+    refreshProjects,
+    fundingAgencies,
+    technicalGroups,
+  } = useProject();
   const [showForm, setShowForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -23,16 +45,15 @@ const ProjectsPage = () => {
   const [showAddExpenditure, setShowAddExpenditure] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // Filter states
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterAgency, setFilterAgency] = useState('all');
-  const [filterGroup, setFilterGroup] = useState('all');
-  const [filterYear, setFilterYear] = useState('all');
-  const [filterMonth, setFilterMonth] = useState('all');
-  const [dateRangeStart, setDateRangeStart] = useState('');
-  const [dateRangeEnd, setDateRangeEnd] = useState('');
+  // Filter states (removed status filter as per requirement)
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterAgency, setFilterAgency] = useState("all");
+  const [filterGroup, setFilterGroup] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [dateRangeStart, setDateRangeStart] = useState("");
+  const [dateRangeEnd, setDateRangeEnd] = useState("");
 
   useEffect(() => {
     refreshProjects();
@@ -40,13 +61,13 @@ const ProjectsPage = () => {
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdown(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const getAvailableYears = () => {
     const years = new Set();
-    projects.forEach(project => {
+    projects.forEach((project) => {
       years.add(new Date(project.start_date).getFullYear());
       if (project.end_date) {
         years.add(new Date(project.end_date).getFullYear());
@@ -59,9 +80,9 @@ const ProjectsPage = () => {
     const now = new Date();
     const startDate = new Date(project.start_date);
     const endDate = project.end_date ? new Date(project.end_date) : null;
-    if (startDate > now) return 'Upcoming';
-    if (endDate && endDate < now) return 'Completed';
-    return 'Active';
+    if (startDate > now) return "Upcoming";
+    if (endDate && endDate < now) return "Completed";
+    return "Active";
   };
 
   const getTotalAllocation = (project) => {
@@ -86,88 +107,86 @@ const ProjectsPage = () => {
     return project.funds_received || 0;
   };
 
-  // Filter logic
+  // Filter logic (removed status filter)
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.project_no.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesCategory = filterCategory === 'all' || project.project_category === filterCategory;
-    const matchesType = filterType === 'all' || project.project_type === filterType;
-    const matchesStatus = filterStatus === 'all' || getProjectStatus(project).toLowerCase() === filterStatus.toLowerCase();
-    const matchesAgency = filterAgency === 'all' || project.funding_agency_id === parseInt(filterAgency);
-    const matchesGroup = filterGroup === 'all' || project.technical_group_id === parseInt(filterGroup);
+    const matchesCategory =
+      filterCategory === "all" || project.project_category === filterCategory;
+    const matchesType =
+      filterType === "all" || project.project_type === filterType;
+    const matchesAgency =
+      filterAgency === "all" ||
+      project.funding_agency_id === parseInt(filterAgency);
+    const matchesGroup =
+      filterGroup === "all" ||
+      project.technical_group_id === parseInt(filterGroup);
 
-    const matchesYear = filterYear === 'all' || (() => {
-      const startYear = new Date(project.start_date).getFullYear();
-      const endYear = project.end_date ? new Date(project.end_date).getFullYear() : startYear;
-      return parseInt(filterYear) >= startYear && parseInt(filterYear) <= endYear;
-    })();
+    const matchesYear =
+      filterYear === "all" ||
+      new Date(project.start_date).getFullYear() === parseInt(filterYear) ||
+      (project.end_date &&
+        new Date(project.end_date).getFullYear() === parseInt(filterYear));
 
-    const matchesMonth = filterMonth === 'all' || (() => {
-      const selectedMonth = parseInt(filterMonth);
-      const checkYear = filterYear !== 'all' ? parseInt(filterYear) : new Date().getFullYear();
-      const checkDate = new Date(checkYear, selectedMonth - 1, 1);
+    const matchesMonth =
+      filterMonth === "all" ||
+      new Date(project.start_date).getMonth() + 1 === parseInt(filterMonth) ||
+      (project.end_date &&
+        new Date(project.end_date).getMonth() + 1 === parseInt(filterMonth));
+
+    let matchesDateRange = true;
+    if (dateRangeStart && dateRangeEnd) {
       const startDate = new Date(project.start_date);
-      const endDate = project.end_date ? new Date(project.end_date) : new Date();
-      return checkDate >= startDate && checkDate <= endDate;
-    })();
+      const rangeStart = new Date(dateRangeStart);
+      const rangeEnd = new Date(dateRangeEnd);
+      matchesDateRange = startDate >= rangeStart && startDate <= rangeEnd;
+    }
 
-    const matchesDateRange = (() => {
-      if (!dateRangeStart && !dateRangeEnd) return true;
-      const startDate = new Date(project.start_date);
-      const endDate = project.end_date ? new Date(project.end_date) : new Date();
-      
-      if (dateRangeStart && dateRangeEnd) {
-        const rangeStart = new Date(dateRangeStart);
-        const rangeEnd = new Date(dateRangeEnd);
-        return startDate <= rangeEnd && endDate >= rangeStart;
-      } else if (dateRangeStart) {
-        return endDate >= new Date(dateRangeStart);
-      } else if (dateRangeEnd) {
-        return startDate <= new Date(dateRangeEnd);
-      }
-      return true;
-    })();
-
-    return matchesSearch && matchesCategory && matchesType && matchesStatus && 
-           matchesAgency && matchesGroup && matchesYear && matchesMonth && matchesDateRange;
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesType &&
+      matchesAgency &&
+      matchesGroup &&
+      matchesYear &&
+      matchesMonth &&
+      matchesDateRange
+    );
   });
 
-  const clearAllFilters = () => {
-    setFilterCategory('all');
-    setFilterType('all');
-    setFilterStatus('all');
-    setFilterAgency('all');
-    setFilterGroup('all');
-    setFilterYear('all');
-    setFilterMonth('all');
-    setDateRangeStart('');
-    setDateRangeEnd('');
-    setSearchTerm('');
-  };
-
   const activeFilterCount = [
-    filterCategory !== 'all',
-    filterType !== 'all',
-    filterStatus !== 'all',
-    filterAgency !== 'all',
-    filterGroup !== 'all',
-    filterYear !== 'all',
-    filterMonth !== 'all',
-    dateRangeStart !== '',
-    dateRangeEnd !== '',
+    filterCategory !== "all",
+    filterType !== "all",
+    filterAgency !== "all",
+    filterGroup !== "all",
+    filterYear !== "all",
+    filterMonth !== "all",
+    dateRangeStart && dateRangeEnd,
   ].filter(Boolean).length;
 
-  const handleEdit = (project) => {
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingProject(null);
+  };
+
+  const handleEdit = (e, project) => {
+    e.stopPropagation();
     setEditingProject(project);
     setShowForm(true);
     setOpenDropdown(null);
   };
 
-  const handleDelete = (project) => {
-    if (window.confirm(`Delete "${project.title}"? This cannot be undone.`)) {
-      console.log('Delete project:', project.project_id);
+  const handleDelete = async (e, project) => {
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
+      try {
+        await axios.delete(`${API_BASE_URL}/projects/${project.project_id}`);
+        refreshProjects();
+      } catch (error) {
+        alert("Failed to delete project");
+      }
     }
     setOpenDropdown(null);
   };
@@ -175,183 +194,240 @@ const ProjectsPage = () => {
   const handleAddFund = (project) => {
     setSelectedProject(project);
     setShowAddFund(true);
-    setOpenDropdown(null);
   };
 
   const handleAddExpenditure = (project) => {
     setSelectedProject(project);
     setShowAddExpenditure(true);
-    setOpenDropdown(null);
   };
 
-  const handleFormClose = () => {
-    setShowForm(false);
-    setEditingProject(null);
+  const resetFilters = () => {
+    setFilterCategory("all");
+    setFilterType("all");
+    setFilterAgency("all");
+    setFilterGroup("all");
+    setFilterYear("all");
+    setFilterMonth("all");
+    setDateRangeStart("");
+    setDateRangeEnd("");
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-700 font-medium text-lg">Loading projects...</div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-600">Loading projects...</div>
       </div>
     );
   }
 
-  const availableYears = getAvailableYears();
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Projects</h1>
-          <p className="text-slate-600">Manage and track all your projects</p>
+          <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
+          <p className="text-slate-600 mt-1">
+            Manage and track all research projects
+          </p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={() => setShowForm(true)}>
-          Create New Project
+        <Button onClick={() => setShowForm(true)} icon={Plus}>
+          New Project
         </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search projects..."
+              placeholder="Search by project title or number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
             />
           </div>
-          <Button
-            variant={showFilters ? 'primary' : 'secondary'}
-            icon={Filter}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Filters
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors ${
+                showFilters
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              <Filter className="w-5 h-5" />
+              <span className="font-medium">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="ml-1 px-2 py-0.5 bg-slate-700 text-white text-xs rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
             {activeFilterCount > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-white text-slate-900 rounded-full text-xs font-bold">
-                {activeFilterCount}
-              </span>
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+                <span className="font-medium">Clear</span>
+              </button>
             )}
-          </Button>
+          </div>
         </div>
 
+        {/* Filter Panel */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-slate-200 space-y-4">
-            <div className="grid grid-cols-5 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Category</label>
-                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All</option>
-                  <option value="sponsored">Sponsored</option>
-                  <option value="non-sponsored">Non-Sponsored</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Type</label>
-                <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All</option>
-                  <option value="PFMS">PFMS</option>
-                  <option value="NON-PFMS">NON-PFMS</option>
-                  <option value="contract-research">Contract Research</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="upcoming">Upcoming</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Agency</label>
-                <select value={filterAgency} onChange={(e) => setFilterAgency(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All</option>
-                  {fundingAgencies.map((agency) => (
-                    <option key={agency.agency_id} value={agency.agency_id}>{agency.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Group</label>
-                <select value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All</option>
-                  {technicalGroups.map((group) => (
-                    <option key={group.group_id} value={group.group_id}>{group.name}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Category
+              </label>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Categories</option>
+                <option value="sponsored">Sponsored</option>
+                <option value="consultancy">Consultancy</option>
+              </select>
             </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  <Calendar className="w-3 h-3 inline mr-1" />Year
-                </label>
-                <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All Years</option>
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Month</label>
-                <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500">
-                  <option value="all">All Months</option>
-                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, idx) => (
-                    <option key={idx} value={idx + 1}>{month}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">From Date</label>
-                <input type="date" value={dateRangeStart} onChange={(e) => setDateRangeStart(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">To Date</label>
-                <input type="date" value={dateRangeEnd} onChange={(e) => setDateRangeEnd(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500" />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Type
+              </label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Types</option>
+                <option value="institutional">Institutional</option>
+                <option value="government">Government</option>
+                <option value="industrial">Industrial</option>
+              </select>
             </div>
 
-            {activeFilterCount > 0 && (
-              <div className="flex justify-end">
-                <Button variant="ghost" size="sm" icon={X} onClick={clearAllFilters}>
-                  Clear All Filters
-                </Button>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Funding Agency
+              </label>
+              <select
+                value={filterAgency}
+                onChange={(e) => setFilterAgency(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Agencies</option>
+                {fundingAgencies.map((agency) => (
+                  <option key={agency.agency_id} value={agency.agency_id}>
+                    {agency.agency_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Technical Group
+              </label>
+              <select
+                value={filterGroup}
+                onChange={(e) => setFilterGroup(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Groups</option>
+                {technicalGroups.map((group) => (
+                  <option key={group.group_id} value={group.group_id}>
+                    {group.group_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Year
+              </label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Years</option>
+                {getAvailableYears().map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Month
+              </label>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                <option value="all">All Months</option>
+                {[
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December",
+                ].map((month, idx) => (
+                  <option key={idx} value={idx + 1}>
+                    {month}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Date Range
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="date"
+                  value={dateRangeStart}
+                  onChange={(e) => setDateRangeStart(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
+                <span className="text-slate-500">to</span>
+                <input
+                  type="date"
+                  value={dateRangeEnd}
+                  onChange={(e) => setDateRangeEnd(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                />
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-slate-600">
-        Showing <strong>{filteredProjects.length}</strong> of <strong>{projects.length}</strong> projects
-      </div>
-
       {/* Projects Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  Project Info
+                  Project Details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   Category & Type
@@ -376,26 +452,44 @@ const ProjectsPage = () => {
             <tbody className="divide-y divide-slate-200">
               {filteredProjects.length > 0 ? (
                 filteredProjects.map((project) => {
-                  const status = getProjectStatus(project);
                   const totalAllocation = getTotalAllocation(project);
                   const totalExpenditure = getTotalExpenditure(project);
                   const totalFunds = getTotalFundsReceived(project);
-
-                  const statusColors = {
-                    Active: 'bg-emerald-100 text-emerald-800',
-                    Completed: 'bg-slate-100 text-slate-800',
-                    Upcoming: 'bg-blue-100 text-blue-800',
-                  };
+                  const status = getProjectStatus(project);
 
                   return (
-                    <tr key={project.project_id} className="hover:bg-slate-50 transition-colors">
-                      {/* Project Info */}
+                    <tr
+                      key={project.project_id}
+                      onClick={() =>
+                        navigate(`/projects/${project.project_id}`)
+                      }
+                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      {/* Project Details */}
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900 mb-1">{project.title}</div>
-                        <div className="text-xs text-slate-500 mb-2">{project.project_no}</div>
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[status]}`}>
-                          {status}
-                        </span>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-slate-900 mb-1 truncate">
+                              {project.title}
+                            </div>
+                            <div className="text-xs text-slate-600 font-mono">
+                              {project.project_no}
+                            </div>
+                            <div className="mt-2">
+                              <span
+                                className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                                  status === "Active"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : status === "Upcoming"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-slate-100 text-slate-800"
+                                }`}
+                              >
+                                {status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Category & Type */}
@@ -413,10 +507,10 @@ const ProjectsPage = () => {
                       {/* Organization */}
                       <td className="px-6 py-4">
                         <div className="text-sm text-slate-900 font-medium mb-1">
-                          {project.funding_agency_name || 'N/A'}
+                          {project.funding_agency_name || "N/A"}
                         </div>
                         <div className="text-xs text-slate-600">
-                          {project.technical_group_name || 'N/A'}
+                          {project.technical_group_name || "N/A"}
                         </div>
                       </td>
 
@@ -424,7 +518,7 @@ const ProjectsPage = () => {
                       <td className="px-6 py-4">
                         <div className="text-sm">
                           <div className="font-medium text-slate-900 mb-0.5">
-                            {project.principal_investigator || 'N/A'}
+                            {project.principal_investigator || "N/A"}
                           </div>
                           {project.co_investigator && (
                             <div className="text-xs text-slate-600">
@@ -438,23 +532,27 @@ const ProjectsPage = () => {
                       <td className="px-6 py-4">
                         <div className="text-sm space-y-1">
                           <div className="text-slate-900">
-                            {new Date(project.start_date).toLocaleDateString('en-GB', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
+                            {new Date(project.start_date).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}
                           </div>
-                          <div className="text-slate-600">
-                            to
-                          </div>
+                          <div className="text-slate-600">to</div>
                           <div className="text-slate-900">
-                            {project.end_date 
-                              ? new Date(project.end_date).toLocaleDateString('en-GB', { 
-                                  day: '2-digit', 
-                                  month: 'short', 
-                                  year: 'numeric' 
-                                })
-                              : 'Ongoing'}
+                            {project.end_date
+                              ? new Date(project.end_date).toLocaleDateString(
+                                  "en-GB",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                )
+                              : "Ongoing"}
                           </div>
                         </div>
                       </td>
@@ -463,16 +561,28 @@ const ProjectsPage = () => {
                       <td className="px-6 py-4">
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">Budget:</span>
-                            <span className="font-semibold text-blue-600">{formatCurrency(totalAllocation)}</span>
+                            <span className="text-xs text-slate-600 font-medium">
+                              Budget:
+                            </span>
+                            <span className="font-semibold text-blue-600">
+                              {formatCurrency(totalAllocation)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">Funds:</span>
-                            <span className="font-semibold text-emerald-600">{formatCurrency(totalFunds)}</span>
+                            <span className="text-xs text-slate-600 font-medium">
+                              Funds:
+                            </span>
+                            <span className="font-semibold text-emerald-600">
+                              {formatCurrency(totalFunds)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">Spent:</span>
-                            <span className="font-semibold text-red-600">{formatCurrency(totalExpenditure)}</span>
+                            <span className="text-xs text-slate-600 font-medium">
+                              Spent:
+                            </span>
+                            <span className="font-semibold text-red-600">
+                              {formatCurrency(totalExpenditure)}
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -498,12 +608,16 @@ const ProjectsPage = () => {
                           >
                             + Exp
                           </button>
-                          
+
                           <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenDropdown(openDropdown === project.project_id ? null : project.project_id);
+                                setOpenDropdown(
+                                  openDropdown === project.project_id
+                                    ? null
+                                    : project.project_id
+                                );
                               }}
                               className="p-1.5 hover:bg-slate-100 rounded transition-colors"
                             >
@@ -513,14 +627,16 @@ const ProjectsPage = () => {
                             {openDropdown === project.project_id && (
                               <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
                                 <button
-                                  onClick={() => navigate(`/projects/${project.project_id}`)}
+                                  onClick={() =>
+                                    navigate(`/projects/${project.project_id}`)
+                                  }
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                   <Eye className="w-4 h-4 text-blue-600" />
                                   <span>View</span>
                                 </button>
                                 <button
-                                  onClick={() => handleEdit(project)}
+                                  onClick={(e) => handleEdit(e, project)}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                   <Edit className="w-4 h-4 text-blue-600" />
@@ -528,7 +644,7 @@ const ProjectsPage = () => {
                                 </button>
                                 <div className="border-t border-slate-200 my-1"></div>
                                 <button
-                                  onClick={() => handleDelete(project)}
+                                  onClick={(e) => handleDelete(e, project)}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -544,8 +660,13 @@ const ProjectsPage = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-slate-600">
-                    {searchTerm || activeFilterCount > 0 ? 'No projects match your filters' : 'No projects found'}
+                  <td
+                    colSpan="7"
+                    className="px-6 py-12 text-center text-slate-600"
+                  >
+                    {searchTerm || activeFilterCount > 0
+                      ? "No projects match your filters"
+                      : "No projects found"}
                   </td>
                 </tr>
               )}
@@ -590,153 +711,1377 @@ const ProjectsPage = () => {
   );
 };
 
-// Add Fund Modal Component
+// Add Fund Modal Component with Breakdown Support
 const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
   const [formData, setFormData] = useState({
-    amount: '',
-    date_received: '',
-    reference_no: '',
-    remarks: '',
+    head: "manpower",
+    amount: "",
+    date_received: "",
+    remarks: "",
   });
 
-  if (!project) return null;
+  const [manpowerBreakdown, setManpowerBreakdown] = useState([
+    { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+  ]);
+
+  const [equipmentBreakdown, setEquipmentBreakdown] = useState([
+    { item_name: "", quantity: 1, unit_cost: "" },
+  ]);
+
+  // ADD these new states after equipmentBreakdown
+  const [approvedManpower, setApprovedManpower] = useState([]);
+  const [approvedEquipment, setApprovedEquipment] = useState([]);
+
+  const [errors, setErrors] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [budgetInfo, setBudgetInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (project && isOpen) {
+      fetchBudgetInfo();
+      fetchApprovedBreakdown();
+    }
+  }, [project, isOpen]);
+
+  const fetchBudgetInfo = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/expenditure/allocation/project/${project.project_id}`
+      );
+      setBudgetInfo(response.data);
+    } catch (error) {
+      console.error("Failed to fetch budget info:", error);
+    }
+  };
+
+  const fetchApprovedBreakdown = async () => {
+    try {
+      const [manpowerRes, equipmentRes] = await Promise.all([
+        axios.get(
+          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/manpower-breakdown`
+        ),
+        axios.get(
+          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/equipment-breakdown`
+        ),
+      ]);
+      console.log("Approved Manpower:", manpowerRes.data); // ADD THIS
+      console.log("Approved Equipment:", equipmentRes.data);
+      setApprovedManpower(manpowerRes.data);
+      setApprovedEquipment(equipmentRes.data);
+    } catch (error) {
+      console.error("Failed to fetch approved breakdown:", error);
+    }
+  };
+
+  const getBudgetForHead = (head) => {
+    if (!budgetInfo) return null;
+    return budgetInfo.find((b) => b.head === head);
+  };
+
+  const calculateTotalAmount = () => {
+    if (formData.head === "manpower") {
+      return manpowerBreakdown.reduce((sum, item) => {
+        const amount =
+          (parseFloat(item.salary_per_month) || 0) *
+          (parseInt(item.months) || 0) *
+          (parseInt(item.num_personnel) || 0);
+        return sum + amount;
+      }, 0);
+    } else if (formData.head === "equipment") {
+      return equipmentBreakdown.reduce((sum, item) => {
+        const amount =
+          (parseFloat(item.unit_cost) || 0) * (parseInt(item.quantity) || 0);
+        return sum + amount;
+      }, 0);
+    }
+    return parseFloat(formData.amount) || 0;
+  };
+
+  const addManpowerRow = () => {
+    setManpowerBreakdown([
+      ...manpowerBreakdown,
+      { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+    ]);
+  };
+
+  const removeManpowerRow = (index) => {
+    setManpowerBreakdown(manpowerBreakdown.filter((_, i) => i !== index));
+  };
+
+  const handleManpowerRoleSelect = (index, role) => {
+    const approved = approvedManpower.find((m) => m.role === role);
+    if (approved) {
+      const updated = [...manpowerBreakdown];
+      updated[index] = {
+        role: approved.role,
+        salary_per_month: approved.salary_per_month,
+        months: approved.months,
+        num_personnel: approved.num_personnel,
+      };
+      setManpowerBreakdown(updated);
+    } else {
+      updateManpowerRow(index, "role", role);
+    }
+  };
+
+  const updateManpowerRow = (index, field, value) => {
+    const updated = [...manpowerBreakdown];
+    updated[index][field] = value;
+    setManpowerBreakdown(updated);
+  };
+
+  const addEquipmentRow = () => {
+    setEquipmentBreakdown([
+      ...equipmentBreakdown,
+      { item_name: "", quantity: 1, unit_cost: "" },
+    ]);
+  };
+
+  const removeEquipmentRow = (index) => {
+    setEquipmentBreakdown(equipmentBreakdown.filter((_, i) => i !== index));
+  };
+
+  const handleEquipmentSelect = (index, itemName) => {
+    const approved = approvedEquipment.find((e) => e.item_name === itemName);
+    if (approved) {
+      const updated = [...equipmentBreakdown];
+      updated[index] = {
+        item_name: approved.item_name,
+        quantity: approved.quantity,
+        unit_cost: approved.unit_cost,
+      };
+      setEquipmentBreakdown(updated);
+    } else {
+      updateEquipmentRow(index, "item_name", itemName);
+    }
+  };
+
+  const updateEquipmentRow = (index, field, value) => {
+    const updated = [...equipmentBreakdown];
+    updated[index][field] = value;
+    setEquipmentBreakdown(updated);
+  };
+
+  const validateForm = () => {
+    const newErrors = [];
+
+    if (!formData.head) newErrors.push("Budget head is required");
+    if (!formData.date_received) newErrors.push("Date received is required");
+
+    const totalAmount = calculateTotalAmount();
+
+    if (formData.head === "manpower") {
+      if (manpowerBreakdown.length === 0) {
+        newErrors.push("At least one manpower entry is required");
+      }
+      manpowerBreakdown.forEach((item, idx) => {
+        if (!item.role) newErrors.push(`Row ${idx + 1}: Role is required`);
+        if (!item.salary_per_month || item.salary_per_month <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid salary is required`);
+        if (!item.months || item.months <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid months is required`);
+        if (!item.num_personnel || item.num_personnel <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid personnel count is required`);
+      });
+    } else if (formData.head === "equipment") {
+      if (equipmentBreakdown.length === 0) {
+        newErrors.push("At least one equipment entry is required");
+      }
+      equipmentBreakdown.forEach((item, idx) => {
+        if (!item.item_name)
+          newErrors.push(`Row ${idx + 1}: Item name is required`);
+        if (!item.quantity || item.quantity <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid quantity is required`);
+        if (!item.unit_cost || item.unit_cost <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid unit cost is required`);
+      });
+    } else {
+      if (!totalAmount || totalAmount <= 0)
+        newErrors.push("Valid amount is required");
+    }
+
+    // Check budget allocation
+    const budget = getBudgetForHead(formData.head);
+    if (budget && totalAmount > budget.allocated_amount) {
+      newErrors.push(
+        `Amount (₹${totalAmount.toFixed(2)}) exceeds allocated budget (₹${
+          budget.allocated_amount
+        })`
+      );
+    }
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to save fund
-    console.log('Add fund:', { project_id: project.project_id, ...formData });
-    onSuccess();
+    setErrors([]);
+    setWarnings([]);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const totalAmount = calculateTotalAmount();
+
+      // Create funds received entry
+      const fundData = {
+        project_id: project.project_id,
+        head: formData.head,
+        amount: totalAmount,
+        date_received: formData.date_received,
+        remarks: formData.remarks,
+      };
+
+      const fundResponse = await axios.post(
+        `${API_BASE_URL}/funds/received`,
+        fundData
+      );
+
+      if (fundResponse.data.warnings) {
+        setWarnings(fundResponse.data.warnings);
+      }
+
+      const fundId =
+        fundResponse.data.data?.fund_id || fundResponse.data.fund_id;
+
+      // Create breakdown entries if applicable
+      if (formData.head === "manpower") {
+        for (const item of manpowerBreakdown) {
+          await axios.post(`${API_BASE_URL}/funds/breakdown/manpower`, {
+            fund_id: fundId,
+            project_id: project.project_id,
+            role: item.role,
+            salary_per_month: parseFloat(item.salary_per_month),
+            months: parseInt(item.months),
+            num_personnel: parseInt(item.num_personnel),
+          });
+        }
+      } else if (formData.head === "equipment") {
+        for (const item of equipmentBreakdown) {
+          await axios.post(`${API_BASE_URL}/funds/breakdown/equipment`, {
+            fund_id: fundId,
+            project_id: project.project_id,
+            item_name: item.item_name,
+            quantity: parseInt(item.quantity),
+            unit_cost: parseFloat(item.unit_cost),
+          });
+        }
+      }
+
+      // Show warnings if any, but still proceed
+      if (fundResponse.data.warnings && fundResponse.data.warnings.length > 0) {
+        setTimeout(() => {
+          onSuccess();
+        }, 2000);
+      } else {
+        onSuccess();
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || "Failed to record fund";
+      setErrors([errorMsg]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const resetForm = () => {
+    setFormData({
+      head: "manpower",
+      amount: "",
+      date_received: "",
+      remarks: "",
+    });
+    setManpowerBreakdown([
+      { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+    ]);
+    setEquipmentBreakdown([{ item_name: "", quantity: 1, unit_cost: "" }]);
+    setErrors([]);
+    setWarnings([]);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  if (!project) return null;
+
+  const totalAmount = calculateTotalAmount();
+  const budget = getBudgetForHead(formData.head);
+  const needsBreakdown =
+    formData.head === "manpower" || formData.head === "equipment";
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Record Fund Received" size="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add Funds Received"
+      size="lg"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-          <div className="text-sm font-semibold text-slate-900 mb-1">{project.title}</div>
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
+          <div className="text-sm font-semibold text-slate-900 mb-1">
+            {project.title}
+          </div>
           <div className="text-xs text-slate-600">{project.project_no}</div>
         </div>
 
-        <Input
-          label="Amount Received"
-          type="number"
-          step="0.01"
-          value={formData.amount}
-          onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-          required
-          placeholder="Enter amount in rupees"
-        />
+        {errors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-900 mb-1">
+                  Validation Errors:
+                </p>
+                <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                  {errors.map((error, idx) => (
+                    <li key={idx}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <Input
-          label="Date Received"
-          type="date"
-          value={formData.date_received}
-          onChange={(e) => setFormData({ ...formData, date_received: e.target.value })}
-          required
-        />
+        {warnings.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-yellow-900 mb-1">
+                  Warnings:
+                </p>
+                <ul className="list-disc list-inside text-sm text-yellow-700 space-y-1">
+                  {warnings.map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <Input
-          label="Reference Number"
-          value={formData.reference_no}
-          onChange={(e) => setFormData({ ...formData, reference_no: e.target.value })}
-          placeholder="Transaction or cheque reference"
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Budget Head *
+            </label>
+            <select
+              value={formData.head}
+              onChange={(e) =>
+                setFormData({ ...formData, head: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              required
+            >
+              <option value="manpower">Manpower</option>
+              <option value="equipment">Equipment</option>
+              <option value="consumables">Consumables</option>
+              <option value="travel & training">Travel & Training</option>
+              <option value="contingency">Contingency</option>
+              <option value="overhead">Overhead</option>
+            </select>
+            {budget && (
+              <p className="mt-1 text-xs text-slate-600">
+                Allocated: ₹{budget.allocated_amount.toLocaleString()}
+              </p>
+            )}
+          </div>
 
-        <Input
-          label="Remarks (Optional)"
-          value={formData.remarks}
-          onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-          placeholder="Additional notes"
-        />
+          <Input
+            label="Date Received *"
+            type="date"
+            value={formData.date_received}
+            onChange={(e) =>
+              setFormData({ ...formData, date_received: e.target.value })
+            }
+            required
+          />
+        </div>
+
+        {/* Manpower Breakdown */}
+        {formData.head === "manpower" && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Manpower Breakdown *
+              </label>
+              <button
+                type="button"
+                onClick={addManpowerRow}
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                + Add Row
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {manpowerBreakdown.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Role
+                    </label>
+                    <select
+                      value={item.role}
+                      onChange={(e) =>
+                        handleManpowerRoleSelect(idx, e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      <option value="">Select Role</option>
+                      {approvedManpower.map((approved, i) => (
+                        <option key={i} value={approved.role}>
+                          {approved.role}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Add Custom Role</option>
+                    </select>
+                    {item.role === "__custom__" && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom role"
+                        onChange={(e) =>
+                          updateManpowerRow(idx, "role", e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                      />
+                    )}
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Salary/Month
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.salary_per_month}
+                      onChange={(e) =>
+                        updateManpowerRow(
+                          idx,
+                          "salary_per_month",
+                          e.target.value
+                        )
+                      }
+                      placeholder="50000"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Months
+                    </label>
+                    <input
+                      type="number"
+                      value={item.months}
+                      onChange={(e) =>
+                        updateManpowerRow(idx, "months", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Count
+                    </label>
+                    <input
+                      type="number"
+                      value={item.num_personnel}
+                      onChange={(e) =>
+                        updateManpowerRow(idx, "num_personnel", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-700">
+                      ₹
+                      {(
+                        (item.salary_per_month || 0) *
+                        (item.months || 0) *
+                        (item.num_personnel || 0)
+                      ).toLocaleString()}
+                    </span>
+                    {manpowerBreakdown.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeManpowerRow(idx)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Equipment Breakdown */}
+        {formData.head === "equipment" && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Equipment Breakdown *
+              </label>
+              <button
+                type="button"
+                onClick={addEquipmentRow}
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                + Add Row
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {equipmentBreakdown.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Item Name
+                    </label>
+                    <select
+                      value={item.item_name}
+                      onChange={(e) =>
+                        handleEquipmentSelect(idx, e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      <option value="">Select Equipment</option>
+                      {approvedEquipment.map((approved, i) => (
+                        <option key={i} value={approved.item_name}>
+                          {approved.item_name}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Add Custom Equipment</option>
+                    </select>
+                    {item.item_name === "__custom__" && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom equipment"
+                        onChange={(e) =>
+                          updateEquipmentRow(idx, "item_name", e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                      />
+                    )}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateEquipmentRow(idx, "quantity", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Unit Cost
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_cost}
+                      onChange={(e) =>
+                        updateEquipmentRow(idx, "unit_cost", e.target.value)
+                      }
+                      placeholder="50000"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-700">
+                      ₹
+                      {(
+                        (item.unit_cost || 0) * (item.quantity || 0)
+                      ).toLocaleString()}
+                    </span>
+                    {equipmentBreakdown.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEquipmentRow(idx)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Simple amount for other heads */}
+        {!needsBreakdown && (
+          <Input
+            label="Amount *"
+            type="number"
+            step="0.01"
+            value={formData.amount}
+            onChange={(e) =>
+              setFormData({ ...formData, amount: e.target.value })
+            }
+            required
+            placeholder="Enter amount in rupees"
+          />
+        )}
+
+        {/* Total Amount Display */}
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-700">
+              Total Amount:
+            </span>
+            <span className="text-lg font-bold text-emerald-600">
+              ₹{totalAmount.toLocaleString()}
+            </span>
+          </div>
+          {budget && (
+            <div className="mt-2 text-xs text-slate-600">
+              Budget: ₹{budget.allocated_amount.toLocaleString()} | Remaining: ₹
+              {(budget.allocated_amount - totalAmount).toLocaleString()}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Remarks
+          </label>
+          <textarea
+            value={formData.remarks}
+            onChange={(e) =>
+              setFormData({ ...formData, remarks: e.target.value })
+            }
+            placeholder="Optional notes or remarks"
+            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            rows="3"
+          />
+        </div>
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" icon={DollarSign}>Save Fund Entry</Button>
+          <Button variant="secondary" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            type="submit"
+            icon={DollarSign}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Add Funds"}
+          </Button>
         </div>
       </form>
     </Modal>
   );
 };
 
-// Add Expenditure Modal Component
+// Add Expenditure Modal Component with Breakdown Support
 const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
   const [formData, setFormData] = useState({
-    head: 'manpower',
-    amount: '',
-    date_incurred: '',
-    description: '',
-    invoice_no: '',
+    head: "manpower",
+    amount: "",
+    date_incurred: "",
+    description: "",
   });
 
-  if (!project) return null;
+  const [manpowerData, setManpowerData] = useState([
+    { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+  ]);
+
+  const [equipmentData, setEquipmentData] = useState([
+    { name: "", quantity: 1, unit_cost: "", purchase_date: "" },
+  ]);
+
+  // ADD these new states after equipmentBreakdown
+  const [approvedManpower, setApprovedManpower] = useState([]);
+  const [approvedEquipment, setApprovedEquipment] = useState([]);
+
+  const [errors, setErrors] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [budgetInfo, setBudgetInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (project && isOpen) {
+      fetchBudgetInfo();
+      fetchApprovedBreakdown();
+    }
+  }, [project, isOpen]);
+
+  const fetchBudgetInfo = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/expenditure/allocation/project/${project.project_id}`
+      );
+      setBudgetInfo(response.data);
+    } catch (error) {
+      console.error("Failed to fetch budget info:", error);
+    }
+  };
+
+  const fetchApprovedBreakdown = async () => {
+    try {
+      const [manpowerRes, equipmentRes] = await Promise.all([
+        axios.get(
+          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/manpower-breakdown`
+        ),
+        axios.get(
+          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/equipment-breakdown`
+        ),
+      ]);
+      setApprovedManpower(manpowerRes.data);
+      setApprovedEquipment(equipmentRes.data);
+    } catch (error) {
+      console.error("Failed to fetch approved breakdown:", error);
+    }
+  };
+
+  const getBudgetForHead = (head) => {
+    if (!budgetInfo) return null;
+    return budgetInfo.find((b) => b.head === head);
+  };
+
+  const calculateTotalAmount = () => {
+    if (formData.head === "manpower") {
+      return manpowerData.reduce((sum, item) => {
+        const amount =
+          (parseFloat(item.salary_per_month) || 0) *
+          (parseInt(item.months) || 0) *
+          (parseInt(item.num_personnel) || 0);
+        return sum + amount;
+      }, 0);
+    } else if (formData.head === "equipment") {
+      return equipmentData.reduce((sum, item) => {
+        const amount =
+          (parseFloat(item.unit_cost) || 0) * (parseInt(item.quantity) || 0);
+        return sum + amount;
+      }, 0);
+    }
+    return parseFloat(formData.amount) || 0;
+  };
+
+  const addManpowerRow = () => {
+    setManpowerData([
+      ...manpowerData,
+      { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+    ]);
+  };
+
+  const removeManpowerRow = (index) => {
+    setManpowerData(manpowerData.filter((_, i) => i !== index));
+  };
+
+  const handleManpowerRoleSelect = (index, role) => {
+    const approved = approvedManpower.find((m) => m.role === role);
+    if (approved) {
+      const updated = [...manpowerBreakdown];
+      updated[index] = {
+        role: approved.role,
+        salary_per_month: approved.salary_per_month,
+        months: approved.months,
+        num_personnel: approved.num_personnel,
+      };
+      setManpowerBreakdown(updated);
+    } else {
+      updateManpowerRow(index, "role", role);
+    }
+  };
+
+  const updateManpowerRow = (index, field, value) => {
+    const updated = [...manpowerBreakdown];
+    updated[index][field] = value;
+    setManpowerBreakdown(updated);
+  };
+
+  const addEquipmentRow = () => {
+    setEquipmentData([
+      ...equipmentData,
+      {
+        name: "",
+        quantity: 1,
+        unit_cost: "",
+        purchase_date: formData.date_incurred,
+      },
+    ]);
+  };
+
+  const removeEquipmentRow = (index) => {
+    setEquipmentData(equipmentData.filter((_, i) => i !== index));
+  };
+
+  const handleEquipmentSelect = (index, itemName) => {
+    const approved = approvedEquipment.find((e) => e.item_name === itemName);
+    if (approved) {
+      const updated = [...equipmentBreakdown];
+      updated[index] = {
+        item_name: approved.item_name,
+        quantity: approved.quantity,
+        unit_cost: approved.unit_cost,
+      };
+      setEquipmentBreakdown(updated);
+    } else {
+      updateEquipmentRow(index, "item_name", itemName);
+    }
+  };
+
+  const updateEquipmentRow = (index, field, value) => {
+    const updated = [...equipmentBreakdown];
+    updated[index][field] = value;
+    setEquipmentBreakdown(updated);
+  };
+
+  const validateForm = () => {
+    const newErrors = [];
+
+    if (!formData.head) newErrors.push("Budget head is required");
+    if (!formData.date_incurred) newErrors.push("Date incurred is required");
+
+    const totalAmount = calculateTotalAmount();
+
+    if (formData.head === "manpower") {
+      if (manpowerData.length === 0) {
+        newErrors.push("At least one manpower entry is required");
+      }
+      manpowerData.forEach((item, idx) => {
+        if (!item.role) newErrors.push(`Row ${idx + 1}: Role is required`);
+        if (!item.salary_per_month || item.salary_per_month <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid salary is required`);
+        if (!item.months || item.months <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid months is required`);
+        if (!item.num_personnel || item.num_personnel <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid personnel count is required`);
+      });
+    } else if (formData.head === "equipment") {
+      if (equipmentData.length === 0) {
+        newErrors.push("At least one equipment entry is required");
+      }
+      equipmentData.forEach((item, idx) => {
+        if (!item.name) newErrors.push(`Row ${idx + 1}: Item name is required`);
+        if (!item.quantity || item.quantity <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid quantity is required`);
+        if (!item.unit_cost || item.unit_cost <= 0)
+          newErrors.push(`Row ${idx + 1}: Valid unit cost is required`);
+      });
+    } else {
+      if (!totalAmount || totalAmount <= 0)
+        newErrors.push("Valid amount is required");
+      if (!formData.description) newErrors.push("Description is required");
+    }
+
+    // Check budget allocation
+    const budget = getBudgetForHead(formData.head);
+    if (budget && totalAmount > budget.allocated_amount) {
+      newErrors.push(
+        `Amount (₹${totalAmount.toFixed(2)}) exceeds allocated budget (₹${
+          budget.allocated_amount
+        })`
+      );
+    }
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to save expenditure
-    console.log('Add expenditure:', { project_id: project.project_id, ...formData });
-    onSuccess();
+    setErrors([]);
+    setWarnings([]);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Handle different submission based on head type
+      if (formData.head === "manpower") {
+        // Submit each manpower entry separately
+        for (const item of manpowerData) {
+          const response = await axios.post(`${API_BASE_URL}/manpower`, {
+            project_id: project.project_id,
+            role: item.role,
+            salary_per_month: parseFloat(item.salary_per_month),
+            months: parseInt(item.months),
+            num_personnel: parseInt(item.num_personnel),
+            date_incurred: formData.date_incurred,
+          });
+
+          if (response.data.warnings) {
+            setWarnings((prev) => [...prev, ...response.data.warnings]);
+          }
+        }
+      } else if (formData.head === "equipment") {
+        // Submit each equipment entry separately
+        for (const item of equipmentData) {
+          await axios.post(`${API_BASE_URL}/equipment`, {
+            project_id: project.project_id,
+            name: item.name,
+            quantity: parseInt(item.quantity),
+            unit_cost: parseFloat(item.unit_cost),
+            purchase_date: item.purchase_date || formData.date_incurred,
+          });
+        }
+      } else {
+        // Submit as general budget expenditure
+        await axios.post(`${API_BASE_URL}/expenditure`, {
+          project_id: project.project_id,
+          head: formData.head,
+          amount: parseFloat(formData.amount),
+          date_incurred: formData.date_incurred,
+          description: formData.description,
+        });
+      }
+
+      // Show warnings if any, but still proceed
+      if (warnings.length > 0) {
+        setTimeout(() => {
+          onSuccess();
+        }, 2000);
+      } else {
+        onSuccess();
+      }
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.detail || "Failed to record expenditure";
+      setErrors([errorMsg]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const resetForm = () => {
+    setFormData({
+      head: "manpower",
+      amount: "",
+      date_incurred: "",
+      description: "",
+    });
+    setManpowerData([
+      { role: "", salary_per_month: "", months: 12, num_personnel: 1 },
+    ]);
+    setEquipmentData([
+      { name: "", quantity: 1, unit_cost: "", purchase_date: "" },
+    ]);
+    setErrors([]);
+    setWarnings([]);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  if (!project) return null;
+
+  const totalAmount = calculateTotalAmount();
+  const budget = getBudgetForHead(formData.head);
+  const needsBreakdown =
+    formData.head === "manpower" || formData.head === "equipment";
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Record Expenditure" size="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Record Expenditure"
+      size="lg"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-          <div className="text-sm font-semibold text-slate-900 mb-1">{project.title}</div>
+          <div className="text-sm font-semibold text-slate-900 mb-1">
+            {project.title}
+          </div>
           <div className="text-xs text-slate-600">{project.project_no}</div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Budget Head</label>
-          <select
-            value={formData.head}
-            onChange={(e) => setFormData({ ...formData, head: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
+        {errors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-900 mb-1">
+                  Validation Errors:
+                </p>
+                <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                  {errors.map((error, idx) => (
+                    <li key={idx}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {warnings.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-yellow-900 mb-1">
+                  Warnings:
+                </p>
+                <ul className="list-disc list-inside text-sm text-yellow-700 space-y-1">
+                  {warnings.map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Budget Head *
+            </label>
+            <select
+              value={formData.head}
+              onChange={(e) =>
+                setFormData({ ...formData, head: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            >
+              <option value="manpower">Manpower</option>
+              <option value="equipment">Equipment</option>
+              <option value="consumables">Consumables</option>
+              <option value="travel & training">Travel & Training</option>
+              <option value="contingency">Contingency</option>
+              <option value="overhead">Overhead</option>
+            </select>
+            {budget && (
+              <p className="mt-1 text-xs text-slate-600">
+                Allocated: ₹{budget.allocated_amount.toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          <Input
+            label="Date Incurred *"
+            type="date"
+            value={formData.date_incurred}
+            onChange={(e) =>
+              setFormData({ ...formData, date_incurred: e.target.value })
+            }
             required
-          >
-            <option value="manpower">Manpower</option>
-            <option value="equipment">Equipment</option>
-            <option value="consumables">Consumables</option>
-            <option value="travel & training">Travel & Training</option>
-            <option value="contingency">Contingency</option>
-            <option value="overhead">Overhead</option>
-          </select>
+          />
         </div>
 
-        <Input
-          label="Amount"
-          type="number"
-          step="0.01"
-          value={formData.amount}
-          onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-          required
-          placeholder="Enter amount in rupees"
-        />
+        {/* Manpower Breakdown */}
+        {formData.head === "manpower" && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Manpower Breakdown *
+              </label>
+              <button
+                type="button"
+                onClick={addManpowerRow}
+                className="text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                + Add Row
+              </button>
+            </div>
 
-        <Input
-          label="Date Incurred"
-          type="date"
-          value={formData.date_incurred}
-          onChange={(e) => setFormData({ ...formData, date_incurred: e.target.value })}
-          required
-        />
+            <div className="space-y-2">
+              {manpowerData.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Role
+                    </label>
+                    <select
+                      value={item.role}
+                      onChange={(e) =>
+                        handleManpowerRoleSelect(idx, e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      <option value="">Select Role</option>
+                      {approvedManpower.map((approved, i) => (
+                        <option key={i} value={approved.role}>
+                          {approved.role}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Add Custom Role</option>
+                    </select>
+                    {item.role === "__custom__" && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom role"
+                        onChange={(e) =>
+                          updateManpowerRow(idx, "role", e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                      />
+                    )}
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Salary/Month
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.salary_per_month}
+                      onChange={(e) =>
+                        updateManpowerRow(
+                          idx,
+                          "salary_per_month",
+                          e.target.value
+                        )
+                      }
+                      placeholder="50000"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Months
+                    </label>
+                    <input
+                      type="number"
+                      value={item.months}
+                      onChange={(e) =>
+                        updateManpowerRow(idx, "months", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Count
+                    </label>
+                    <input
+                      type="number"
+                      value={item.num_personnel}
+                      onChange={(e) =>
+                        updateManpowerRow(idx, "num_personnel", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-700">
+                      ₹
+                      {(
+                        (item.salary_per_month || 0) *
+                        (item.months || 0) *
+                        (item.num_personnel || 0)
+                      ).toLocaleString()}
+                    </span>
+                    {manpowerData.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeManpowerRow(idx)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <Input
-          label="Description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          required
-          placeholder="What was purchased or paid for"
-        />
+        {/* Equipment Breakdown */}
+        {formData.head === "equipment" && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Equipment Breakdown *
+              </label>
+              <button
+                type="button"
+                onClick={addEquipmentRow}
+                className="text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                + Add Row
+              </button>
+            </div>
 
-        <Input
-          label="Invoice/Bill Number (Optional)"
-          value={formData.invoice_no}
-          onChange={(e) => setFormData({ ...formData, invoice_no: e.target.value })}
-          placeholder="Invoice or bill reference"
-        />
+            <div className="space-y-2">
+              {equipmentData.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Item Name
+                    </label>
+                    <select
+                      value={item.item_name}
+                      onChange={(e) =>
+                        handleEquipmentSelect(idx, e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      <option value="">Select Equipment</option>
+                      {approvedEquipment.map((approved, i) => (
+                        <option key={i} value={approved.item_name}>
+                          {approved.item_name}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Add Custom Equipment</option>
+                    </select>
+                    {item.item_name === "__custom__" && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom equipment"
+                        onChange={(e) =>
+                          updateEquipmentRow(idx, "item_name", e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                      />
+                    )}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateEquipmentRow(idx, "quantity", e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-xs text-slate-600 mb-1">
+                      Unit Cost
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_cost}
+                      onChange={(e) =>
+                        updateEquipmentRow(idx, "unit_cost", e.target.value)
+                      }
+                      placeholder="50000"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-700">
+                      ₹
+                      {(
+                        (item.unit_cost || 0) * (item.quantity || 0)
+                      ).toLocaleString()}
+                    </span>
+                    {equipmentData.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEquipmentRow(idx)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Simple fields for other heads */}
+        {!needsBreakdown && (
+          <>
+            <Input
+              label="Amount *"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) =>
+                setFormData({ ...formData, amount: e.target.value })
+              }
+              required
+              placeholder="Enter amount in rupees"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Description *
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                required
+                placeholder="What was purchased or paid for"
+                className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows="3"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Total Amount Display */}
+        <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-700">
+              Total Amount:
+            </span>
+            <span className="text-lg font-bold text-red-600">
+              ₹{totalAmount.toLocaleString()}
+            </span>
+          </div>
+          {budget && (
+            <div className="mt-2 text-xs text-slate-600">
+              Budget: ₹{budget.allocated_amount.toLocaleString()} | Remaining: ₹
+              {(budget.allocated_amount - totalAmount).toLocaleString()}
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="danger" type="submit" icon={TrendingDown}>Save Expenditure</Button>
+          <Button variant="secondary" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            type="submit"
+            icon={TrendingDown}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save Expenditure"}
+          </Button>
         </div>
       </form>
     </Modal>

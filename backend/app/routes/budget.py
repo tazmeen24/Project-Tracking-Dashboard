@@ -87,3 +87,37 @@ async def get_equipment_breakdown(allocation_id: int):
         raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
     finally:
         conn.close()
+
+@router.get("/allocation/project/{project_id}/manpower-breakdown")
+async def get_project_manpower_breakdown(project_id: int):
+    """Get all manpower breakdown for a project (for dropdown population)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM manpower_allocation_breakdown WHERE project_id = %s",
+                (project_id,)
+            )
+            results = cur.fetchall()
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+    finally:
+        conn.close()
+
+@router.get("/allocation/project/{project_id}/equipment-breakdown")
+async def get_project_equipment_breakdown(project_id: int):
+    """Get all equipment breakdown for a project (for dropdown population)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM equipment_allocation_breakdown WHERE project_id = %s",
+                (project_id,)
+            )
+            results = cur.fetchall()
+            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+    finally:
+        conn.close()
