@@ -1,96 +1,136 @@
 // services/api.js
+import authService from './authService';
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-class ApiService {
-  constructor() {
-    this.baseURL = API_BASE_URL;
-  }
+const api = {
+  baseURL: API_BASE_URL,
 
-  getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
+  // Generic request handler with authentication
+  async request(endpoint, options = {}) {
+    const token = authService.getToken();
+    
+    const config = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
     };
-  }
 
-  async handleResponse(response) {
-    if (response.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-      throw new Error('Session expired. Please login again.');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        detail: `HTTP error! status: ${response.status}`,
-      }));
-      throw new Error(error.detail || 'An error occurred');
-    }
-
-    return response.json();
-  }
-
-  async get(endpoint) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-    return this.handleResponse(response);
-  }
-
-  async post(endpoint, data) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse(response);
-  }
-
-  async put(endpoint, data) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'PUT',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse(response);
-  }
-
-  async patch(endpoint, data) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'PATCH',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse(response);
-  }
-
-  async delete(endpoint) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
-    return this.handleResponse(response);
-  }
-
-  // Form data upload (for files if needed later)
-  async postFormData(endpoint, formData) {
-    const token = localStorage.getItem('token');
-    const headers = {};
+    // Add authentication header if token exists
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-    return this.handleResponse(response);
-  }
-}
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-export default new ApiService();
+      // Handle 401 Unauthorized (token expired or invalid)
+      if (response.status === 401) {
+        authService.logout();
+        window.location.href = '/login';
+        throw new Error('Session expired. Please login again.');
+      }
+
+      // Handle other errors
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          detail: `HTTP ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(error.detail || 'Request failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('API request error:', error);
+      throw error;
+    }
+  },
+
+  // GET request
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'GET',
+    });
+  },
+
+  // POST request
+  async post(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // PUT request
+  async put(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // PATCH request
+  async patch(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // DELETE request
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: 'DELETE',
+    });
+  },
+
+  // Upload file (multipart/form-data)
+  async upload(endpoint, formData, options = {}) {
+    const token = authService.getToken();
+    
+    const config = {
+      ...options,
+      method: 'POST',
+      headers: {
+        ...options.headers,
+        // Don't set Content-Type for FormData, browser will set it with boundary
+      },
+      body: formData,
+    };
+
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+
+      if (response.status === 401) {
+        authService.logout();
+        window.location.href = '/login';
+        throw new Error('Session expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          detail: `HTTP ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(error.detail || 'Upload failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+  },
+};
+
+export default api;
