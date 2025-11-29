@@ -8,7 +8,9 @@ class ManpowerBreakdownItem(BaseModel):
     salary_per_month: float
     months: int
     num_personnel: int = 1
-    
+    qualification: Optional[str] = None           
+    experience_required: Optional[str] = None
+
     @field_validator('salary_per_month', 'months', 'num_personnel')
     @classmethod
     def validate_positive_numbers(cls, v):
@@ -20,6 +22,8 @@ class EquipmentBreakdownItem(BaseModel):
     item_name: str
     quantity: int
     unit_cost: float
+    description: Optional[str] = None             
+    product_website: Optional[str] = None  
     
     @field_validator('quantity', 'unit_cost')
     @classmethod

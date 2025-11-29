@@ -74,10 +74,10 @@ async def create_project(project: ProjectCreate):
                     for item in breakdown:
                         cur.execute(
                             """INSERT INTO manpower_allocation_breakdown 
-                               (allocation_id, project_id, role, salary_per_month, months, num_personnel)
-                               VALUES (%s, %s, %s, %s, %s, %s)""",
+                               (allocation_id, project_id, role, salary_per_month, months, num_personnel, qualification, experience_required)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                             (allocation_id, project_id, item.role, 
-                             item.salary_per_month, item.months, item.num_personnel)
+                             item.salary_per_month, item.months, item.num_personnel, item.qualification, item.experience_required)
                         )
                 
                 # Insert equipment breakdown
@@ -85,10 +85,10 @@ async def create_project(project: ProjectCreate):
                     for item in breakdown:
                         cur.execute(
                             """INSERT INTO equipment_allocation_breakdown 
-                               (allocation_id, project_id, item_name, quantity, unit_cost)
-                               VALUES (%s, %s, %s, %s, %s)""",
+                               (allocation_id, project_id, item_name, quantity, unit_cost, description, product_website)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                             (allocation_id, project_id, item.item_name, 
-                             item.quantity, item.unit_cost)
+                             item.quantity, item.unit_cost, item.description, item.product_website)
                         )
             
             conn.commit()
@@ -558,7 +558,7 @@ async def get_project_manpower_allocation_breakdown(project_id: int):
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM manpower_allocation_breakdown WHERE project_id = %s",
+                "SELECT * FROM  WHERE project_id = %s",
                 (project_id,)
             )
             return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]

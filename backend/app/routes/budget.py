@@ -29,10 +29,10 @@ async def create_budget_allocation(allocation: BudgetAllocationCreate):
                 for item in allocation.manpower_breakdown:
                     cur.execute(
                         """INSERT INTO manpower_allocation_breakdown 
-                           (allocation_id, project_id, role, salary_per_month, months, num_personnel)
-                           VALUES (%s, %s, %s, %s, %s, %s)""",
+                           (allocation_id, project_id, role, salary_per_month, months, num_personnel, qualification, experience_required)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                         (allocation_id, allocation.project_id, item.role, 
-                         item.salary_per_month, item.months, item.num_personnel)
+                         item.salary_per_month, item.months, item.num_personnel, item.qualification, item.experience_required)
                     )
             
             # Insert equipment breakdown if provided
@@ -40,10 +40,10 @@ async def create_budget_allocation(allocation: BudgetAllocationCreate):
                 for item in allocation.equipment_breakdown:
                     cur.execute(
                         """INSERT INTO equipment_allocation_breakdown 
-                           (allocation_id, project_id, item_name, quantity, unit_cost)
-                           VALUES (%s, %s, %s, %s, %s)""",
+                           (allocation_id, project_id, item_name, quantity, unit_cost, description, product_website)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                         (allocation_id, allocation.project_id, item.item_name, 
-                         item.quantity, item.unit_cost)
+                         item.quantity, item.unit_cost, item.description, item.product_website)
                     )
             
             conn.commit()
