@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
 import {
   TrendingUp,
-  Users,
-  Clock,
   FolderOpen,
   CheckCircle2,
   Calendar,
@@ -26,36 +24,44 @@ const Dashboard = () => {
 
   const stats = [
     {
-      label: 'Total Projects',
-      value: dashboardStats.totalProjects,
-      change: `${dashboardStats.activeProjects} active`,
-      icon: FolderOpen,
+      label: 'Total Budget',
+      value: formatCurrency(dashboardStats.totalAllocation),
+      change: 'Approved budget',
+      icon: DollarSign,
       trend: 'neutral',
       color: 'blue',
     },
     {
-      label: 'Total Allocation',
-      value: formatCurrency(dashboardStats.totalAllocation),
-      change: 'Budget allocated',
-      icon: DollarSign,
-      trend: 'neutral',
+      label: 'Funds Received',
+      value: formatCurrency(dashboardStats.totalFunds),
+      change: 'Total received',
+      icon: CheckCircle2,
+      trend: 'up',
       color: 'emerald',
     },
     {
-      label: 'Total Funds',
-      value: formatCurrency(dashboardStats.totalFunds),
-      change: 'Funds received',
-      icon: CheckCircle2,
-      trend: 'up',
+      label: 'Total Expenditure',
+      value: formatCurrency(dashboardStats.totalExpenditure),
+      change: 'Total spent',
+      icon: TrendingUp,
+      trend: 'neutral',
       color: 'indigo',
     },
     {
-      label: 'Balance',
-      value: formatCurrency(dashboardStats.balance),
-      change: 'Available balance',
-      icon: TrendingUp,
+      label: 'Funds Balance',
+      value: formatCurrency(dashboardStats.totalFunds - dashboardStats.totalExpenditure),
+      change: 'Available funds',
+      icon: FolderOpen,
       trend: 'neutral',
       color: 'purple',
+    },
+    {
+      label: 'Budget Balance',
+      value: formatCurrency(dashboardStats.balance),
+      change: 'Remaining budget',
+      icon: Calendar,
+      trend: 'neutral',
+      color: 'amber',
     },
   ];
 
@@ -64,6 +70,7 @@ const Dashboard = () => {
     emerald: 'from-emerald-500 to-emerald-600',
     indigo: 'from-indigo-500 to-indigo-600',
     purple: 'from-purple-500 to-purple-600',
+    amber: 'from-amber-500 to-amber-600',
   };
 
   if (loading) {
@@ -88,7 +95,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {stats.map((stat, index) => (
           <Card
             key={index}
@@ -203,7 +210,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           from {
             opacity: 0;

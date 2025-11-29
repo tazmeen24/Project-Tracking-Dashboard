@@ -14,7 +14,8 @@ from .routes import (
     equipment,
     expenditure,
     reports,
-    investigators
+    investigators,
+    agency_details
 )
 
 app = FastAPI(
@@ -44,6 +45,7 @@ app.include_router(equipment.router)
 app.include_router(expenditure.router)
 app.include_router(reports.router)
 app.include_router(investigators.router)
+app.include_router(agency_details.router)
 
 @app.get("/")
 async def root():

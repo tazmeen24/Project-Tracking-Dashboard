@@ -67,11 +67,13 @@ const projectService = {
   },
 
   async createFundingAgencyDetails(detailsData) {
-    return api.post('/funding-agency-details', detailsData);
+    // Extract agency_id from the data
+    const agencyId = detailsData.agency_id;
+    return api.post(`/funding-agencies/${agencyId}/details`, detailsData);
   },
 
-  async updateFundingAgencyDetails(detailsId, detailsData) {
-    return api.put(`/funding-agency-details/${detailsId}`, detailsData);
+  async updateFundingAgencyDetails(agencyId, detailsData) {
+    return api.put(`/funding-agencies/${agencyId}/details`, detailsData);
   },
 
   // Technical Groups
