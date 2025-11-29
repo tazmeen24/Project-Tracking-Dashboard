@@ -1,37 +1,25 @@
 // pages/ProjectsPage.js
-import React, { useState, useEffect } from "react";
-import { Plus, Search, Filter, Download, X } from "lucide-react";
-import { useProject } from "../contexts/ProjectContext";
-import Button from "../components/common/Button";
-import ProjectForm from "../components/projects/ProjectForm";
-import ProjectCard from "../components/projects/ProjectCard";
-import ConfirmDialog from "../components/common/ConfirmDialog";
-import projectService from "../services/projectService";
+import React, { useState, useEffect } from 'react';
+import { Plus, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useProject } from '../contexts/ProjectContext';
+import Button from '../components/common/Button';
+import Card from '../components/common/Card';
+import ProjectForm from '../components/projects/ProjectForm';
+import { formatCurrency } from '../utils/helpers';
 
 const ProjectsPage = () => {
-  const {
-    projects,
-    loading,
-    refreshProjects,
-    fundingAgencies,
-    technicalGroups,
-  } = useProject();
+  const navigate = useNavigate();
+  const { projects, loading, refreshProjects, fundingAgencies, technicalGroups } = useProject();
   const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState({
-    show: false,
-    project: null,
-  });
-  const [deleting, setDeleting] = useState(false);
-
-  // Filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterAgency, setFilterAgency] = useState("all");
-  const [filterGroup, setFilterGroup] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter states
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterAgency, setFilterAgency] = useState('all');
+  const [filterGroup, setFilterGroup] = useState('all');
 
   useEffect(() => {
     refreshProjects();
@@ -46,111 +34,54 @@ const ProjectsPage = () => {
 
     // Category filter
     const matchesCategory =
-      filterCategory === "all" || project.project_category === filterCategory;
+      filterCategory === 'all' || project.project_category === filterCategory;
 
     // Type filter
     const matchesType =
-      filterType === "all" || project.project_type === filterType;
+      filterType === 'all' || project.project_type === filterType;
 
     // Status filter
-    const matchesStatus =
-      filterStatus === "all" ||
-      (() => {
-        const now = new Date();
-        const startDate = new Date(project.start_date);
-        const endDate = project.end_date ? new Date(project.end_date) : null;
-
-        if (filterStatus === "active") {
-          return startDate <= now && (!endDate || endDate >= now);
-        } else if (filterStatus === "completed") {
-          return endDate && endDate < now;
-        } else if (filterStatus === "upcoming") {
-          return startDate > now;
-        }
-        return true;
-      })();
+    const matchesStatus = filterStatus === 'all' || (() => {
+      const status = getProjectStatus(project);
+      return status.toLowerCase() === filterStatus.toLowerCase();
+    })();
 
     // Agency filter
     const matchesAgency =
-      filterAgency === "all" ||
-      project.funding_agency_id === parseInt(filterAgency);
+      filterAgency === 'all' || project.funding_agency_id === parseInt(filterAgency);
 
     // Group filter
     const matchesGroup =
-      filterGroup === "all" ||
-      project.technical_group_id === parseInt(filterGroup);
+      filterGroup === 'all' || project.technical_group_id === parseInt(filterGroup);
 
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesType &&
-      matchesStatus &&
-      matchesAgency &&
-      matchesGroup
-    );
+    return matchesSearch && matchesCategory && matchesType && matchesStatus && matchesAgency && matchesGroup;
   });
 
-  const handleEdit = (project) => {
-    setEditingProject(project);
-    setShowForm(true);
+  const getProjectStatus = (project) => {
+    const now = new Date();
+    const startDate = new Date(project.start_date);
+    const endDate = project.end_date ? new Date(project.end_date) : null;
+
+    if (startDate > now) return 'Upcoming';
+    if (endDate && endDate < now) return 'Completed';
+    return 'Active';
   };
 
-  const handleDelete = (project) => {
-    setDeleteConfirm({ show: true, project });
+  const getTotalAllocation = (project) => {
+    return (
+      (project.manpower_allocation || 0) +
+      (project.equipment_allocation || 0) +
+      (project.consumables_allocation || 0) +
+      (project.contingency_allocation || 0) +
+      (project.travel_training_allocation || 0) +
+      (project.overhead_allocation || 0)
+    );
   };
-
-  const confirmDelete = async () => {
-    if (!deleteConfirm.project) return;
-
-    setDeleting(true);
-    try {
-      await projectService.deleteProject(deleteConfirm.project.project_id);
-      await refreshProjects();
-      setDeleteConfirm({ show: false, project: null });
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      alert("Failed to delete project. Please try again.");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleFormClose = () => {
-    setShowForm(false);
-    setEditingProject(null);
-  };
-
-  const handleFormSuccess = async () => {
-    await refreshProjects();
-    handleFormClose();
-  };
-
-  const clearFilters = () => {
-    setSearchTerm("");
-    setFilterCategory("all");
-    setFilterType("all");
-    setFilterStatus("all");
-    setFilterAgency("all");
-    setFilterGroup("all");
-  };
-
-  const activeFilterCount = [
-    filterCategory !== "all",
-    filterType !== "all",
-    filterStatus !== "all",
-    filterAgency !== "all",
-    filterGroup !== "all",
-  ].filter(Boolean).length;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
-          <span className="text-slate-700 font-medium text-lg">
-            Loading projects...
-          </span>
-        </div>
+        <div className="text-slate-700 font-medium text-lg">Loading projects...</div>
       </div>
     );
   }
@@ -161,265 +92,189 @@ const ProjectsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Projects</h1>
-          <p className="text-slate-600 text-lg">
-            Manage and track all your projects
-          </p>
+          <p className="text-slate-600">Manage and track all your projects</p>
         </div>
         <Button variant="primary" icon={Plus} onClick={() => setShowForm(true)}>
           Create New Project
         </Button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-4 mb-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by project name or number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Filter Toggle */}
-          <Button
-            variant={showFilters ? "primary" : "secondary"}
-            icon={Filter}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-white text-slate-900 rounded-full text-xs font-bold">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-
-          {/* Export */}
-          <Button variant="secondary" icon={Download}>
-            Export
-          </Button>
+      {/* Search Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search projects..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+          />
         </div>
 
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="border-t border-slate-200 pt-4 mt-4 animate-slideDown">
-            <div className="grid grid-cols-5 gap-4">
-              {/* Category Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Category
-                </label>
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="sponsored">Sponsored</option>
-                  <option value="non-sponsored">Non-Sponsored</option>
-                </select>
-              </div>
-
-              {/* Type Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Type
-                </label>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
-                >
-                  <option value="all">All Types</option>
-                  <option value="PFMS">PFMS</option>
-                  <option value="NON-PFMS">NON-PFMS</option>
-                  <option value="contract-research">Contract Research</option>
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Status
-                </label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="upcoming">Upcoming</option>
-                </select>
-              </div>
-
-              {/* Agency Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Funding Agency
-                </label>
-                <select
-                  value={filterAgency}
-                  onChange={(e) => setFilterAgency(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
-                >
-                  <option value="all">All Agencies</option>
-                  {fundingAgencies.map((agency) => (
-                    <option key={agency.agency_id} value={agency.agency_id}>
-                      {agency.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Group Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Technical Group
-                </label>
-                <select
-                  value={filterGroup}
-                  onChange={(e) => setFilterGroup(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
-                >
-                  <option value="all">All Groups</option>
-                  {technicalGroups.map((group) => (
-                    <option key={group.group_id} value={group.group_id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Clear Filters */}
-            {activeFilterCount > 0 && (
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={X}
-                  onClick={clearFilters}
-                >
-                  Clear All Filters
-                </Button>
-              </div>
-            )}
+        {/* Filters */}
+        <div className="grid grid-cols-5 gap-3">
+          {/* Category Filter */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Category</label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="all">All</option>
+              <option value="sponsored">Sponsored</option>
+              <option value="non-sponsored">Non-Sponsored</option>
+            </select>
           </div>
-        )}
+
+          {/* Type Filter */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Type</label>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="all">All</option>
+              <option value="PFMS">PFMS</option>
+              <option value="NON-PFMS">NON-PFMS</option>
+              <option value="contract-research">Contract Research</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="upcoming">Upcoming</option>
+            </select>
+          </div>
+
+          {/* Agency Filter */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Funding Agency</label>
+            <select
+              value={filterAgency}
+              onChange={(e) => setFilterAgency(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="all">All</option>
+              {fundingAgencies.map((agency) => (
+                <option key={agency.agency_id} value={agency.agency_id}>
+                  {agency.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Group Filter */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Technical Group</label>
+            <select
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              <option value="all">All</option>
+              {technicalGroups.map((group) => (
+                <option key={group.group_id} value={group.group_id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Results Count */}
-      <div className="flex items-center justify-between text-sm text-slate-600">
-        <span>
-          Showing{" "}
-          <strong className="text-slate-900">{filteredProjects.length}</strong>{" "}
-          of <strong className="text-slate-900">{projects.length}</strong>{" "}
-          projects
-        </span>
+      <div className="text-sm text-slate-600">
+        Showing <strong>{filteredProjects.length}</strong> of <strong>{projects.length}</strong> projects
       </div>
 
       {/* Projects List */}
-      <div className="grid gap-4">
+      <div className="space-y-4">
         {filteredProjects.length > 0 ? (
-          filteredProjects.map((project, index) => (
-            <div
-              key={project.project_id}
-              style={{
-                animation: `slideInRight 0.3s ease-out ${index * 0.05}s both`,
-              }}
-            >
-              <ProjectCard
-                project={project}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            </div>
-          ))
-        ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">
-              No projects found
-            </h3>
-            <p className="text-slate-600 mb-6">
-              {searchTerm || activeFilterCount > 0
-                ? "Try adjusting your search or filters"
-                : "Get started by creating your first project"}
-            </p>
-            {searchTerm || activeFilterCount > 0 ? (
-              <Button variant="secondary" onClick={clearFilters}>
-                Clear Filters
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                icon={Plus}
-                onClick={() => setShowForm(true)}
+          filteredProjects.map((project) => {
+            const status = getProjectStatus(project);
+            const statusColors = {
+              Active: 'bg-emerald-100 text-emerald-800',
+              Completed: 'bg-slate-100 text-slate-800',
+              Upcoming: 'bg-blue-100 text-blue-800',
+            };
+
+            return (
+              <Card
+                key={project.project_id}
+                hover
+                onClick={() => navigate(`/projects/${project.project_id}`)}
+                className="cursor-pointer"
               >
-                Create New Project
-              </Button>
-            )}
-          </div>
+                <div className="flex items-center justify-between">
+                  {/* Left: Project Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-bold text-slate-900">
+                        {project.title}
+                      </h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[status]}`}>
+                        {status}
+                      </span>
+                    </div>
+
+                    <div className="text-sm text-slate-600 mb-3">
+                      <span className="font-medium">{project.project_no}</span>
+                      <span className="mx-2">•</span>
+                      <span>Started: {new Date(project.start_date).toLocaleDateString('en-IN')}</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-lg">
+                        {project.project_category}
+                      </span>
+                      <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-lg">
+                        {project.project_type}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: Budget */}
+                  <div className="text-right">
+                    <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
+                    <div className="text-2xl font-bold text-slate-900">
+                      {formatCurrency(getTotalAllocation(project))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })
+        ) : (
+          <Card className="text-center p-12">
+            <div className="text-slate-600 mb-4">No projects found</div>
+            <Button variant="primary" icon={Plus} onClick={() => setShowForm(true)}>
+              Create Your First Project
+            </Button>
+          </Card>
         )}
       </div>
 
       {/* Project Form Modal */}
       <ProjectForm
         isOpen={showForm}
-        onClose={handleFormClose}
-        onSuccess={handleFormSuccess}
-        editProject={editingProject}
+        onClose={() => setShowForm(false)}
+        onSuccess={() => {
+          refreshProjects();
+          setShowForm(false);
+        }}
       />
-
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={deleteConfirm.show}
-        onClose={() => setDeleteConfirm({ show: false, project: null })}
-        onConfirm={confirmDelete}
-        title="Delete Project?"
-        message={`Are you sure you want to delete "${deleteConfirm.project?.title}"? This action cannot be undone and will delete all associated data.`}
-        confirmText="Delete Project"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleting}
-      />
-
-      <style>{`
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-slideDown {
-          animation: slideDown 0.2s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

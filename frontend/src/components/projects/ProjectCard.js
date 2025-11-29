@@ -9,6 +9,7 @@ import { formatCurrency, getProjectStatus, getProjectCategoryLabel, getProjectTy
 const ProjectCard = ({ project, onEdit, onDelete }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
 
   const totalAllocation =
@@ -20,7 +21,16 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
     (project.overhead_allocation || 0);
 
   const openMenu = (e) => {
-    e.stopPropagation();                    // Critical: prevent card click
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.right - 224, // 224px = menu width
+      });
+    }
     setIsOpen(true);
   };
 
@@ -30,22 +40,60 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClick = (e) => {
+    const handleClickOutside = (e) => {
       if (triggerRef.current && !triggerRef.current.contains(e.target)) {
         closeMenu();
       }
     };
+
     const handleEscape = (e) => {
       if (e.key === 'Escape') closeMenu();
     };
 
-    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    
     return () => {
-      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
+
+  const handleViewDetails = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+    navigate(`/projects/${project.project_id}`);
+  };
+
+  const handleEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+    onEdit(project);
+  };
+
+  const handleAnalytics = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+    navigate(`/projects/${project.project_id}?tab=analytics`);
+  };
+
+  const handleDelete = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+    onDelete(project);
+  };
+
+  const handleCardClick = (e) => {
+    // Don't navigate if clicking the menu button or if menu is open
+    if (triggerRef.current?.contains(e.target) || isOpen) {
+      return;
+    }
+    navigate(`/projects/${project.project_id}`);
+  };
 
   const status = getProjectStatus(project);
   const statusColors = {
@@ -54,29 +102,30 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
     Upcoming: 'bg-blue-100 text-blue-800',
   };
 
-  // Get exact button position
-  const rect = triggerRef.current?.getBoundingClientRect();
-
   return (
     <>
       <Card
         hover
-        onClick={() => navigate(`/projects/${project.project_id}`)}
+        onClick={handleCardClick}
         className="cursor-pointer group relative transition-all duration-300"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
+        {/* Gradient background on hover */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
 
         <div className="relative z-10 flex items-center justify-between">
+          {/* Left Section - Project Info */}
           <div className="flex-1 min-w-0 pr-4">
+            {/* Title and Status */}
             <div className="flex items-center gap-3 mb-3">
               <h3 className="text-xl font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                 {project.title}
               </h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[status]}`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusColors[status]}`}>
                 {status}
               </span>
             </div>
 
+            {/* Meta Information */}
             <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
@@ -85,6 +134,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
               <span className="font-medium">{project.project_no}</span>
             </div>
 
+            {/* Category and Type Badges */}
             <div className="flex flex-wrap gap-2">
               <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-lg">
                 {getProjectCategoryLabel(project.project_category)}
@@ -94,13 +144,15 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
               </span>
               {project.PFMS_id && (
                 <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-lg">
-                  PFMS
+                  PFMS: {project.PFMS_id}
                 </span>
               )}
             </div>
           </div>
 
+          {/* Right Section - Budget and Actions */}
           <div className="flex items-center gap-6">
+            {/* Budget */}
             <div className="text-right">
               <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
               <div className="text-2xl font-bold text-slate-900">
@@ -108,10 +160,13 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
               </div>
             </div>
 
+            {/* Menu Button */}
             <button
               ref={triggerRef}
+              type="button"
               onClick={openMenu}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-10"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-20"
+              aria-label="Project actions"
             >
               <MoreVertical className="w-5 h-5 text-slate-600" />
             </button>
@@ -119,37 +174,79 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
         </div>
       </Card>
 
-      {/* Perfectly Positioned Portal Dropdown */}
+      {/* Portal-based Dropdown Menu */}
       {isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999]" onClick={closeMenu}>
+          <div 
+            className="fixed inset-0 z-[9999]"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeMenu();
+            }}
+          >
             <div
-              className="absolute bg-white rounded-xl shadow-2xl border border-slate-200 py-2 w-56"
+              className="absolute bg-white rounded-xl shadow-2xl border border-slate-200 py-2 w-56 animate-scaleIn"
               style={{
-                top: rect ? rect.bottom + 8 : 0,
-                left: rect ? rect.right - 224 : 0, // 224 = width 56rem ≈ 224px
-                transform: 'translateX(-100%)',    // align to right of button
+                top: `${menuPosition.top}px`,
+                left: `${menuPosition.left}px`,
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button onClick={() => { navigate(`/projects/${project.project_id}`); closeMenu(); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                <Eye className="w-4 h-4" /> View Details
+              <button
+                type="button"
+                onClick={handleViewDetails}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors text-left"
+              >
+                <Eye className="w-4 h-4" />
+                <span>View Details</span>
               </button>
-              <button onClick={() => { onEdit(project); closeMenu(); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                <Edit className="w-4 h-4" /> Edit Project
+              
+              <button
+                type="button"
+                onClick={handleEdit}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors text-left"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit Project</span>
               </button>
-              <button onClick={() => { navigate(`/projects/${project.project_id}?tab=analytics`); closeMenu(); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                <BarChart3 className="w-4 h-4" /> View Analytics
+              
+              <button
+                type="button"
+                onClick={handleAnalytics}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors text-left"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>View Analytics</span>
               </button>
+              
               <div className="border-t border-slate-200 my-1" />
-              <button onClick={() => { onDelete(project); closeMenu(); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
-                <Trash2 className="w-4 h-4" /> Delete Project
+              
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Project</span>
               </button>
             </div>
+
+            <style>{`
+              @keyframes scaleIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.95) translateY(-10px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+
+              .animate-scaleIn {
+                animation: scaleIn 0.15s ease-out;
+              }
+            `}</style>
           </div>,
           document.body
         )}

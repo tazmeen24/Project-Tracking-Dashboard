@@ -1,8 +1,8 @@
 // components/common/DropdownMenu.js
-import React, { useState, useRef, useEffect } from "react";
-import { MoreVertical } from "lucide-react";
+import React, { useState, useRef, useEffect } from 'react';
+import { MoreVertical } from 'lucide-react';
 
-const DropdownMenu = ({ children, align = "right" }) => {
+const DropdownMenu = ({ children, align = 'right' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -13,55 +13,47 @@ const DropdownMenu = ({ children, align = "right" }) => {
       }
     };
 
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, []);
+
+  const handleToggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+  };
 
   const alignmentClasses = {
-    left: "left-0",
-    right: "right-0",
+    left: 'left-0',
+    right: 'right-0',
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-50" ref={dropdownRef}>
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(!isOpen);
-        }}
+        type="button"
+        onClick={handleToggle}
         className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
       >
         <MoreVertical className="w-5 h-5 text-slate-600" />
       </button>
 
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Menu */}
-          <div
-            className={`absolute ${alignmentClasses[align]} top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 animate-scaleIn`}
-          >
-            {React.Children.map(children, (child) =>
-              React.cloneElement(child, {
-                onClick: (e) => {
-                  e.stopPropagation();
-                  child.props.onClick?.(e);
-                  setIsOpen(false);
-                },
-              })
-            )}
-          </div>
-        </>
+        <div
+          className={`absolute ${alignmentClasses[align]} top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-[100] animate-scaleIn`}
+        >
+          {React.Children.map(children, (child) =>
+            React.cloneElement(child, {
+              onClose: handleClose,
+            })
+          )}
+        </div>
       )}
 
       <style>{`
@@ -84,21 +76,28 @@ const DropdownMenu = ({ children, align = "right" }) => {
   );
 };
 
-export const DropdownMenuItem = ({
-  icon: Icon,
-  children,
-  onClick,
-  variant = "default",
-}) => {
+export const DropdownMenuItem = ({ icon: Icon, children, onClick, onClose, variant = 'default' }) => {
   const variantClasses = {
-    default: "text-slate-700 hover:bg-slate-50",
-    danger: "text-red-600 hover:bg-red-50",
+    default: 'text-slate-700 hover:bg-slate-50',
+    danger: 'text-red-600 hover:bg-red-50',
+  };
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onClick) {
+      onClick(e);
+    }
+    if (onClose) {
+      onClose();
+    }
   };
 
   return (
     <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${variantClasses[variant]}`}
+      type="button"
+      onClick={handleClick}
+      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${variantClasses[variant]}`}
     >
       {Icon && <Icon className="w-4 h-4" />}
       <span>{children}</span>
