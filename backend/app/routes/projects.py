@@ -164,12 +164,17 @@ async def get_projects():
         conn.close()
 
 
+# UPDATED GET PROJECT ENDPOINT FOR PROJECTDETAILS
+
+# FIXED GET PROJECT ENDPOINT - Replace in projects.py around line 167
+
 @router.get("/{project_id}")
 async def get_project(project_id: int):
-    """Get single project details with investigators"""
+    """Get complete project details - FIXED version with correct column names"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Get main project data
             cur.execute("""
                 SELECT 
                     p.project_id,
@@ -179,10 +184,12 @@ async def get_project(project_id: int):
                     p.project_category,
                     p.project_type,
                     p.PFMS_id,
-                    tg.name AS technical_group_name,
-                    fa.name AS funding_agency_name,
                     p.start_date,
                     p.end_date,
+                    p.technical_group_id,
+                    p.funding_agency_id,
+                    tg.name AS technical_group_name,
+                    fa.name AS funding_agency_name,
                     i.principal_investigator,
                     i.pi_email,
                     i.pi_mobile,
@@ -195,19 +202,194 @@ async def get_project(project_id: int):
                 LEFT JOIN investigators i ON p.project_id = i.project_id
                 WHERE p.project_id = %s
             """, (project_id,))
-            project = cur.fetchone()
             
+            project = cur.fetchone()
             if not project:
                 raise HTTPException(status_code=404, detail="Project not found")
+            
+            project_dict = dict(project)
+            
+            # Try to get funding agency details
+            try:
+                cur.execute("""
+                    SELECT 
+                        contact_person,
+                        designation as contact_designation,
+                        mobile as contact_mobile,
+                        email as contact_email,
+                        sanctioned_number,
+                        scheme as funding_scheme,
+                        cna_sub_agency,
+                        bank_name,
+                        bank_account_no
+                    FROM funding_agency_details
+                    WHERE agency_id = %s
+                """, (project_dict['funding_agency_id'],))
                 
-            return json.loads(json.dumps(dict(project), cls=DecimalEncoder))
+                fad = cur.fetchone()
+                if fad:
+                    project_dict.update(dict(fad))
+            except Exception as e:
+                print(f"Funding agency details not available: {e}")
+            
+            # Get budget allocations
+            try:
+                cur.execute("""
+                    SELECT head, allocated_amount
+                    FROM budget_allocation
+                    WHERE project_id = %s
+                """, (project_id,))
+                
+                budget_allocations = {}
+                for row in cur.fetchall():
+                    budget_allocations[row['head']] = float(row['allocated_amount'])
+                
+                project_dict['manpower_allocation'] = budget_allocations.get('manpower', 0)
+                project_dict['equipment_allocation'] = budget_allocations.get('equipment', 0)
+                project_dict['travel_training_allocation'] = budget_allocations.get('travel & training', 0)
+                project_dict['consumables_allocation'] = budget_allocations.get('consumables', 0)
+                project_dict['contingency_allocation'] = budget_allocations.get('contingency', 0)
+                project_dict['overhead_allocation'] = budget_allocations.get('overhead', 0)
+            except Exception as e:
+                print(f"Budget allocations error: {e}")
+                project_dict['manpower_allocation'] = 0
+                project_dict['equipment_allocation'] = 0
+                project_dict['travel_training_allocation'] = 0
+                project_dict['consumables_allocation'] = 0
+                project_dict['contingency_allocation'] = 0
+                project_dict['overhead_allocation'] = 0
+            
+            # Get manpower breakdown - REMOVED ORDER BY id
+            try:
+                cur.execute("""
+                    SELECT 
+                        role,
+                        salary_per_month,
+                        months,
+                        num_personnel,
+                        qualification,
+                        experience_required
+                    FROM manpower_allocation_breakdown
+                    WHERE project_id = %s
+                """, (project_id,))
+                project_dict['manpower_breakdown'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Manpower breakdown error: {e}")
+                project_dict['manpower_breakdown'] = []
+            
+            # Get equipment breakdown - REMOVED ORDER BY id
+            try:
+                cur.execute("""
+                    SELECT 
+                        item_name,
+                        quantity,
+                        unit_cost,
+                        description,
+                        product_website
+                    FROM equipment_allocation_breakdown
+                    WHERE project_id = %s
+                """, (project_id,))
+                project_dict['equipment_breakdown'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Equipment breakdown error: {e}")
+                project_dict['equipment_breakdown'] = []
+            
+            # Get funds received
+            try:
+                cur.execute("""
+                    SELECT 
+                        head,
+                        amount,
+                        date_received,
+                        remarks
+                    FROM funds_received
+                    WHERE project_id = %s
+                    ORDER BY date_received DESC
+                """, (project_id,))
+                project_dict['funds_received'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Funds received error: {e}")
+                project_dict['funds_received'] = []
+            
+            # Get manpower expenditure
+            try:
+                cur.execute("""
+                    SELECT 
+                        role,
+                        salary_per_month,
+                        months,
+                        num_personnel,
+                        date_incurred
+                    FROM manpower_expenditure
+                    WHERE project_id = %s
+                    ORDER BY date_incurred DESC
+                """, (project_id,))
+                project_dict['manpower_expenditure'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Manpower expenditure error: {e}")
+                project_dict['manpower_expenditure'] = []
+            
+            # Get equipment expenditure
+            try:
+                cur.execute("""
+                    SELECT 
+                        name,
+                        quantity,
+                        unit_cost,
+                        purchase_date
+                    FROM equipment_expenditure
+                    WHERE project_id = %s
+                    ORDER BY purchase_date DESC
+                """, (project_id,))
+                project_dict['equipment_expenditure'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Equipment expenditure error: {e}")
+                project_dict['equipment_expenditure'] = []
+            
+            # Get other expenditure
+            try:
+                cur.execute("""
+                    SELECT 
+                        head,
+                        amount,
+                        description,
+                        date_incurred
+                    FROM budget_expenditure
+                    WHERE project_id = %s
+                    ORDER BY date_incurred DESC
+                """, (project_id,))
+                project_dict['other_expenditure'] = [
+                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
+                    for row in cur.fetchall()
+                ]
+            except Exception as e:
+                print(f"Other expenditure error: {e}")
+                project_dict['other_expenditure'] = []
+            
+            return json.loads(json.dumps(project_dict, cls=DecimalEncoder))
+            
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error in get_project: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
     finally:
         conn.close()
-
 
 @router.put("/{project_id}")
 async def update_project(project_id: int, project: ProjectUpdate):
