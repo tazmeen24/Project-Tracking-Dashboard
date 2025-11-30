@@ -40,6 +40,7 @@ const ProjectForm = ({ isOpen, onClose, onSuccess, editProject = null }) => {
     refreshFundingAgencies,
     refreshTechnicalGroups,
   } = useProject();
+  const [loadingProjectData, setLoadingProjectData] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -91,97 +92,85 @@ const ProjectForm = ({ isOpen, onClose, onSuccess, editProject = null }) => {
   });
 
   // Populate form when editing
-  useEffect(() => {
-    if (editProject && isOpen) {
-      setFormData({
-        // Step 1: Project Metadata
-        project_no: editProject.project_no || "",
-        title: editProject.title || "",
-        alias: editProject.alias || "",
-        project_category: editProject.project_category || "sponsored",
-        project_type: editProject.project_type || "PFMS",
-        PFMS_id: editProject.PFMS_id || "",
-        technical_group_id: editProject.technical_group_id || "",
-        funding_agency_id: editProject.funding_agency_id || "",
+  // Fetch FULL project data when editing
+useEffect(() => {
+  const fetchAndPopulateProject = async () => {
+    if (editProject && editProject.project_id) {
+      setLoadingProjectData(true);
+      console.log("🔄 Fetching full project data for ID:", editProject.project_id);
+      
+      try {
+        // Use the SAME endpoint as ProjectDetails to get COMPLETE data
+        const fullProject = await projectService.getProject(editProject.project_id);
+        console.log("✅ Received full project:", fullProject);
+        
+        // Populate ALL fields
+        setFormData({
+          // Step 1: Project Metadata
+          project_no: fullProject.project_no || '',
+          title: fullProject.title || '',
+          alias: fullProject.alias || '',
+          project_category: fullProject.project_category || 'sponsored',
+          project_type: fullProject.project_type || 'PFMS',
+          PFMS_id: fullProject.PFMS_id || '',
+          technical_group_id: fullProject.technical_group_id || '',
+          funding_agency_id: fullProject.funding_agency_id || '',
 
-        // Step 2: Funding Agency Details
-        funding_scheme: editProject.funding_scheme || "",
-        cna_sub_agency: editProject.cna_sub_agency || "",
-        sanctioned_number: editProject.sanctioned_number || "",
-        contact_person: editProject.contact_person || "",
-        contact_designation: editProject.contact_designation || "",
-        contact_mobile: editProject.contact_mobile || "",
-        contact_email: editProject.contact_email || "",
-        bank_name: editProject.bank_name || "",
-        bank_account_no: editProject.bank_account_no || "",
+          // Step 2: Funding Agency Details
+          funding_scheme: fullProject.funding_scheme || '',
+          cna_sub_agency: fullProject.cna_sub_agency || '',
+          sanctioned_number: fullProject.sanctioned_number || '',
+          contact_person: fullProject.contact_person || '',
+          contact_designation: fullProject.contact_designation || '',
+          contact_mobile: fullProject.contact_mobile || '',
+          contact_email: fullProject.contact_email || '',
+          bank_name: fullProject.bank_name || '',
+          bank_account_no: fullProject.bank_account_no || '',
 
-        // Step 3: Investigators
-        principal_investigator: editProject.principal_investigator || "",
-        pi_email: editProject.pi_email || "",
-        pi_mobile: editProject.pi_mobile || "",
-        co_investigator: editProject.co_investigator || "",
-        co_email: editProject.co_email || "",
-        co_mobile: editProject.co_mobile || "",
+          // Step 3: Investigators
+          principal_investigator: fullProject.principal_investigator || '',
+          pi_email: fullProject.pi_email || '',
+          pi_mobile: fullProject.pi_mobile || '',
+          co_investigator: fullProject.co_investigator || '',
+          co_email: fullProject.co_email || '',
+          co_mobile: fullProject.co_mobile || '',
 
-        // Step 4: Timeline - Format dates for input[type="date"]
-        start_date: editProject.start_date
-          ? new Date(editProject.start_date).toISOString().split("T")[0]
-          : "",
-        end_date: editProject.end_date
-          ? new Date(editProject.end_date).toISOString().split("T")[0]
-          : "",
+          // Step 4: Timeline
+          start_date: fullProject.start_date || '',
+          end_date: fullProject.end_date || '',
 
-        // Step 5: Budget Setup
-        manpower_allocation: editProject.manpower_allocation || 0,
-        equipment_allocation: editProject.equipment_allocation || 0,
-        travel_training_allocation: editProject.travel_training_allocation || 0,
-        consumables_allocation: editProject.consumables_allocation || 0,
-        contingency_allocation: editProject.contingency_allocation || 0,
-        overhead_allocation: editProject.overhead_allocation || 0,
-        manpower_breakdown: editProject.manpower_breakdown || [],
-        equipment_breakdown: editProject.equipment_breakdown || [],
-      });
-      setCurrentStep(1); // Reset to first step
-    } else if (!editProject && isOpen) {
-      // Reset form for new project
-      setFormData({
-        project_no: "",
-        title: "",
-        alias: "",
-        project_category: "sponsored",
-        project_type: "PFMS",
-        PFMS_id: "",
-        technical_group_id: "",
-        funding_agency_id: "",
-        funding_scheme: "",
-        cna_sub_agency: "",
-        sanctioned_number: "",
-        contact_person: "",
-        contact_designation: "",
-        contact_mobile: "",
-        contact_email: "",
-        bank_name: "",
-        bank_account_no: "",
-        principal_investigator: "",
-        pi_email: "",
-        pi_mobile: "",
-        co_investigator: "",
-        co_email: "",
-        co_mobile: "",
-        start_date: "",
-        end_date: "",
-        manpower_allocation: 0,
-        equipment_allocation: 0,
-        travel_training_allocation: 0,
-        consumables_allocation: 0,
-        contingency_allocation: 0,
-        overhead_allocation: 0,
-        manpower_breakdown: [],
-        equipment_breakdown: [],
-      });
-      setCurrentStep(1);
+          // Step 5: Budget
+          manpower_allocation: Number(fullProject.manpower_allocation) || 0,
+          equipment_allocation: Number(fullProject.equipment_allocation) || 0,
+          travel_training_allocation: Number(fullProject.travel_training_allocation) || 0,
+          consumables_allocation: Number(fullProject.consumables_allocation) || 0,
+          contingency_allocation: Number(fullProject.contingency_allocation) || 0,
+          overhead_allocation: Number(fullProject.overhead_allocation) || 0,
+          
+          manpower_breakdown: fullProject.manpower_breakdown && fullProject.manpower_breakdown.length > 0 
+            ? fullProject.manpower_breakdown
+            : [],
+          
+          equipment_breakdown: fullProject.equipment_breakdown && fullProject.equipment_breakdown.length > 0
+            ? fullProject.equipment_breakdown
+            : []
+        });
+        
+        console.log("✅ Form populated!");
+        
+      } catch (error) {
+        console.error("❌ Error fetching project:", error);
+        alert("Failed to load project data");
+      } finally {
+        setLoadingProjectData(false);
+      }
     }
-  }, [editProject, isOpen]);
+  };
+  
+  if (isOpen && editProject) {
+    fetchAndPopulateProject();
+  }
+}, [editProject, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -551,6 +540,20 @@ const ProjectForm = ({ isOpen, onClose, onSuccess, editProject = null }) => {
         return null;
     }
   };
+
+  // Show loading while fetching project data
+if (loadingProjectData) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Loading Project..." size="xl">
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading project data...</p>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
   return (
     <Modal

@@ -13,14 +13,14 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.post("")
 async def create_project(project: ProjectCreate):
-    """Create a new project with budget allocations and investigator details"""
+    """Create a new project with budget allocations, investigator details, and funding agency details"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             validate_foreign_key("funding_agencies", "agency_id", project.funding_agency_id, conn)
             validate_foreign_key("technical_groups", "group_id", project.technical_group_id, conn)
             
-            # Create project with new fields
+            # Create project
             cur.execute(
                 """INSERT INTO projects 
                    (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id,
@@ -42,15 +42,70 @@ async def create_project(project: ProjectCreate):
             project_result = cur.fetchone()
             project_id = project_result['project_id']
             
-            # Create investigator record
+            # Create investigator record (with proper None handling for co-investigator)
             cur.execute(
                 """INSERT INTO investigators 
                    (project_id, principal_investigator, pi_email, pi_mobile, 
                     co_investigator, co_email, co_mobile)
                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (project_id, project.principal_investigator, project.pi_email, project.pi_mobile,
-                 project.co_investigator, project.co_email, project.co_mobile)
+                 project.co_investigator if project.co_investigator else None, 
+                 project.co_email if project.co_email else None, 
+                 project.co_mobile if project.co_mobile else None)
             )
+            
+            # ============= NEW: Handle Funding Agency Details =============
+            # Check if funding agency details are provided
+            if project.contact_person:
+                # Check if details already exist for this agency
+                cur.execute(
+                    "SELECT id FROM funding_agency_details WHERE agency_id = %s",
+                    (project.funding_agency_id,)
+                )
+                existing_details = cur.fetchone()
+                
+                if existing_details:
+                    # Update existing details
+                    cur.execute(
+                        """UPDATE funding_agency_details 
+                           SET contact_person = %s, designation = %s, mobile = %s, email = %s,
+                               sanctioned_number = %s, scheme = %s, cna_sub_agency = %s,
+                               bank_name = %s, bank_account_no = %s
+                           WHERE agency_id = %s""",
+                        (
+                            project.contact_person,
+                            project.contact_designation if project.contact_designation else None,
+                            project.contact_mobile if project.contact_mobile else None,
+                            project.contact_email if project.contact_email else None,
+                            project.sanctioned_number if project.sanctioned_number else None,
+                            project.funding_scheme if project.funding_scheme else None,
+                            project.cna_sub_agency if project.cna_sub_agency else None,
+                            project.bank_name if project.bank_name else None,
+                            project.bank_account_no if project.bank_account_no else None,
+                            project.funding_agency_id
+                        )
+                    )
+                else:
+                    # Create new details
+                    cur.execute(
+                        """INSERT INTO funding_agency_details 
+                           (agency_id, contact_person, designation, mobile, email,
+                            sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        (
+                            project.funding_agency_id,
+                            project.contact_person,
+                            project.contact_designation if project.contact_designation else None,
+                            project.contact_mobile if project.contact_mobile else None,
+                            project.contact_email if project.contact_email else None,
+                            project.sanctioned_number if project.sanctioned_number else None,
+                            project.funding_scheme if project.funding_scheme else None,
+                            project.cna_sub_agency if project.cna_sub_agency else None,
+                            project.bank_name if project.bank_name else None,
+                            project.bank_account_no if project.bank_account_no else None
+                        )
+                    )
+            # ============================================================
             
             # Create budget allocations
             budget_heads = [
@@ -77,7 +132,9 @@ async def create_project(project: ProjectCreate):
                                (allocation_id, project_id, role, salary_per_month, months, num_personnel, qualification, experience_required)
                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                             (allocation_id, project_id, item.role, 
-                             item.salary_per_month, item.months, item.num_personnel, item.qualification, item.experience_required)
+                             item.salary_per_month, item.months, item.num_personnel, 
+                             item.qualification if hasattr(item, 'qualification') else None, 
+                             item.experience_required if hasattr(item, 'experience_required') else None)
                         )
                 
                 # Insert equipment breakdown
@@ -88,12 +145,14 @@ async def create_project(project: ProjectCreate):
                                (allocation_id, project_id, item_name, quantity, unit_cost, description, product_website)
                                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                             (allocation_id, project_id, item.item_name, 
-                             item.quantity, item.unit_cost, item.description, item.product_website)
+                             item.quantity, item.unit_cost, 
+                             item.description if hasattr(item, 'description') else None, 
+                             item.product_website if hasattr(item, 'product_website') else None)
                         )
             
             conn.commit()
             
-            # Return project with investigators and budget
+            # Return complete project data
             cur.execute("""
                 SELECT p.*, 
                        i.principal_investigator, i.pi_email, i.pi_mobile,
@@ -164,13 +223,9 @@ async def get_projects():
         conn.close()
 
 
-# UPDATED GET PROJECT ENDPOINT FOR PROJECTDETAILS
-
-# FIXED GET PROJECT ENDPOINT - Replace in projects.py around line 167
-
 @router.get("/{project_id}")
 async def get_project(project_id: int):
-    """Get complete project details - FIXED version with correct column names"""
+    """Get complete project details - FIXED version with all corrections"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -209,7 +264,7 @@ async def get_project(project_id: int):
             
             project_dict = dict(project)
             
-            # Try to get funding agency details
+            # Get funding agency details
             try:
                 cur.execute("""
                     SELECT 
@@ -259,7 +314,7 @@ async def get_project(project_id: int):
                 project_dict['contingency_allocation'] = 0
                 project_dict['overhead_allocation'] = 0
             
-            # Get manpower breakdown - REMOVED ORDER BY id
+            # Get manpower breakdown
             try:
                 cur.execute("""
                     SELECT 
@@ -280,7 +335,7 @@ async def get_project(project_id: int):
                 print(f"Manpower breakdown error: {e}")
                 project_dict['manpower_breakdown'] = []
             
-            # Get equipment breakdown - REMOVED ORDER BY id
+            # Get equipment breakdown
             try:
                 cur.execute("""
                     SELECT 
@@ -320,7 +375,7 @@ async def get_project(project_id: int):
                 print(f"Funds received error: {e}")
                 project_dict['funds_received'] = []
             
-            # Get manpower expenditure
+            # FIXED: Get manpower expenditure (correct table name)
             try:
                 cur.execute("""
                     SELECT 
@@ -329,7 +384,7 @@ async def get_project(project_id: int):
                         months,
                         num_personnel,
                         date_incurred
-                    FROM manpower_expenditure
+                    FROM manpower
                     WHERE project_id = %s
                     ORDER BY date_incurred DESC
                 """, (project_id,))
@@ -341,7 +396,7 @@ async def get_project(project_id: int):
                 print(f"Manpower expenditure error: {e}")
                 project_dict['manpower_expenditure'] = []
             
-            # Get equipment expenditure
+            # FIXED: Get equipment expenditure (correct table name)
             try:
                 cur.execute("""
                     SELECT 
@@ -349,7 +404,7 @@ async def get_project(project_id: int):
                         quantity,
                         unit_cost,
                         purchase_date
-                    FROM equipment_expenditure
+                    FROM equipment
                     WHERE project_id = %s
                     ORDER BY purchase_date DESC
                 """, (project_id,))
@@ -491,337 +546,5 @@ async def update_project(project_id: int, project: ProjectUpdate):
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
-
-
-@router.get("/{project_id}/manpower-remaining")
-async def get_manpower_remaining(project_id: int):
-    """Get remaining manpower positions to be filled"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT 
-                    mab.role,
-                    mab.salary_per_month,
-                    SUM(mab.num_personnel) as planned_positions,
-                    COALESCE(SUM(m.num_personnel), 0) as filled_positions,
-                    SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) as remaining_positions
-                FROM manpower_allocation_breakdown mab
-                LEFT JOIN manpower m ON mab.project_id = m.project_id AND mab.role = m.role
-                WHERE mab.project_id = %s
-                GROUP BY mab.role, mab.salary_per_month
-                HAVING SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) > 0
-                ORDER BY mab.role
-            """, (project_id,))
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-@router.get("/{project_id}/equipment-remaining")
-async def get_equipment_remaining(project_id: int):
-    """Get remaining equipment to be purchased"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT 
-                    eab.item_name,
-                    eab.unit_cost,
-                    SUM(eab.quantity) as planned_quantity,
-                    COALESCE(SUM(e.quantity), 0) as purchased_quantity,
-                    SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) as remaining_quantity
-                FROM equipment_allocation_breakdown eab
-                LEFT JOIN equipment e ON eab.project_id = e.project_id AND eab.item_name = e.name
-                WHERE eab.project_id = %s
-                GROUP BY eab.item_name, eab.unit_cost
-                HAVING SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) > 0
-                ORDER BY eab.item_name
-            """, (project_id,))
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-@router.get("/{project_id}/budget-breakdown-comparison")
-async def get_budget_breakdown_comparison(
-    project_id: int,
-    as_of_date: Optional[str] = Query(None, description="Cumulative as of date in YYYY-MM-DD format"),
-    start_date: Optional[str] = Query(None, description="Start date for range filter in YYYY-MM-DD format"),
-    end_date: Optional[str] = Query(None, description="End date for range filter in YYYY-MM-DD format"),
-    conn = Depends(get_db_connection)
-):
-    """
-    Get budget breakdown comparison showing allocated vs received vs spent
-    
-    This endpoint supports two modes:
-    1. Cumulative mode (as_of_date): Returns data from project start up to specified date
-       Example: ?as_of_date=2025-11-27
-    
-    2. Range mode (start_date & end_date): Returns data for a specific date range
-       Example: ?start_date=2025-01-01&end_date=2025-11-27
-    
-    Returns breakdown for all budget heads (manpower, equipment, consumables, etc.)
-    """
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Validate project exists
-            cur.execute("SELECT 1 FROM projects WHERE project_id = %s", (project_id,))
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Project not found")
-            
-            # Determine filter mode
-            if start_date and end_date:
-                # Date range mode
-                date_condition_fr = "fr.date_received BETWEEN %s AND %s"
-                date_condition_be = "be.date_incurred BETWEEN %s AND %s"
-                date_condition_m = "m.date_incurred BETWEEN %s AND %s"
-                date_condition_e = "e.purchase_date BETWEEN %s AND %s"
-                date_params = [start_date, end_date] * 4
-                filter_label = f"between {start_date} and {end_date}"
-            else:
-                # As of date mode (cumulative)
-                filter_date = as_of_date if as_of_date else datetime.now().strftime('%Y-%m-%d')
-                date_condition_fr = "fr.date_received <= %s"
-                date_condition_be = "be.date_incurred <= %s"
-                date_condition_m = "m.date_incurred <= %s"
-                date_condition_e = "e.purchase_date <= %s"
-                date_params = [filter_date] * 4
-                filter_label = f"as of {filter_date}"
-            
-            # Query budget breakdown with date filtering
-            cur.execute(f"""
-                SELECT 
-                    ba.head,
-                    COALESCE(ba.allocated_amount, 0) as approved_budget,
-                    COALESCE(SUM(CASE 
-                        WHEN {date_condition_fr} THEN fr.amount 
-                        ELSE 0 
-                    END), 0) as funds_received,
-                    COALESCE(SUM(CASE 
-                        WHEN {date_condition_be} THEN be.amount 
-                        ELSE 0 
-                    END), 0) as expenditure_general,
-                    COALESCE(SUM(CASE 
-                        WHEN {date_condition_m} THEN m.salary_per_month * m.months * m.num_personnel 
-                        ELSE 0 
-                    END), 0) as expenditure_manpower,
-                    COALESCE(SUM(CASE 
-                        WHEN {date_condition_e} THEN e.quantity * e.unit_cost 
-                        ELSE 0 
-                    END), 0) as expenditure_equipment
-                FROM budget_allocation ba
-                LEFT JOIN funds_received fr ON ba.project_id = fr.project_id AND ba.head = fr.head
-                LEFT JOIN budget_expenditure be ON ba.project_id = be.project_id AND ba.head = be.head
-                LEFT JOIN manpower m ON ba.project_id = m.project_id AND ba.head = 'manpower'
-                LEFT JOIN equipment e ON ba.project_id = e.project_id AND ba.head = 'equipment'
-                WHERE ba.project_id = %s
-                GROUP BY ba.head, ba.allocated_amount
-                ORDER BY ba.head
-            """, (*date_params, project_id))
-            
-            results = cur.fetchall()
-            
-            # Process results
-            processed_results = []
-            for row in results:
-                total_expenditure = (
-                    float(row['expenditure_general']) +
-                    float(row['expenditure_manpower']) +
-                    float(row['expenditure_equipment'])
-                )
-                processed_results.append({
-                    'head': row['head'],
-                    'approved_budget': float(row['approved_budget']),
-                    'funds_received': float(row['funds_received']),
-                    'total_expenditure': total_expenditure,
-                    'unspent_balance': float(row['funds_received']) - total_expenditure
-                })
-            
-            return {
-                'project_id': project_id,
-                'filter_type': 'range' if start_date and end_date else 'as_of',
-                'filter_label': filter_label,
-                'data': processed_results
-            }
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
-
-
-# Optional: Add these helper endpoints if they don't exist yet
-
-@router.get("/{project_id}/manpower-plan-vs-actual")
-async def get_manpower_plan_vs_actual(
-    project_id: int,
-    conn = Depends(get_db_connection)
-):
-    """Get manpower plan vs actual using database view"""
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM manpower_plan_vs_actual WHERE project_id = %s",
-                (project_id,)
-            )
-            results = cur.fetchall()
-            return [dict(row) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
-
-
-@router.get("/{project_id}/equipment-plan-vs-actual")
-async def get_equipment_plan_vs_actual(
-    project_id: int,
-    conn = Depends(get_db_connection)
-):
-    """Get equipment plan vs actual using database view"""
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM equipment_plan_vs_actual WHERE project_id = %s",
-                (project_id,)
-            )
-            results = cur.fetchall()
-            return [dict(row) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
-
-
-@router.get("/{project_id}/funds-breakdown-summary")
-async def get_funds_breakdown_summary(
-    project_id: int,
-    conn = Depends(get_db_connection)
-):
-    """Get funds breakdown summary using database view"""
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM funds_breakdown_summary WHERE project_id = %s",
-                (project_id,)
-            )
-            results = cur.fetchall()
-            return [dict(row) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-#  Delete project
-@router.delete("/{project_id}")
-async def delete_project(project_id: int):
-    """Delete a project"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("DELETE FROM projects WHERE project_id = %s RETURNING *", (project_id,))
-            result = cur.fetchone()
-            if not result:
-                raise HTTPException(status_code=404, detail="Project not found")
-            conn.commit()
-            return {"message": "Project deleted successfully"}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
-
-
-#  Get manpower allocation breakdown
-@router.get("/{project_id}/manpower-allocation-breakdown")
-async def get_project_manpower_allocation_breakdown(project_id: int):
-    """Get manpower allocation breakdown for project"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM  WHERE project_id = %s",
-                (project_id,)
-            )
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-#  Get equipment allocation breakdown
-@router.get("/{project_id}/equipment-allocation-breakdown")
-async def get_project_equipment_allocation_breakdown(project_id: int):
-    """Get equipment allocation breakdown for project"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM equipment_allocation_breakdown WHERE project_id = %s",
-                (project_id,)
-            )
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in cur.fetchall()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-#  Get approved manpower roles
-@router.get("/{project_id}/approved-manpower-roles")
-async def get_approved_manpower_roles(project_id: int):
-    """Get list of approved manpower roles with availability"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT 
-                    mab.role,
-                    mab.salary_per_month,
-                    mab.months,
-                    SUM(mab.num_personnel) as approved_posts,
-                    COALESCE(SUM(m.num_personnel), 0) as assigned_posts,
-                    SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) as available_posts
-                FROM manpower_allocation_breakdown mab
-                LEFT JOIN manpower m ON mab.project_id = m.project_id AND mab.role = m.role
-                WHERE mab.project_id = %s
-                GROUP BY mab.role, mab.salary_per_month, mab.months
-                HAVING SUM(mab.num_personnel) - COALESCE(SUM(m.num_personnel), 0) > 0
-                ORDER BY mab.role
-            """, (project_id,))
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-
-# MISSING ROUTE 5: Get approved equipment items
-@router.get("/{project_id}/approved-equipment-items")
-async def get_approved_equipment_items(project_id: int):
-    """Get list of approved equipment items with availability"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT 
-                    eab.item_name,
-                    eab.unit_cost,
-                    SUM(eab.quantity) as approved_quantity,
-                    COALESCE(SUM(e.quantity), 0) as purchased_quantity,
-                    SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) as available_quantity
-                FROM equipment_allocation_breakdown eab
-                LEFT JOIN equipment e ON eab.project_id = e.project_id AND eab.item_name = e.name
-                WHERE eab.project_id = %s
-                GROUP BY eab.item_name, eab.unit_cost
-                HAVING SUM(eab.quantity) - COALESCE(SUM(e.quantity), 0) > 0
-                ORDER BY eab.item_name
-            """, (project_id,))
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()

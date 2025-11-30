@@ -1,5 +1,5 @@
 // components/layout/Layout.js
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { LogOut, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,13 +7,14 @@ import Sidebar from '../common/Sidebar';
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       
       {/* Main Content Area */}
-      <div className="ml-64">
+      <div className={`transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
           <div className="px-8 py-4">

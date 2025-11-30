@@ -91,7 +91,7 @@ class ProjectCreate(BaseModel):
     funding_agency_id: int
     technical_group_id: int
     
-    # New fields for project categorization
+    # Project categorization
     project_category: Literal['sponsored', 'non-sponsored']
     project_type: Literal['PFMS', 'NON-PFMS', 'contract-research']
     PFMS_id: Optional[str] = None
@@ -103,6 +103,18 @@ class ProjectCreate(BaseModel):
     co_investigator: Optional[str] = None
     co_email: Optional[EmailStr] = None
     co_mobile: Optional[str] = None
+    
+    # ============= NEW: Funding Agency Details (Step 2) =============
+    contact_person: Optional[str] = None
+    contact_designation: Optional[str] = None
+    contact_mobile: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    sanctioned_number: Optional[str] = None
+    funding_scheme: Optional[str] = None
+    cna_sub_agency: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account_no: Optional[str] = None
+    # ================================================================
     
     # Budget allocations
     manpower_allocation: Optional[float] = 0.0
@@ -135,7 +147,7 @@ class ProjectCreate(BaseModel):
             raise ValueError('Allocation amounts must be non-negative')
         return v
     
-    @field_validator('pi_mobile', 'co_mobile')
+    @field_validator('pi_mobile', 'co_mobile', 'contact_mobile')
     @classmethod
     def validate_mobile(cls, v):
         if v is not None and v:

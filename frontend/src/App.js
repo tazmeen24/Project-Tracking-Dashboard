@@ -1,43 +1,59 @@
+// App.js - Updated routing configuration for full-page views
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProjectProvider } from './contexts/ProjectContext';
-import PrivateRoute from './components/common/PrivateRoute';
 import Layout from './components/layout/Layout';
 
-// Pages
+// Auth Pages
 import LoginPage from './pages/LoginPage';
+
+// Main Pages
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/ProjectsPage';
-import ProjectDetailsPage from './pages/ProjectDetailsPage';
+import AddEditProjectPage from './pages/AddEditProjectPage';
+import ProjectDetailsFullPage from './pages/ProjectDetailsFullPage';
 import BudgetBreakdownPage from './pages/BudgetBreakdownPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
 import FundingAgenciesPage from './pages/FundingAgenciesPage';
 import TechnicalGroupsPage from './pages/TechnicalGroupsPage';
 
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const isAuthenticated = localStorage.getItem('token');
+  return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
 function App() {
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <Router>
+    <BrowserRouter>
+      <AuthProvider>
+        <ProjectProvider>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected Routes with Layout */}
+            {/* Protected Routes */}
             <Route
               path="/"
               element={
-                <PrivateRoute>
+                <ProtectedRoute>
                   <Layout />
-                </PrivateRoute>
+                </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              {/* Dashboard */}
+              <Route index element={<Navigate to="/dashboard" />} />
               <Route path="dashboard" element={<Dashboard />} />
+
+              {/* Projects Routes */}
               <Route path="projects" element={<ProjectsPage />} />
-              <Route path="projects/:projectId" element={<ProjectDetailsPage />} />
+              <Route path="projects/new" element={<AddEditProjectPage />} />
+              <Route path="projects/:projectId" element={<ProjectDetailsFullPage />} />
+              <Route path="projects/:projectId/edit" element={<AddEditProjectPage />} />
+
+              {/* Other Routes */}
               <Route path="budget-breakdown" element={<BudgetBreakdownPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="reports" element={<ReportsPage />} />
@@ -45,12 +61,12 @@ function App() {
               <Route path="technical-groups" element={<TechnicalGroupsPage />} />
             </Route>
 
-            {/* Catch all - redirect to dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* 404 Catch-all */}
+            <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
-        </Router>
-      </ProjectProvider>
-    </AuthProvider>
+        </ProjectProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
