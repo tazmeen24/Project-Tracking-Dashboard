@@ -1,152 +1,306 @@
-# app/routes/manpower.py
-from fastapi import APIRouter, HTTPException
+# backend/app/routes/manpower.py
+
+"""
+MANPOWER EXPENDITURES (Actual)
+
+This handles ACTUAL manpower expenditures in the 'manpower' table.
+This is different from:
+- manpower_allocation_breakdown (planned/allocated)
+- manpower_funds_breakdown (funds received breakdown)
+"""
+
+from fastapi import APIRouter, HTTPException, Query, status
 from psycopg2.extras import RealDictCursor
+from typing import Optional
+from datetime import date
 import json
 
 from ..database import get_db_connection, validate_foreign_key
-from ..models.expenditure import ManpowerCreate, ManpowerUpdate
 from ..utils.json_encoder import DecimalEncoder
-from ..utils.validators import (
-    validate_transaction_date,
-    validate_manpower_salary_against_breakdown,
-    validate_manpower_against_approved_posts,
-    validate_expenditure_against_budget
-)
 
-router = APIRouter(prefix="/manpower", tags=["Manpower"])
+router = APIRouter(prefix="/manpower", tags=["Manpower Expenditure"])
 
-@router.post("")
-async def create_manpower(man: ManpowerCreate):
-    """Create manpower expenditure record"""
+# ==================== CREATE ====================
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_manpower_expenditure(
+    project_id: int,
+    role: str,
+    salary_per_month: float,
+    months: int,
+    num_personnel: int = 1,
+    date_incurred: Optional[date] = None
+):
+    """
+    Create actual manpower expenditure
+    
+    Total cost will be automatically calculated as: salary_per_month * months * num_personnel
+    """
     conn = get_db_connection()
-    warnings = []
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            validate_foreign_key("projects", "project_id", man.project_id, conn)
+            validate_foreign_key("projects", "project_id", project_id, conn)
             
-            # Collect warnings
-            if man.date_incurred:
-                warning = validate_transaction_date(man.project_id, man.date_incurred, conn)
-                if warning:
-                    warnings.append(warning)
+            # Optional: Validate against project dates
+            if date_incurred:
+                cur.execute(
+                    "SELECT start_date, end_date FROM projects WHERE project_id = %s",
+                    (project_id,)
+                )
+                project = cur.fetchone()
+                if project and project['start_date'] and date_incurred < project['start_date']:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Expenditure date ({date_incurred}) is before project start date ({project['start_date']})"
+                    )
             
-            # Validate salary matches approved breakdown
-            validate_manpower_salary_against_breakdown(man.project_id, man.role, man.salary_per_month, conn)
-            
-            validate_manpower_against_approved_posts(man.project_id, man.role, man.num_personnel, conn)
-            
-            total_amount = man.salary_per_month * man.months * man.num_personnel
-            validate_expenditure_against_budget(man.project_id, 'manpower', total_amount, conn)
-
             cur.execute(
-                """INSERT INTO manpower (project_id, role, salary_per_month, months, date_incurred, num_personnel)
+                """INSERT INTO manpower 
+                   (project_id, role, salary_per_month, months, num_personnel, date_incurred)
                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
-                (man.project_id, man.role, man.salary_per_month, man.months, man.date_incurred, man.num_personnel)
+                (project_id, role, salary_per_month, months, num_personnel, date_incurred)
             )
             result = cur.fetchone()
             conn.commit()
             
-            response_data = json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+            return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
             
-            if warnings:
-                return {
-                    "data": response_data,
-                    "warnings": warnings
-                }
-            
-            return response_data
-            
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     finally:
         conn.close()
 
-@router.get("/project/{project_id}")
-async def get_project_manpower(project_id: int):
-    """Get all manpower records for a project"""
+
+# ==================== READ ====================
+
+@router.get("/{manpower_id}", status_code=status.HTTP_200_OK)
+async def get_manpower_expenditure(manpower_id: int):
+    """Get a specific manpower expenditure record"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM manpower WHERE project_id = %s ORDER BY date_incurred", (project_id,))
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+            cur.execute(
+                "SELECT * FROM manpower WHERE manpower_id = %s",
+                (manpower_id,)
+            )
+            result = cur.fetchone()
+            
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Manpower expenditure not found"
+                )
+            
+            return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         conn.close()
 
-@router.put("/{manpower_id}")
-async def update_manpower(manpower_id: int, man: ManpowerUpdate):
-    """Update manpower record"""
+
+@router.get("/project/{project_id}", status_code=status.HTTP_200_OK)
+async def get_project_manpower_expenditures(
+    project_id: int,
+    role: Optional[str] = Query(None, description="Filter by role")
+):
+    """Get all manpower expenditures for a project"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            update_fields, values = [], []
-            if man.role is not None:
+            if role:
+                cur.execute(
+                    """SELECT * FROM manpower 
+                       WHERE project_id = %s AND role = %s 
+                       ORDER BY date_incurred DESC""",
+                    (project_id, role)
+                )
+            else:
+                cur.execute(
+                    """SELECT * FROM manpower 
+                       WHERE project_id = %s 
+                       ORDER BY date_incurred DESC""",
+                    (project_id,)
+                )
+            
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+            
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ==================== UPDATE ====================
+
+@router.put("/{manpower_id}", status_code=status.HTTP_200_OK)
+async def update_manpower_expenditure(
+    manpower_id: int,
+    role: Optional[str] = None,
+    salary_per_month: Optional[float] = None,
+    months: Optional[int] = None,
+    num_personnel: Optional[int] = None,
+    date_incurred: Optional[date] = None
+):
+    """Update manpower expenditure (total_cost will be recalculated automatically)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Check if manpower exists
+            cur.execute(
+                "SELECT * FROM manpower WHERE manpower_id = %s",
+                (manpower_id,)
+            )
+            if not cur.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Manpower expenditure not found"
+                )
+            
+            # Build dynamic update query
+            update_fields = []
+            values = []
+            
+            if role is not None:
                 update_fields.append("role = %s")
-                values.append(man.role)
-            if man.salary_per_month is not None:
+                values.append(role)
+            
+            if salary_per_month is not None:
                 update_fields.append("salary_per_month = %s")
-                values.append(man.salary_per_month)
-            if man.months is not None:
+                values.append(salary_per_month)
+            
+            if months is not None:
                 update_fields.append("months = %s")
-                values.append(man.months)
-            if man.date_incurred is not None:
-                update_fields.append("date_incurred = %s")
-                values.append(man.date_incurred)
-            if man.num_personnel is not None:
+                values.append(months)
+            
+            if num_personnel is not None:
                 update_fields.append("num_personnel = %s")
-                values.append(man.num_personnel)
+                values.append(num_personnel)
+            
+            if date_incurred is not None:
+                update_fields.append("date_incurred = %s")
+                values.append(date_incurred)
             
             if not update_fields:
-                raise HTTPException(status_code=400, detail="No fields to update")
-
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No fields to update"
+                )
+            
             values.append(manpower_id)
-            query = f"UPDATE manpower SET {', '.join(update_fields)} WHERE manpower_id = %s RETURNING *"
+            query = f"""UPDATE manpower 
+                       SET {', '.join(update_fields)} 
+                       WHERE manpower_id = %s 
+                       RETURNING *"""
+            
             cur.execute(query, values)
             result = cur.fetchone()
-            if not result:
-                raise HTTPException(status_code=404, detail="Manpower record not found")
             conn.commit()
+            
             return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+            
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     finally:
         conn.close()
 
-@router.delete("/{manpower_id}")
-async def delete_manpower(manpower_id: int):
-    """Delete manpower record"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("DELETE FROM manpower WHERE manpower_id = %s RETURNING *", (manpower_id,))
-            result = cur.fetchone()
-            if not result:
-                raise HTTPException(status_code=404, detail="Manpower record not found")
-            conn.commit()
-            return {"message": "Manpower record deleted successfully"}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        conn.close()
 
-@router.get("/plan-vs-actual/project/{project_id}")
-async def get_manpower_plan_vs_actual(project_id: int):
-    """Get plan vs actual comparison for manpower"""
+# ==================== DELETE ====================
+
+@router.delete("/{manpower_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_manpower_expenditure(manpower_id: int):
+    """Delete manpower expenditure record"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM manpower_plan_vs_actual WHERE project_id = %s",
+                "DELETE FROM manpower WHERE manpower_id = %s RETURNING *",
+                (manpower_id,)
+            )
+            result = cur.fetchone()
+            
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Manpower expenditure not found"
+                )
+            
+            conn.commit()
+            return None
+            
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ==================== SUMMARY ENDPOINTS ====================
+
+@router.get("/project/{project_id}/summary", status_code=status.HTTP_200_OK)
+async def get_project_manpower_summary(project_id: int):
+    """
+    Get manpower expenditure summary for a project
+    
+    Returns total expenditure by role
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT 
+                       role,
+                       COUNT(*) as transaction_count,
+                       SUM(num_personnel) as total_personnel,
+                       SUM(total_cost) as total_cost,
+                       AVG(salary_per_month) as avg_salary_per_month
+                   FROM manpower 
+                   WHERE project_id = %s 
+                   GROUP BY role
+                   ORDER BY total_cost DESC""",
                 (project_id,)
             )
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+            
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/project/{project_id}/total", status_code=status.HTTP_200_OK)
+async def get_project_manpower_total(project_id: int):
+    """Get total manpower expenditure for a project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT 
+                       COUNT(*) as total_entries,
+                       COALESCE(SUM(total_cost), 0) as total_expenditure
+                   FROM manpower 
+                   WHERE project_id = %s""",
+                (project_id,)
+            )
+            result = cur.fetchone()
+            return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+            
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         conn.close()

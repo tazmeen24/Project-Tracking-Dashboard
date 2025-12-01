@@ -1,4 +1,4 @@
-# app/models/project.py
+# app/models/project.py 
 from pydantic import BaseModel, field_validator, EmailStr, model_validator
 from typing import Optional, List, Literal
 from datetime import datetime

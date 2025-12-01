@@ -1,7 +1,8 @@
 # backend/app/routes/projects.py
-from fastapi import APIRouter, HTTPException, Query, Depends
+
+from fastapi import APIRouter, HTTPException, Query, status
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from psycopg2.extras import RealDictCursor
 import json
 
@@ -11,12 +12,20 @@ from ..utils.json_encoder import DecimalEncoder
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
-@router.post("")
+
+# ==================== CREATE ====================
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_project(project: ProjectCreate):
-    """Create a new project with budget allocations, investigator details, and funding agency details"""
+    """
+    Create a new project with:
+    - Budget allocations
+    - Investigator details
+    - Funding agency details
+    """
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Validate foreign keys
             validate_foreign_key("funding_agencies", "agency_id", project.funding_agency_id, conn)
             validate_foreign_key("technical_groups", "group_id", project.technical_group_id, conn)
             
@@ -42,7 +51,7 @@ async def create_project(project: ProjectCreate):
             project_result = cur.fetchone()
             project_id = project_result['project_id']
             
-            # Create investigator record (with proper None handling for co-investigator)
+            # Create investigator record
             cur.execute(
                 """INSERT INTO investigators 
                    (project_id, principal_investigator, pi_email, pi_mobile, 
@@ -54,10 +63,8 @@ async def create_project(project: ProjectCreate):
                  project.co_mobile if project.co_mobile else None)
             )
             
-            # ============= NEW: Handle Funding Agency Details =============
-            # Check if funding agency details are provided
+            # Create/Update funding agency details if provided
             if project.contact_person:
-                # Check if details already exist for this agency
                 cur.execute(
                     "SELECT id FROM funding_agency_details WHERE agency_id = %s",
                     (project.funding_agency_id,)
@@ -65,7 +72,6 @@ async def create_project(project: ProjectCreate):
                 existing_details = cur.fetchone()
                 
                 if existing_details:
-                    # Update existing details
                     cur.execute(
                         """UPDATE funding_agency_details 
                            SET contact_person = %s, designation = %s, mobile = %s, email = %s,
@@ -86,7 +92,6 @@ async def create_project(project: ProjectCreate):
                         )
                     )
                 else:
-                    # Create new details
                     cur.execute(
                         """INSERT INTO funding_agency_details 
                            (agency_id, contact_person, designation, mobile, email,
@@ -105,7 +110,6 @@ async def create_project(project: ProjectCreate):
                             project.bank_account_no if project.bank_account_no else None
                         )
                     )
-            # ============================================================
             
             # Create budget allocations
             budget_heads = [
@@ -124,7 +128,6 @@ async def create_project(project: ProjectCreate):
                 )
                 allocation_id = cur.fetchone()['allocation_id']
                 
-                # Insert manpower breakdown
                 if head == 'manpower' and breakdown:
                     for item in breakdown:
                         cur.execute(
@@ -137,7 +140,6 @@ async def create_project(project: ProjectCreate):
                              item.experience_required if hasattr(item, 'experience_required') else None)
                         )
                 
-                # Insert equipment breakdown
                 if head == 'equipment' and breakdown:
                     for item in breakdown:
                         cur.execute(
@@ -167,84 +169,150 @@ async def create_project(project: ProjectCreate):
                 LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN budget_allocation ba ON p.project_id = ba.project_id
                 WHERE p.project_id = %s
-                GROUP BY p.project_id, i.id
+                GROUP BY p.project_id, i.principal_investigator, i.pi_email, i.pi_mobile,
+                         i.co_investigator, i.co_email, i.co_mobile
             """, (project_id,))
             
-            final_result = cur.fetchone()
-            return json.loads(json.dumps(dict(final_result), cls=DecimalEncoder))
+            created_project = dict(cur.fetchone())
+            return json.loads(json.dumps(created_project, cls=DecimalEncoder))
             
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     finally:
         conn.close()
 
 
-@router.get("")
-async def get_projects():
-    """Get all projects with summary"""
+# ==================== READ ALL ====================
+@router.get("", status_code=status.HTTP_200_OK)
+async def get_all_projects(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of records to return"),
+    project_category: Optional[str] = Query(None, description="Filter by project category"),
+    project_type: Optional[str] = Query(None, description="Filter by project type"),
+    funding_agency_id: Optional[int] = Query(None, description="Filter by funding agency"),
+    technical_group_id: Optional[int] = Query(None, description="Filter by technical group"),
+    search: Optional[str] = Query(None, description="Search in project title or project_no"),
+    sort_by: str = Query("project_id", description="Field to sort by"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order")
+):
+    """
+    Get all projects with optional filtering, searching, and pagination.
+    
+    Returns a list of projects with basic information.
+    """
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT p.project_id,
-                       p.project_no,
-                       p.title,
-                       p.alias,
-                       p.project_category,
-                       p.project_type,
-                       p.PFMS_id,
-                       tg.name AS technical_group_name,
-                       fa.name AS funding_agency_name,
-                       p.start_date,
-                       p.end_date,
-                       i.principal_investigator,
-                       i.pi_email,
-                       i.pi_mobile,
-                       i.co_investigator,
-                       i.co_email,
-                       i.co_mobile,
-                       COALESCE(SUM(phs.planned_allocation), 0) AS planned_allocation,
-                       COALESCE(SUM(phs.funds_received), 0) AS funds_received,
-                       COALESCE(SUM(phs.actual_expenditure), 0) AS actual_expenditure
+            # Build WHERE clause dynamically
+            where_conditions = []
+            params = []
+            
+            if project_category:
+                where_conditions.append("p.project_category = %s")
+                params.append(project_category)
+            
+            if project_type:
+                where_conditions.append("p.project_type = %s")
+                params.append(project_type)
+            
+            if funding_agency_id:
+                where_conditions.append("p.funding_agency_id = %s")
+                params.append(funding_agency_id)
+            
+            if technical_group_id:
+                where_conditions.append("p.technical_group_id = %s")
+                params.append(technical_group_id)
+            
+            if search:
+                where_conditions.append("(p.title ILIKE %s OR p.project_no ILIKE %s)")
+                search_pattern = f"%{search}%"
+                params.extend([search_pattern, search_pattern])
+            
+            where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) as total FROM projects p {where_clause}"
+            cur.execute(count_query, params)
+            total_count = cur.fetchone()['total']
+            
+            # Get paginated results
+            # Validate sort_by to prevent SQL injection
+            allowed_sort_fields = ['project_id', 'project_no', 'title', 'start_date', 'end_date', 'created_at']
+            if sort_by not in allowed_sort_fields:
+                sort_by = 'project_id'
+            
+            query = f"""
+                SELECT 
+                    p.*,
+                    fa.agency_name as funding_agency_name,
+                    tg.group_name as technical_group_name,
+                    i.principal_investigator,
+                    i.pi_email,
+                    COALESCE(
+                        (SELECT SUM(allocated_amount) FROM budget_allocation WHERE project_id = p.project_id),
+                        0
+                    ) as total_budget,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM funds_received WHERE project_id = p.project_id),
+                        0
+                    ) as total_funds_received,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id),
+                        0
+                    ) as total_expenditure
                 FROM projects p
-                LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+                LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN investigators i ON p.project_id = i.project_id
-                LEFT JOIN project_head_summary phs ON p.project_id = phs.project_id
-                GROUP BY p.project_id, tg.name, fa.name, i.id
-                ORDER BY p.start_date DESC
-            """)
-            results = cur.fetchall()
-            return [json.loads(json.dumps(dict(row), cls=DecimalEncoder)) for row in results]
+                {where_clause}
+                ORDER BY p.{sort_by} {sort_order.upper()}
+                LIMIT %s OFFSET %s
+            """
+            
+            params.extend([limit, skip])
+            cur.execute(query, params)
+            projects = [dict(row) for row in cur.fetchall()]
+            
+            return {
+                "total": total_count,
+                "skip": skip,
+                "limit": limit,
+                "data": json.loads(json.dumps(projects, cls=DecimalEncoder))
+            }
+            
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         conn.close()
 
 
-@router.get("/{project_id}")
-async def get_project(project_id: int):
-    """Get complete project details - FIXED version with all corrections"""
+# ==================== READ ONE ====================
+@router.get("/{project_id}", status_code=status.HTTP_200_OK)
+async def get_project_by_id(project_id: int):
+    """
+    Get detailed information about a specific project including:
+    - Basic project details
+    - Investigator information
+    - Funding agency details
+    - Budget allocations with breakdowns
+    - Funds received
+    - Expenditures
+    """
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Get main project data
+            # Get basic project info with investigators and funding agency
             cur.execute("""
                 SELECT 
-                    p.project_id,
-                    p.project_no,
-                    p.title,
-                    p.alias,
-                    p.project_category,
-                    p.project_type,
-                    p.PFMS_id,
-                    p.start_date,
-                    p.end_date,
-                    p.technical_group_id,
-                    p.funding_agency_id,
-                    tg.name AS technical_group_name,
-                    fa.name AS funding_agency_name,
+                    p.*,
+                    fa.agency_name,
+                    fa.agency_type,
+                    tg.group_name,
+                    tg.group_code,
                     i.principal_investigator,
                     i.pi_email,
                     i.pi_mobile,
@@ -252,203 +320,125 @@ async def get_project(project_id: int):
                     i.co_email,
                     i.co_mobile
                 FROM projects p
-                LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+                LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
                 LEFT JOIN investigators i ON p.project_id = i.project_id
                 WHERE p.project_id = %s
             """, (project_id,))
             
             project = cur.fetchone()
             if not project:
-                raise HTTPException(status_code=404, detail="Project not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
             
-            project_dict = dict(project)
+            response = dict(project)
             
             # Get funding agency details
-            try:
-                cur.execute("""
-                    SELECT 
-                        contact_person,
-                        designation as contact_designation,
-                        mobile as contact_mobile,
-                        email as contact_email,
-                        sanctioned_number,
-                        scheme as funding_scheme,
-                        cna_sub_agency,
-                        bank_name,
-                        bank_account_no
-                    FROM funding_agency_details
-                    WHERE agency_id = %s
-                """, (project_dict['funding_agency_id'],))
-                
-                fad = cur.fetchone()
-                if fad:
-                    project_dict.update(dict(fad))
-            except Exception as e:
-                print(f"Funding agency details not available: {e}")
+            cur.execute("""
+                SELECT * FROM funding_agency_details 
+                WHERE agency_id = %s
+            """, (response['funding_agency_id'],))
+            agency_details = cur.fetchone()
+            if agency_details:
+                response.update({
+                    "contact_person": agency_details.get("contact_person"),
+                    "contact_designation": agency_details.get("designation"),
+                    "contact_mobile": agency_details.get("mobile"),
+                    "contact_email": agency_details.get("email"),
+                    "sanctioned_number": agency_details.get("sanctioned_number"),
+                    "funding_scheme": agency_details.get("scheme"),
+                    "cna_sub_agency": agency_details.get("cna_sub_agency"),
+                    "bank_name": agency_details.get("bank_name"),
+                    "bank_account_no": agency_details.get("bank_account_no")
+                })
             
             # Get budget allocations
-            try:
-                cur.execute("""
-                    SELECT head, allocated_amount
-                    FROM budget_allocation
-                    WHERE project_id = %s
-                """, (project_id,))
-                
-                budget_allocations = {}
-                for row in cur.fetchall():
-                    budget_allocations[row['head']] = float(row['allocated_amount'])
-                
-                project_dict['manpower_allocation'] = budget_allocations.get('manpower', 0)
-                project_dict['equipment_allocation'] = budget_allocations.get('equipment', 0)
-                project_dict['travel_training_allocation'] = budget_allocations.get('travel & training', 0)
-                project_dict['consumables_allocation'] = budget_allocations.get('consumables', 0)
-                project_dict['contingency_allocation'] = budget_allocations.get('contingency', 0)
-                project_dict['overhead_allocation'] = budget_allocations.get('overhead', 0)
-            except Exception as e:
-                print(f"Budget allocations error: {e}")
-                project_dict['manpower_allocation'] = 0
-                project_dict['equipment_allocation'] = 0
-                project_dict['travel_training_allocation'] = 0
-                project_dict['consumables_allocation'] = 0
-                project_dict['contingency_allocation'] = 0
-                project_dict['overhead_allocation'] = 0
+            cur.execute("""
+                SELECT head, allocated_amount, utilized_amount 
+                FROM budget_allocation 
+                WHERE project_id = %s
+            """, (project_id,))
+            ba = cur.fetchall()
+            
+            # Initialize allocations
+            response.update({
+                "manpower_allocation": 0,
+                "equipment_allocation": 0,
+                "travel_training_allocation": 0,
+                "consumables_allocation": 0,
+                "contingency_allocation": 0,
+                "overhead_allocation": 0,
+            })
+            
+            for row in ba:
+                if row["head"] == "manpower":
+                    response["manpower_allocation"] = float(row["allocated_amount"])
+                elif row["head"] == "equipment":
+                    response["equipment_allocation"] = float(row["allocated_amount"])
+                elif row["head"] == "travel & training":
+                    response["travel_training_allocation"] = float(row["allocated_amount"])
+                elif row["head"] == "consumables":
+                    response["consumables_allocation"] = float(row["allocated_amount"])
+                elif row["head"] == "contingency":
+                    response["contingency_allocation"] = float(row["allocated_amount"])
+                elif row["head"] == "overhead":
+                    response["overhead_allocation"] = float(row["allocated_amount"])
             
             # Get manpower breakdown
-            try:
-                cur.execute("""
-                    SELECT 
-                        role,
-                        salary_per_month,
-                        months,
-                        num_personnel,
-                        qualification,
-                        experience_required
-                    FROM manpower_allocation_breakdown
-                    WHERE project_id = %s
-                """, (project_id,))
-                project_dict['manpower_breakdown'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Manpower breakdown error: {e}")
-                project_dict['manpower_breakdown'] = []
+            cur.execute("""
+                SELECT * FROM manpower_allocation_breakdown 
+                WHERE project_id = %s
+            """, (project_id,))
+            response["manpower_breakdown"] = [dict(row) for row in cur.fetchall()]
             
             # Get equipment breakdown
-            try:
-                cur.execute("""
-                    SELECT 
-                        item_name,
-                        quantity,
-                        unit_cost,
-                        description,
-                        product_website
-                    FROM equipment_allocation_breakdown
-                    WHERE project_id = %s
-                """, (project_id,))
-                project_dict['equipment_breakdown'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Equipment breakdown error: {e}")
-                project_dict['equipment_breakdown'] = []
+            cur.execute("""
+                SELECT * FROM equipment_allocation_breakdown 
+                WHERE project_id = %s
+            """, (project_id,))
+            response["equipment_breakdown"] = [dict(row) for row in cur.fetchall()]
             
             # Get funds received
-            try:
-                cur.execute("""
-                    SELECT 
-                        head,
-                        amount,
-                        date_received,
-                        remarks
-                    FROM funds_received
-                    WHERE project_id = %s
-                    ORDER BY date_received DESC
-                """, (project_id,))
-                project_dict['funds_received'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Funds received error: {e}")
-                project_dict['funds_received'] = []
+            cur.execute("""
+                SELECT 
+                    date_received AS received_date,
+                    remarks AS description,
+                    amount
+                FROM funds_received
+                WHERE project_id = %s
+                ORDER BY date_received DESC
+            """, (project_id,))
+            response["funds"] = [dict(row) for row in cur.fetchall()]
             
-            # FIXED: Get manpower expenditure (correct table name)
-            try:
-                cur.execute("""
-                    SELECT 
-                        role,
-                        salary_per_month,
-                        months,
-                        num_personnel,
-                        date_incurred
-                    FROM manpower
-                    WHERE project_id = %s
-                    ORDER BY date_incurred DESC
-                """, (project_id,))
-                project_dict['manpower_expenditure'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Manpower expenditure error: {e}")
-                project_dict['manpower_expenditure'] = []
+            # Get expenditures
+            cur.execute("""
+                SELECT 
+                    date_incurred AS expenditure_date,
+                    head,
+                    description,
+                    amount
+                FROM budget_expenditure
+                WHERE project_id = %s
+                ORDER BY date_incurred DESC
+            """, (project_id,))
+            response["expenditures"] = [dict(row) for row in cur.fetchall()]
             
-            # FIXED: Get equipment expenditure (correct table name)
-            try:
-                cur.execute("""
-                    SELECT 
-                        name,
-                        quantity,
-                        unit_cost,
-                        purchase_date
-                    FROM equipment
-                    WHERE project_id = %s
-                    ORDER BY purchase_date DESC
-                """, (project_id,))
-                project_dict['equipment_expenditure'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Equipment expenditure error: {e}")
-                project_dict['equipment_expenditure'] = []
-            
-            # Get other expenditure
-            try:
-                cur.execute("""
-                    SELECT 
-                        head,
-                        amount,
-                        description,
-                        date_incurred
-                    FROM budget_expenditure
-                    WHERE project_id = %s
-                    ORDER BY date_incurred DESC
-                """, (project_id,))
-                project_dict['other_expenditure'] = [
-                    json.loads(json.dumps(dict(row), cls=DecimalEncoder)) 
-                    for row in cur.fetchall()
-                ]
-            except Exception as e:
-                print(f"Other expenditure error: {e}")
-                project_dict['other_expenditure'] = []
-            
-            return json.loads(json.dumps(project_dict, cls=DecimalEncoder))
+            return json.loads(json.dumps(response, cls=DecimalEncoder))
             
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in get_project: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database query failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         conn.close()
 
-@router.put("/{project_id}")
+
+# ==================== UPDATE ====================
+@router.put("/{project_id}", status_code=status.HTTP_200_OK)
 async def update_project(project_id: int, project: ProjectUpdate):
-    """Update project details"""
+    """
+    Update project details (full update).
+    Only provided fields will be updated.
+    """
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -457,7 +447,7 @@ async def update_project(project_id: int, project: ProjectUpdate):
             existing_project = cur.fetchone()
             
             if not existing_project:
-                raise HTTPException(status_code=404, detail="Project not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
             
             # Build dynamic update query
             update_fields = []
@@ -506,31 +496,31 @@ async def update_project(project_id: int, project: ProjectUpdate):
                 values.append(project.PFMS_id)
             
             if not update_fields:
-                raise HTTPException(status_code=400, detail="No fields to update")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
             
-            # Additional validation for category-type relationship
+            # Validate business rules
             new_category = project.project_category if project.project_category is not None else existing_project['project_category']
             new_type = project.project_type if project.project_type is not None else existing_project['project_type']
             
             if new_category == 'sponsored' and new_type not in ['PFMS', 'NON-PFMS']:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=status.HTTP_400_BAD_REQUEST, 
                     detail="When project_category is 'sponsored', project_type must be either 'PFMS' or 'NON-PFMS'"
                 )
             elif new_category == 'non-sponsored' and new_type != 'contract-research':
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="When project_category is 'non-sponsored', project_type must be 'contract-research'"
                 )
             
-            # Validate PFMS_id requirement
             new_PFMS_id = project.PFMS_id if project.PFMS_id is not None else existing_project.get('PFMS_id')
             if new_category == 'sponsored' and new_type == 'PFMS' and not new_PFMS_id:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="PFMS_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
                 )
             
+            # Execute update
             values.append(project_id)
             query = f"UPDATE projects SET {', '.join(update_fields)} WHERE project_id = %s RETURNING *"
             
@@ -545,6 +535,145 @@ async def update_project(project_id: int, project: ProjectUpdate):
         raise
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ==================== PARTIAL UPDATE ====================
+@router.patch("/{project_id}", status_code=status.HTTP_200_OK)
+async def partial_update_project(project_id: int, project: ProjectUpdate):
+    """
+    Partially update a project (same as PUT but semantically different).
+    Use this for updating specific fields without sending all data.
+    """
+    # Reuse the PUT logic as it already handles partial updates
+    return await update_project(project_id, project)
+
+
+# ==================== DELETE ====================
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(project_id: int):
+    """
+    Delete a project and all associated records.
+    
+    This will cascade delete:
+    - Investigators
+    - Budget allocations
+    - Manpower and equipment breakdowns
+    - Funds received
+    - Expenditures
+    
+    Note: Ensure CASCADE is set up in your database schema.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Check if project exists
+            cur.execute("SELECT project_id FROM projects WHERE project_id = %s", (project_id,))
+            project = cur.fetchone()
+            
+            if not project:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            
+            # Delete project (should cascade to related tables)
+            cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
+            conn.commit()
+            
+            return None  # 204 No Content returns no body
+            
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ==================== ADDITIONAL USEFUL ENDPOINTS ====================
+
+@router.get("/{project_id}/summary", status_code=status.HTTP_200_OK)
+async def get_project_summary(project_id: int):
+    """
+    Get a financial summary of the project including:
+    - Total budget allocated
+    - Total funds received
+    - Total expenditure
+    - Balance available
+    - Budget utilization percentage
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT project_id FROM projects WHERE project_id = %s", (project_id,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            
+            cur.execute("""
+                SELECT 
+                    COALESCE(SUM(allocated_amount), 0) as total_allocated,
+                    COALESCE(SUM(utilized_amount), 0) as total_utilized
+                FROM budget_allocation
+                WHERE project_id = %s
+            """, (project_id,))
+            budget_data = cur.fetchone()
+            
+            cur.execute("""
+                SELECT COALESCE(SUM(amount), 0) as total_received
+                FROM funds_received
+                WHERE project_id = %s
+            """, (project_id,))
+            funds_data = cur.fetchone()
+            
+            cur.execute("""
+                SELECT COALESCE(SUM(amount), 0) as total_spent
+                FROM budget_expenditure
+                WHERE project_id = %s
+            """, (project_id,))
+            expenditure_data = cur.fetchone()
+            
+            total_allocated = float(budget_data['total_allocated'])
+            total_utilized = float(budget_data['total_utilized'])
+            total_received = float(funds_data['total_received'])
+            total_spent = float(expenditure_data['total_spent'])
+            
+            balance = total_received - total_spent
+            utilization_percentage = (total_utilized / total_allocated * 100) if total_allocated > 0 else 0
+            
+            return {
+                "project_id": project_id,
+                "total_budget_allocated": total_allocated,
+                "total_budget_utilized": total_utilized,
+                "total_funds_received": total_received,
+                "total_expenditure": total_spent,
+                "available_balance": balance,
+                "budget_utilization_percentage": round(utilization_percentage, 2)
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/{project_id}/exists", status_code=status.HTTP_200_OK)
+async def check_project_exists(project_id: int):
+    """
+    Check if a project exists (useful for frontend validation).
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT project_id FROM projects WHERE project_id = %s", (project_id,))
+            exists = cur.fetchone() is not None
+            
+            return {"exists": exists, "project_id": project_id}
+            
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     finally:
         conn.close()
