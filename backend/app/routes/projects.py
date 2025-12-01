@@ -252,18 +252,77 @@ async def get_all_projects(
                     tg.group_name as technical_group_name,
                     i.principal_investigator,
                     i.pi_email,
+                    -- Total Budget Allocation
                     COALESCE(
                         (SELECT SUM(allocated_amount) FROM budget_allocation WHERE project_id = p.project_id),
                         0
-                    ) as total_budget,
+                    ) as total_allocation,
+                    -- Total Funds Received
                     COALESCE(
                         (SELECT SUM(amount) FROM funds_received WHERE project_id = p.project_id),
                         0
                     ) as total_funds_received,
+                    -- Total Expenditure (from all 3 tables)
                     COALESCE(
+                        (SELECT SUM(total_cost) FROM manpower WHERE project_id = p.project_id),
+                        0
+                    ) + COALESCE(
+                        (SELECT SUM(total_cost) FROM equipment WHERE project_id = p.project_id),
+                        0
+                    ) + COALESCE(
                         (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id),
                         0
-                    ) as total_expenditure
+                    ) as total_expenditure,
+                    -- Individual Budget Head Allocations
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'manpower'),
+                        0
+                    ) as manpower_allocation,
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'equipment'),
+                        0
+                    ) as equipment_allocation,
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'consumables'),
+                        0
+                    ) as consumables_allocation,
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'contingency'),
+                        0
+                    ) as contingency_allocation,
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'travel & training'),
+                        0
+                    ) as travel_training_allocation,
+                    COALESCE(
+                        (SELECT allocated_amount FROM budget_allocation WHERE project_id = p.project_id AND head = 'overhead'),
+                        0
+                    ) as overhead_allocation,
+                    -- Individual Head Expenditures
+                    COALESCE(
+                        (SELECT SUM(total_cost) FROM manpower WHERE project_id = p.project_id),
+                        0
+                    ) as manpower_expenditure,
+                    COALESCE(
+                        (SELECT SUM(total_cost) FROM equipment WHERE project_id = p.project_id),
+                        0
+                    ) as equipment_expenditure,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id AND head = 'consumables'),
+                        0
+                    ) as consumables_expenditure,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id AND head = 'contingency'),
+                        0
+                    ) as contingency_expenditure,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id AND head = 'travel & training'),
+                        0
+                    ) as travel_training_expenditure,
+                    COALESCE(
+                        (SELECT SUM(amount) FROM budget_expenditure WHERE project_id = p.project_id AND head = 'overhead'),
+                        0
+                    ) as overhead_expenditure
                 FROM projects p
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
@@ -310,7 +369,6 @@ async def get_project_by_id(project_id: int):
                 SELECT 
                     p.*,
                     fa.agency_name,
-                    fa.agency_type,
                     tg.group_name,
                     tg.group_code,
                     i.principal_investigator,

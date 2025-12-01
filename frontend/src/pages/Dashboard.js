@@ -1,4 +1,9 @@
 // pages/Dashboard.js
+/**
+ * FIXED:
+ * - Uses project.total_allocation from enhanced backend
+ * - Safely handles array from ProjectContext
+ */
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
@@ -20,12 +25,14 @@ const Dashboard = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-  const recentProjects = projects.slice(0, 5);
+  // SAFETY FIRST – always guarantee an array
+  const projectList = Array.isArray(projects) ? projects : [];
+  const recentProjects = projectList.slice(0, 5);
 
   const stats = [
     {
       label: 'Total Budget',
-      value: formatCurrency(dashboardStats.totalAllocation),
+      value: formatCurrency(dashboardStats?.totalAllocation ?? 0),
       change: 'Approved budget',
       icon: DollarSign,
       trend: 'neutral',
@@ -33,7 +40,7 @@ const Dashboard = () => {
     },
     {
       label: 'Funds Received',
-      value: formatCurrency(dashboardStats.totalFunds),
+      value: formatCurrency(dashboardStats?.totalFunds ?? 0),
       change: 'Total received',
       icon: CheckCircle2,
       trend: 'up',
@@ -41,7 +48,7 @@ const Dashboard = () => {
     },
     {
       label: 'Total Expenditure',
-      value: formatCurrency(dashboardStats.totalExpenditure),
+      value: formatCurrency(dashboardStats?.totalExpenditure ?? 0),
       change: 'Total spent',
       icon: TrendingUp,
       trend: 'neutral',
@@ -49,7 +56,9 @@ const Dashboard = () => {
     },
     {
       label: 'Funds Balance',
-      value: formatCurrency(dashboardStats.totalFunds - dashboardStats.totalExpenditure),
+      value: formatCurrency(
+        (dashboardStats?.totalFunds ?? 0) - (dashboardStats?.totalExpenditure ?? 0)
+      ),
       change: 'Available funds',
       icon: FolderOpen,
       trend: 'neutral',
@@ -57,7 +66,7 @@ const Dashboard = () => {
     },
     {
       label: 'Budget Balance',
-      value: formatCurrency(dashboardStats.balance),
+      value: formatCurrency(dashboardStats?.balance ?? 0),
       change: 'Remaining budget',
       icon: Calendar,
       trend: 'neutral',
@@ -105,7 +114,6 @@ const Dashboard = () => {
               animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
             }}
           >
-            {/* Gradient Background */}
             <div
               className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${
                 colorClasses[stat.color]
@@ -165,7 +173,7 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-slate-900">
-                        {project.title}
+                        {project.title || 'Untitled Project'}
                       </h3>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -180,22 +188,17 @@ const Dashboard = () => {
                     <div className="flex items-center gap-4 text-sm text-slate-600">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        {new Date(project.start_date).toLocaleDateString()}
+                        {project.start_date
+                          ? new Date(project.start_date).toLocaleDateString()
+                          : 'No date'}
                       </span>
-                      <span>{project.project_no}</span>
+                      <span>{project.project_no || '—'}</span>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
                     <div className="text-xl font-bold text-slate-900">
-                      {formatCurrency(
-                        (project.manpower_allocation || 0) +
-                          (project.equipment_allocation || 0) +
-                          (project.consumables_allocation || 0) +
-                          (project.contingency_allocation || 0) +
-                          (project.travel_training_allocation || 0) +
-                          (project.overhead_allocation || 0)
-                      )}
+                      {formatCurrency(project.total_allocation || 0)}
                     </div>
                   </div>
                 </div>
@@ -212,25 +215,12 @@ const Dashboard = () => {
 
       <style>{`
         @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(-30px); }
+          to   { opacity: 1; transform: translateX(0); }
         }
       `}</style>
     </div>

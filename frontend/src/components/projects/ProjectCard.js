@@ -12,13 +12,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
 
-  const totalAllocation =
-    (project.manpower_allocation || 0) +
-    (project.equipment_allocation || 0) +
-    (project.consumables_allocation || 0) +
-    (project.contingency_allocation || 0) +
-    (project.travel_training_allocation || 0) +
-    (project.overhead_allocation || 0);
+  const totalAllocation = project.total_budget || 0;
 
   const openMenu = (e) => {
     e.preventDefault();
@@ -136,12 +130,16 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
 
             {/* Category and Type Badges */}
             <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-lg">
-                {getProjectCategoryLabel(project.project_category)}
-              </span>
-              <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-lg">
-                {getProjectTypeLabel(project.project_type)}
-              </span>
+              {project.project_category && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-lg">
+                  {getProjectCategoryLabel(project.project_category)}
+                </span>
+              )}
+              {project.project_type && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-lg">
+                  {getProjectTypeLabel(project.project_type)}
+                </span>
+              )}
               {project.PFMS_id && (
                 <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-lg">
                   PFMS: {project.PFMS_id}

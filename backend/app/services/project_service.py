@@ -1,6 +1,13 @@
 """
 Project Service
 Handles all business logic related to projects
+
+FIXED: Aligned with actual database schema (db.sql)
+- Uses budget_allocation (not budget_allocations)
+- Uses budget_expenditure (not expenditures)
+- Uses investigators table (not project fields)
+- Removed non-existent audit columns
+- Fixed allocation_id references in breakdowns
 """
 
 from typing import Optional, List, Dict, Any
@@ -17,13 +24,12 @@ class ProjectService:
     def __init__(self, db_connection):
         self.conn = db_connection
     
-    def create_project(self, project_data: dict, user: dict) -> dict:
+    def create_project(self, project_data: dict) -> dict:
         """
         Create a new project with budget allocations and breakdowns
         
         Args:
             project_data: Dictionary containing project information
-            user: Current authenticated user
             
         Returns:
             Created project data with ID
@@ -40,9 +46,9 @@ class ProjectService:
                 cur.execute("""
                     INSERT INTO projects 
                     (project_no, title, alias, start_date, end_date, 
-                     funding_agency_id, technical_group_id, 
-                     principal_investigator, co_pi, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     funding_agency_id, technical_group_id,
+                     project_category, project_type, PFMS_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING project_id
                 """, (
                     project_data['project_no'],
@@ -52,13 +58,29 @@ class ProjectService:
                     project_data.get('end_date'),
                     project_data['funding_agency_id'],
                     project_data['technical_group_id'],
-                    project_data.get('principal_investigator'),
-                    project_data.get('co_pi'),
-                    user['user_id'],
-                    user['user_id']
+                    project_data['project_category'],
+                    project_data['project_type'],
+                    project_data.get('PFMS_id')
                 ))
                 
                 project_id = cur.fetchone()['project_id']
+                
+                # Insert investigators if provided
+                if project_data.get('principal_investigator'):
+                    cur.execute("""
+                        INSERT INTO investigators
+                        (project_id, principal_investigator, pi_email, pi_mobile,
+                         co_investigator, co_email, co_mobile)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        project_id,
+                        project_data['principal_investigator'],
+                        project_data['pi_email'],
+                        project_data['pi_mobile'],
+                        project_data.get('co_investigator'),
+                        project_data.get('co_email'),
+                        project_data.get('co_mobile')
+                    ))
                 
                 # Insert budget allocations
                 budget_heads = [
@@ -73,39 +95,50 @@ class ProjectService:
                 for head, amount in budget_heads:
                     if amount > 0:
                         cur.execute("""
-                            INSERT INTO budget_allocations 
-                            (project_id, head, allocated_amount, created_by, updated_by)
-                            VALUES (%s, %s, %s, %s, %s)
-                        """, (project_id, head, amount, user['user_id'], user['user_id']))
-                
-                # Insert manpower breakdown if provided
-                manpower_breakdown = project_data.get('manpower_breakdown', [])
-                for item in manpower_breakdown:
-                    cur.execute("""
-                        INSERT INTO manpower_allocation_breakdown
-                        (project_id, role, salary_per_month, months, num_personnel)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (
-                        project_id,
-                        item['role'],
-                        item['salary_per_month'],
-                        item['months'],
-                        item.get('num_personnel', 1)
-                    ))
-                
-                # Insert equipment breakdown if provided
-                equipment_breakdown = project_data.get('equipment_breakdown', [])
-                for item in equipment_breakdown:
-                    cur.execute("""
-                        INSERT INTO equipment_allocation_breakdown
-                        (project_id, item_name, quantity, unit_cost)
-                        VALUES (%s, %s, %s, %s)
-                    """, (
-                        project_id,
-                        item['item_name'],
-                        item['quantity'],
-                        item['unit_cost']
-                    ))
+                            INSERT INTO budget_allocation 
+                            (project_id, head, allocated_amount)
+                            VALUES (%s, %s, %s)
+                            RETURNING allocation_id
+                        """, (project_id, head, amount))
+                        
+                        allocation_id = cur.fetchone()['allocation_id']
+                        
+                        # Insert manpower breakdown if provided
+                        if head == 'manpower' and project_data.get('manpower_breakdown'):
+                            for item in project_data['manpower_breakdown']:
+                                cur.execute("""
+                                    INSERT INTO manpower_allocation_breakdown
+                                    (allocation_id, project_id, role, salary_per_month, 
+                                     months, num_personnel, qualification, experience_required)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (
+                                    allocation_id,
+                                    project_id,
+                                    item['role'],
+                                    item['salary_per_month'],
+                                    item['months'],
+                                    item.get('num_personnel', 1),
+                                    item.get('qualification'),
+                                    item.get('experience_required')
+                                ))
+                        
+                        # Insert equipment breakdown if provided
+                        if head == 'equipment' and project_data.get('equipment_breakdown'):
+                            for item in project_data['equipment_breakdown']:
+                                cur.execute("""
+                                    INSERT INTO equipment_allocation_breakdown
+                                    (allocation_id, project_id, item_name, quantity, unit_cost,
+                                     description, product_website)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                """, (
+                                    allocation_id,
+                                    project_id,
+                                    item['item_name'],
+                                    item['quantity'],
+                                    item['unit_cost'],
+                                    item.get('description'),
+                                    item.get('product_website')
+                                ))
                 
                 self.conn.commit()
                 
@@ -143,24 +176,36 @@ class ProjectService:
                     p.*,
                     fa.name as funding_agency_name,
                     tg.name as technical_group_name,
+                    i.principal_investigator,
+                    i.co_investigator,
                     COALESCE(SUM(fr.amount), 0) as total_funds_received,
-                    COALESCE(SUM(e.total_cost), 0) as total_expenditure
+                    COALESCE(
+                        SUM(m.total_cost) + SUM(e.total_cost) + SUM(be.amount),
+                        0
+                    ) as total_expenditure
                 FROM projects p
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
+                LEFT JOIN investigators i ON p.project_id = i.project_id
                 LEFT JOIN funds_received fr ON p.project_id = fr.project_id
-                LEFT JOIN expenditures e ON p.project_id = e.project_id
+                LEFT JOIN manpower m ON p.project_id = m.project_id
+                LEFT JOIN equipment e ON p.project_id = e.project_id
+                LEFT JOIN budget_expenditure be ON p.project_id = be.project_id
             """
             
             # Apply status filter
+            where_conditions = []
             if status_filter == 'active':
-                query += " WHERE p.end_date IS NULL OR p.end_date >= CURRENT_DATE"
+                where_conditions.append("(p.end_date IS NULL OR p.end_date >= CURRENT_DATE)")
             elif status_filter == 'completed':
-                query += " WHERE p.end_date IS NOT NULL AND p.end_date < CURRENT_DATE"
+                where_conditions.append("(p.end_date IS NOT NULL AND p.end_date < CURRENT_DATE)")
+            
+            if where_conditions:
+                query += " WHERE " + " AND ".join(where_conditions)
             
             query += """
-                GROUP BY p.project_id, fa.name, tg.name
-                ORDER BY p.created_at DESC
+                GROUP BY p.project_id, fa.name, tg.name, i.principal_investigator, i.co_investigator
+                ORDER BY p.project_id DESC
                 LIMIT %s OFFSET %s
             """
             
@@ -184,7 +229,9 @@ class ProjectService:
                 SELECT 
                     p.*,
                     fa.name as funding_agency_name,
-                    tg.name as technical_group_name
+                    fa.address as funding_agency_address,
+                    tg.name as technical_group_name,
+                    tg.description as technical_group_description
                 FROM projects p
                 LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
                 LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
@@ -197,10 +244,17 @@ class ProjectService:
             
             project_dict = dict(project)
             
+            # Get investigators
+            cur.execute("""
+                SELECT * FROM investigators WHERE project_id = %s
+            """, (project_id,))
+            investigator = cur.fetchone()
+            if investigator:
+                project_dict.update(dict(investigator))
+            
             # Get budget allocations
             cur.execute("""
-                SELECT * FROM budget_allocations
-                WHERE project_id = %s
+                SELECT * FROM budget_allocation WHERE project_id = %s
             """, (project_id,))
             project_dict['budget_allocations'] = [dict(row) for row in cur.fetchall()]
             
@@ -220,14 +274,13 @@ class ProjectService:
             
             return project_dict
     
-    def update_project(self, project_id: int, project_data: dict, user: dict) -> dict:
+    def update_project(self, project_id: int, project_data: dict) -> dict:
         """
         Update an existing project
         
         Args:
             project_id: Project ID
             project_data: Updated project data
-            user: Current authenticated user
             
         Returns:
             Updated project data
@@ -254,8 +307,8 @@ class ProjectService:
                 
                 allowed_fields = [
                     'project_no', 'title', 'alias', 'start_date', 'end_date',
-                    'funding_agency_id', 'technical_group_id', 
-                    'principal_investigator', 'co_pi'
+                    'funding_agency_id', 'technical_group_id',
+                    'project_category', 'project_type', 'PFMS_id'
                 ]
                 
                 for field in allowed_fields:
@@ -266,9 +319,7 @@ class ProjectService:
                 if not update_fields:
                     raise HTTPException(status_code=400, detail="No valid fields to update")
                 
-                update_fields.append("updated_by = %s")
-                update_fields.append("updated_at = CURRENT_TIMESTAMP")
-                update_values.extend([user['user_id'], project_id])
+                update_values.append(project_id)
                 
                 query = f"""
                     UPDATE projects 
@@ -277,6 +328,46 @@ class ProjectService:
                 """
                 
                 cur.execute(query, update_values)
+                
+                # Update investigators if provided
+                if 'principal_investigator' in project_data:
+                    cur.execute("SELECT id FROM investigators WHERE project_id = %s", (project_id,))
+                    if cur.fetchone():
+                        # Update existing
+                        inv_fields = []
+                        inv_values = []
+                        
+                        inv_allowed = ['principal_investigator', 'pi_email', 'pi_mobile',
+                                      'co_investigator', 'co_email', 'co_mobile']
+                        
+                        for field in inv_allowed:
+                            if field in project_data:
+                                inv_fields.append(f"{field} = %s")
+                                inv_values.append(project_data[field])
+                        
+                        if inv_fields:
+                            inv_values.append(project_id)
+                            cur.execute(
+                                f"UPDATE investigators SET {', '.join(inv_fields)} WHERE project_id = %s",
+                                inv_values
+                            )
+                    else:
+                        # Create new
+                        cur.execute("""
+                            INSERT INTO investigators
+                            (project_id, principal_investigator, pi_email, pi_mobile,
+                             co_investigator, co_email, co_mobile)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            project_id,
+                            project_data['principal_investigator'],
+                            project_data['pi_email'],
+                            project_data['pi_mobile'],
+                            project_data.get('co_investigator'),
+                            project_data.get('co_email'),
+                            project_data.get('co_mobile')
+                        ))
+                
                 self.conn.commit()
                 
                 return self.get_project_by_id(project_id)
@@ -295,7 +386,7 @@ class ProjectService:
     
     def delete_project(self, project_id: int) -> dict:
         """
-        Delete a project (soft delete by setting deleted flag)
+        Delete a project (CASCADE will handle related records)
         
         Args:
             project_id: Project ID
@@ -309,19 +400,7 @@ class ProjectService:
                 if not cur.fetchone():
                     raise HTTPException(status_code=404, detail="Project not found")
                 
-                # Check if project has dependencies
-                cur.execute("""
-                    SELECT COUNT(*) as count FROM expenditures WHERE project_id = %s
-                """, (project_id,))
-                
-                expenditure_count = cur.fetchone()['count']
-                if expenditure_count > 0:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Cannot delete project with {expenditure_count} expenditure records"
-                    )
-                
-                # Delete project
+                # Delete project (CASCADE will handle related records)
                 cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
                 self.conn.commit()
                 
@@ -345,21 +424,25 @@ class ProjectService:
             # Get project basic info
             project = self.get_project_by_id(project_id)
             
-            # Get budget allocation summary
+            # Get budget summary per head
             cur.execute("""
                 SELECT 
-                    head,
-                    allocated_amount,
+                    ba.head,
+                    ba.allocated_amount,
                     COALESCE(SUM(fr.amount), 0) as funds_received,
-                    COALESCE(SUM(e.total_cost), 0) as expenditure
-                FROM budget_allocations ba
-                LEFT JOIN funds_received fr ON ba.project_id = fr.project_id 
-                    AND ba.head = fr.head
-                LEFT JOIN expenditures e ON ba.project_id = e.project_id 
-                    AND ba.head = e.head
+                    COALESCE(
+                        CASE 
+                            WHEN ba.head = 'manpower' THEN (SELECT COALESCE(SUM(m.total_cost), 0) FROM manpower m WHERE m.project_id = %s)
+                            WHEN ba.head = 'equipment' THEN (SELECT COALESCE(SUM(e.total_cost), 0) FROM equipment e WHERE e.project_id = %s)
+                            ELSE (SELECT COALESCE(SUM(be.amount), 0) FROM budget_expenditure be WHERE be.project_id = %s AND be.head = ba.head)
+                        END,
+                        0
+                    ) as expenditure
+                FROM budget_allocation ba
+                LEFT JOIN funds_received fr ON ba.project_id = fr.project_id AND ba.head = fr.head
                 WHERE ba.project_id = %s
-                GROUP BY ba.head, ba.allocated_amount
-            """, (project_id,))
+                GROUP BY ba.head, ba.allocated_amount, ba.project_id
+            """, (project_id, project_id, project_id, project_id))
             
             budget_summary = [dict(row) for row in cur.fetchall()]
             

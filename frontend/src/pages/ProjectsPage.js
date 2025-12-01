@@ -16,14 +16,12 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProject } from "../contexts/ProjectContext";
+import projectService from "../services/projectService";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
 import Input from "../components/common/Input";
 import ProjectForm from "../components/projects/ProjectForm";
 import { formatCurrency } from "../utils/helpers";
-import axios from "axios";
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 const ProjectsPage = () => {
   const navigate = useNavigate();
@@ -45,7 +43,7 @@ const ProjectsPage = () => {
   const [showAddExpenditure, setShowAddExpenditure] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // Filter states (removed status filter as per requirement)
+  // Filter states
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterAgency, setFilterAgency] = useState("all");
@@ -85,33 +83,27 @@ const ProjectsPage = () => {
     return "Active";
   };
 
+  // ✅ FIXED: Use backend-provided total_budget instead of trying to sum non-existent fields
   const getTotalAllocation = (project) => {
-    if (project.planned_allocation !== undefined) {
-      return project.planned_allocation;
-    }
-    return (
-      (project.manpower_allocation || 0) +
-      (project.equipment_allocation || 0) +
-      (project.consumables_allocation || 0) +
-      (project.contingency_allocation || 0) +
-      (project.travel_training_allocation || 0) +
-      (project.overhead_allocation || 0)
-    );
+    return project.total_budget || 0;
   };
 
+  // ✅ FIXED: Use backend-provided total_expenditure
   const getTotalExpenditure = (project) => {
-    return project.actual_expenditure || 0;
+    return project.total_expenditure || 0;
   };
 
+  // ✅ FIXED: Use backend-provided total_funds_received
   const getTotalFundsReceived = (project) => {
-    return project.funds_received || 0;
+    return project.total_funds_received || 0;
   };
 
-  // Filter logic (removed status filter)
-  const filteredProjects = projects.filter((project) => {
+  const projectList = Array.isArray(projects) ? projects : [];
+  // Filter logic
+  const filteredProjects = projectList.filter((project) => {
     const matchesSearch =
-      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.project_no.toLowerCase().includes(searchTerm.toLowerCase());
+      project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.project_no?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCategory =
       filterCategory === "all" || project.project_category === filterCategory;
@@ -178,11 +170,12 @@ const ProjectsPage = () => {
     setOpenDropdown(null);
   };
 
+  // ✅ FIXED: Use projectService instead of direct axios call
   const handleDelete = async (e, project) => {
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
       try {
-        await axios.delete(`${API_BASE_URL}/projects/${project.project_id}`);
+        await projectService.deleteProject(project.project_id);
         refreshProjects();
       } catch (error) {
         alert("Failed to delete project");
@@ -291,7 +284,7 @@ const ProjectsPage = () => {
               >
                 <option value="all">All Categories</option>
                 <option value="sponsored">Sponsored</option>
-                <option value="consultancy">Consultancy</option>
+                <option value="non-sponsored">Non-Sponsored</option>
               </select>
             </div>
 
@@ -305,9 +298,9 @@ const ProjectsPage = () => {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
               >
                 <option value="all">All Types</option>
-                <option value="institutional">Institutional</option>
-                <option value="government">Government</option>
-                <option value="industrial">Industrial</option>
+                <option value="PFMS">PFMS</option>
+                <option value="NON-PFMS">NON-PFMS</option>
+                <option value="contract-research">Contract Research</option>
               </select>
             </div>
 
@@ -495,12 +488,16 @@ const ProjectsPage = () => {
                       {/* Category & Type */}
                       <td className="px-6 py-4">
                         <div className="space-y-1.5">
-                          <div className="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                            {project.project_category}
-                          </div>
-                          <div className="inline-block px-2.5 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded ml-1">
-                            {project.project_type}
-                          </div>
+                          {project.project_category && (
+                            <div className="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                              {project.project_category}
+                            </div>
+                          )}
+                          {project.project_type && (
+                            <div className="inline-block px-2.5 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded ml-1">
+                              {project.project_type}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -711,7 +708,7 @@ const ProjectsPage = () => {
   );
 };
 
-// Add Fund Modal Component with Breakdown Support
+// ✅ FIXED: Add Fund Modal Component with proper endpoint usage
 const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
   const [formData, setFormData] = useState({
     head: "manpower",
@@ -728,7 +725,6 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
     { item_name: "", quantity: 1, unit_cost: "" },
   ]);
 
-  // ADD these new states after equipmentBreakdown
   const [approvedManpower, setApprovedManpower] = useState([]);
   const [approvedEquipment, setApprovedEquipment] = useState([]);
 
@@ -746,10 +742,11 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   const fetchBudgetInfo = async () => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/expenditure/allocation/project/${project.project_id}`
+      // ✅ FIXED: Use correct endpoint
+      const allocations = await projectService.getBudgetAllocations(
+        project.project_id
       );
-      setBudgetInfo(response.data);
+      setBudgetInfo(allocations);
     } catch (error) {
       console.error("Failed to fetch budget info:", error);
     }
@@ -757,18 +754,13 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   const fetchApprovedBreakdown = async () => {
     try {
+      // ✅ FIXED: Use projectService methods
       const [manpowerRes, equipmentRes] = await Promise.all([
-        axios.get(
-          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/manpower-breakdown`
-        ),
-        axios.get(
-          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/equipment-breakdown`
-        ),
+        projectService.getManpowerBreakdown(project.project_id),
+        projectService.getEquipmentBreakdown(project.project_id),
       ]);
-      console.log("Approved Manpower:", manpowerRes.data); // ADD THIS
-      console.log("Approved Equipment:", equipmentRes.data);
-      setApprovedManpower(manpowerRes.data);
-      setApprovedEquipment(equipmentRes.data);
+      setApprovedManpower(manpowerRes);
+      setApprovedEquipment(equipmentRes);
     } catch (error) {
       console.error("Failed to fetch approved breakdown:", error);
     }
@@ -929,7 +921,7 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
     try {
       const totalAmount = calculateTotalAmount();
 
-      // Create funds received entry
+      // ✅ FIXED: Use projectService instead of direct axios
       const fundData = {
         project_id: project.project_id,
         head: formData.head,
@@ -938,22 +930,18 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
         remarks: formData.remarks,
       };
 
-      const fundResponse = await axios.post(
-        `${API_BASE_URL}/funds/received`,
-        fundData
-      );
+      const fundResponse = await projectService.addFundsReceived(fundData);
 
-      if (fundResponse.data.warnings) {
-        setWarnings(fundResponse.data.warnings);
+      if (fundResponse.warnings) {
+        setWarnings(fundResponse.warnings);
       }
 
-      const fundId =
-        fundResponse.data.data?.fund_id || fundResponse.data.fund_id;
+      const fundId = fundResponse.fund_id;
 
       // Create breakdown entries if applicable
       if (formData.head === "manpower") {
         for (const item of manpowerBreakdown) {
-          await axios.post(`${API_BASE_URL}/funds/breakdown/manpower`, {
+          await projectService.addManpowerFundsBreakdown({
             fund_id: fundId,
             project_id: project.project_id,
             role: item.role,
@@ -964,7 +952,7 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
         }
       } else if (formData.head === "equipment") {
         for (const item of equipmentBreakdown) {
-          await axios.post(`${API_BASE_URL}/funds/breakdown/equipment`, {
+          await projectService.addEquipmentFundsBreakdown({
             fund_id: fundId,
             project_id: project.project_id,
             item_name: item.item_name,
@@ -975,7 +963,7 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
       }
 
       // Show warnings if any, but still proceed
-      if (fundResponse.data.warnings && fundResponse.data.warnings.length > 0) {
+      if (fundResponse.warnings && fundResponse.warnings.length > 0) {
         setTimeout(() => {
           onSuccess();
         }, 2000);
@@ -1399,7 +1387,7 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
   );
 };
 
-// Add Expenditure Modal Component with Breakdown Support
+// ✅ FIXED: Add Expenditure Modal Component with proper routing to correct endpoints
 const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
   const [formData, setFormData] = useState({
     head: "manpower",
@@ -1416,7 +1404,6 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
     { name: "", quantity: 1, unit_cost: "", purchase_date: "" },
   ]);
 
-  // ADD these new states after equipmentBreakdown
   const [approvedManpower, setApprovedManpower] = useState([]);
   const [approvedEquipment, setApprovedEquipment] = useState([]);
 
@@ -1434,10 +1421,10 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   const fetchBudgetInfo = async () => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/expenditure/allocation/project/${project.project_id}`
+      const allocations = await projectService.getBudgetAllocations(
+        project.project_id
       );
-      setBudgetInfo(response.data);
+      setBudgetInfo(allocations);
     } catch (error) {
       console.error("Failed to fetch budget info:", error);
     }
@@ -1446,15 +1433,11 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
   const fetchApprovedBreakdown = async () => {
     try {
       const [manpowerRes, equipmentRes] = await Promise.all([
-        axios.get(
-          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/manpower-breakdown`
-        ),
-        axios.get(
-          `${API_BASE_URL}/budget/allocation/project/${project.project_id}/equipment-breakdown`
-        ),
+        projectService.getManpowerBreakdown(project.project_id),
+        projectService.getEquipmentBreakdown(project.project_id),
       ]);
-      setApprovedManpower(manpowerRes.data);
-      setApprovedEquipment(equipmentRes.data);
+      setApprovedManpower(manpowerRes);
+      setApprovedEquipment(equipmentRes);
     } catch (error) {
       console.error("Failed to fetch approved breakdown:", error);
     }
@@ -1498,23 +1481,23 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
   const handleManpowerRoleSelect = (index, role) => {
     const approved = approvedManpower.find((m) => m.role === role);
     if (approved) {
-      const updated = [...manpowerBreakdown];
+      const updated = [...manpowerData];
       updated[index] = {
         role: approved.role,
         salary_per_month: approved.salary_per_month,
         months: approved.months,
         num_personnel: approved.num_personnel,
       };
-      setManpowerBreakdown(updated);
+      setManpowerData(updated);
     } else {
       updateManpowerRow(index, "role", role);
     }
   };
 
   const updateManpowerRow = (index, field, value) => {
-    const updated = [...manpowerBreakdown];
+    const updated = [...manpowerData];
     updated[index][field] = value;
-    setManpowerBreakdown(updated);
+    setManpowerData(updated);
   };
 
   const addEquipmentRow = () => {
@@ -1536,22 +1519,23 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
   const handleEquipmentSelect = (index, itemName) => {
     const approved = approvedEquipment.find((e) => e.item_name === itemName);
     if (approved) {
-      const updated = [...equipmentBreakdown];
+      const updated = [...equipmentData];
       updated[index] = {
-        item_name: approved.item_name,
+        name: approved.item_name,
         quantity: approved.quantity,
         unit_cost: approved.unit_cost,
+        purchase_date: formData.date_incurred,
       };
-      setEquipmentBreakdown(updated);
+      setEquipmentData(updated);
     } else {
-      updateEquipmentRow(index, "item_name", itemName);
+      updateEquipmentRow(index, "name", itemName);
     }
   };
 
   const updateEquipmentRow = (index, field, value) => {
-    const updated = [...equipmentBreakdown];
+    const updated = [...equipmentData];
     updated[index][field] = value;
-    setEquipmentBreakdown(updated);
+    setEquipmentData(updated);
   };
 
   const validateForm = () => {
@@ -1606,23 +1590,25 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
     return newErrors.length === 0;
   };
 
+  // ✅ CRITICAL FIX: Route to correct endpoints based on head type
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors([]);
     setWarnings([]);
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
 
     try {
-      // Handle different submission based on head type
+      let collectedWarnings = [];
+
+      // ---------------------------------------------------
+      // MANPOWER
+      // ---------------------------------------------------
       if (formData.head === "manpower") {
-        // Submit each manpower entry separately
         for (const item of manpowerData) {
-          const response = await axios.post(`${API_BASE_URL}/manpower`, {
+          const response = await projectService.addManpower({
             project_id: project.project_id,
             role: item.role,
             salary_per_month: parseFloat(item.salary_per_month),
@@ -1631,43 +1617,62 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
             date_incurred: formData.date_incurred,
           });
 
-          if (response.data.warnings) {
-            setWarnings((prev) => [...prev, ...response.data.warnings]);
+          if (response?.warnings?.length > 0) {
+            collectedWarnings.push(...response.warnings);
           }
         }
-      } else if (formData.head === "equipment") {
-        // Submit each equipment entry separately
+      }
+
+      // ---------------------------------------------------
+      // EQUIPMENT
+      // ---------------------------------------------------
+      else if (formData.head === "equipment") {
         for (const item of equipmentData) {
-          await axios.post(`${API_BASE_URL}/equipment`, {
+          const response = await projectService.addEquipment({
             project_id: project.project_id,
             name: item.name,
             quantity: parseInt(item.quantity),
             unit_cost: parseFloat(item.unit_cost),
             purchase_date: item.purchase_date || formData.date_incurred,
           });
+
+          if (response?.warnings?.length > 0) {
+            collectedWarnings.push(...response.warnings);
+          }
         }
-      } else {
-        // Submit as general budget expenditure
-        await axios.post(`${API_BASE_URL}/expenditure`, {
+      }
+
+      // ---------------------------------------------------
+      // OTHER HEADS → expenditure endpoint
+      // ---------------------------------------------------
+      else {
+        const response = await projectService.addExpenditure({
           project_id: project.project_id,
           head: formData.head,
           amount: parseFloat(formData.amount),
           date_incurred: formData.date_incurred,
           description: formData.description,
         });
+
+        if (response?.warnings?.length > 0) {
+          collectedWarnings.push(...response.warnings);
+        }
       }
 
-      // Show warnings if any, but still proceed
-      if (warnings.length > 0) {
-        setTimeout(() => {
-          onSuccess();
-        }, 2000);
-      } else {
-        onSuccess();
+      // Update warnings state after all API calls
+      if (collectedWarnings.length > 0) {
+        setWarnings(collectedWarnings);
+        // Wait for user to read warnings
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
+
+      onSuccess(); // Always proceed
     } catch (error) {
       const errorMsg =
-        error.response?.data?.detail || "Failed to record expenditure";
+        error?.response?.data?.detail ||
+        error?.message ||
+        "Failed to record expenditure";
+
       setErrors([errorMsg]);
     } finally {
       setLoading(false);
@@ -1821,7 +1826,7 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
                       onChange={(e) =>
                         handleManpowerRoleSelect(idx, e.target.value)
                       }
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
                       required
                     >
                       <option value="">Select Role</option>
@@ -1839,7 +1844,7 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
                         onChange={(e) =>
                           updateManpowerRow(idx, "role", e.target.value)
                         }
-                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 mt-1"
                       />
                     )}
                   </div>
@@ -1940,11 +1945,11 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
                       Item Name
                     </label>
                     <select
-                      value={item.item_name}
+                      value={item.name}
                       onChange={(e) =>
                         handleEquipmentSelect(idx, e.target.value)
                       }
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
                       required
                     >
                       <option value="">Select Equipment</option>
@@ -1955,14 +1960,14 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
                       ))}
                       <option value="__custom__">+ Add Custom Equipment</option>
                     </select>
-                    {item.item_name === "__custom__" && (
+                    {item.name === "__custom__" && (
                       <input
                         type="text"
                         placeholder="Enter custom equipment"
                         onChange={(e) =>
-                          updateEquipmentRow(idx, "item_name", e.target.value)
+                          updateEquipmentRow(idx, "name", e.target.value)
                         }
-                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-1"
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 mt-1"
                       />
                     )}
                   </div>

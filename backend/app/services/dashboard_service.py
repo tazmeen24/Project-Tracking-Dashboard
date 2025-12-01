@@ -212,7 +212,6 @@ class DashboardService:
                 SELECT 
                     fa.agency_id,
                     fa.name as agency_name,
-                    fa.agency_type,
                     COUNT(DISTINCT p.project_id) as project_count,
                     COALESCE(SUM(ba.allocated_amount), 0) as total_allocated,
                     COALESCE(SUM(fr.amount), 0) as total_received,
@@ -222,7 +221,7 @@ class DashboardService:
                 LEFT JOIN budget_allocations ba ON p.project_id = ba.project_id
                 LEFT JOIN funds_received fr ON p.project_id = fr.project_id
                 LEFT JOIN expenditures e ON p.project_id = e.project_id
-                GROUP BY fa.agency_id, fa.name, fa.agency_type
+                GROUP BY fa.agency_id, fa.name,
                 HAVING COUNT(DISTINCT p.project_id) > 0
                 ORDER BY total_allocated DESC
             """)

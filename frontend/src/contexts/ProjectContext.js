@@ -1,4 +1,9 @@
 // contexts/ProjectContext.js
+/**
+ * FIXED: Correctly handles paginated API responses
+ * Backend returns: { total, skip, limit, data: [...] }
+ * We extract the 'data' array
+ */
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import projectService from '../services/projectService';
 
@@ -31,17 +36,22 @@ export const ProjectProvider = ({ children }) => {
         projectService.getDashboardStats(),
       ]);
 
-      setProjects(projectsData);
-      setFundingAgencies(agenciesData);
-      setTechnicalGroups(groupsData);
-      setDashboardStats({
-        totalProjects: statsData.total_projects,
-        activeProjects: statsData.active_projects,
-        totalAllocation: statsData.total_allocation,
-        totalFunds: statsData.total_funds,
-        totalExpenditure: statsData.total_expenditure,
-        balance: statsData.balance,
-      });
+      // FIXED: Extract 'data' array from paginated response
+      setProjects(Array.isArray(projectsData) ? projectsData : projectsData?.data || []);
+      setFundingAgencies(Array.isArray(agenciesData) ? agenciesData : agenciesData?.data || []);
+      setTechnicalGroups(Array.isArray(groupsData) ? groupsData : groupsData?.data || []);
+      
+      // Handle dashboard stats
+      if (statsData) {
+        setDashboardStats({
+          totalProjects: statsData.total_projects || 0,
+          activeProjects: statsData.active_projects || 0,
+          totalAllocation: statsData.total_allocation || 0,
+          totalFunds: statsData.total_funds || 0,
+          totalExpenditure: statsData.total_expenditure || 0,
+          balance: statsData.balance || 0,
+        });
+      }
     } catch (err) {
       setError(err.message);
       console.error('Failed to load initial data:', err);
@@ -57,15 +67,20 @@ export const ProjectProvider = ({ children }) => {
         projectService.getAllProjects(),
         projectService.getDashboardStats(),
       ]);
-      setProjects(projectsData);
-      setDashboardStats({
-        totalProjects: statsData.total_projects,
-        activeProjects: statsData.active_projects,
-        totalAllocation: statsData.total_allocation,
-        totalFunds: statsData.total_funds,
-        totalExpenditure: statsData.total_expenditure,
-        balance: statsData.balance,
-      });
+      
+      // FIXED: Extract 'data' array from paginated response
+      setProjects(Array.isArray(projectsData) ? projectsData : projectsData?.data || []);
+      
+      if (statsData) {
+        setDashboardStats({
+          totalProjects: statsData.total_projects || 0,
+          activeProjects: statsData.active_projects || 0,
+          totalAllocation: statsData.total_allocation || 0,
+          totalFunds: statsData.total_funds || 0,
+          totalExpenditure: statsData.total_expenditure || 0,
+          balance: statsData.balance || 0,
+        });
+      }
     } catch (err) {
       setError(err.message);
       throw err;
@@ -76,7 +91,8 @@ export const ProjectProvider = ({ children }) => {
   const refreshFundingAgencies = useCallback(async () => {
     try {
       const agenciesData = await projectService.getAllFundingAgencies();
-      setFundingAgencies(agenciesData);
+      // FIXED: Handle possible paginated response
+      setFundingAgencies(Array.isArray(agenciesData) ? agenciesData : agenciesData?.data || []);
     } catch (err) {
       setError(err.message);
       throw err;
@@ -87,7 +103,8 @@ export const ProjectProvider = ({ children }) => {
   const refreshTechnicalGroups = useCallback(async () => {
     try {
       const groupsData = await projectService.getAllTechnicalGroups();
-      setTechnicalGroups(groupsData);
+      // FIXED: Handle possible paginated response
+      setTechnicalGroups(Array.isArray(groupsData) ? groupsData : groupsData?.data || []);
     } catch (err) {
       setError(err.message);
       throw err;

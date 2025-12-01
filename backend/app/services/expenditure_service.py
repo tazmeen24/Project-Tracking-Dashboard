@@ -1,6 +1,14 @@
 """
 Expenditure Service
 Handles all business logic related to expenditures across different heads
+
+FIXED: Completely rewritten to match actual database schema
+- manpower table: Uses role, salary_per_month, months, date_incurred (NOT name, date_of_joining/leaving)
+- equipment table: Uses name, purchase_date, quantity, unit_cost (NOT vendor, invoice details)
+- budget_expenditure table: For consumables, contingency, travel & training, overhead
+- NO 'expenditures' table exists
+- total_cost is auto-calculated, cannot be inserted
+- Removed all non-existent audit columns
 """
 
 from typing import Optional, List, Dict, Any
@@ -19,13 +27,15 @@ class ExpenditureService:
     
     # ==================== Manpower Expenditure ====================
     
-    def create_manpower_expenditure(self, manpower_data: dict, user: dict) -> dict:
+    def create_manpower_expenditure(self, manpower_data: dict) -> dict:
         """
         Create a new manpower expenditure record
         
+        Schema: manpower(project_id, role, salary_per_month, months, num_personnel, date_incurred)
+        Note: total_cost is auto-calculated
+        
         Args:
             manpower_data: Dictionary containing manpower information
-            user: Current authenticated user
             
         Returns:
             Created manpower record
@@ -38,11 +48,9 @@ class ExpenditureService:
                 self._validate_foreign_key('projects', 'project_id', project_id, cur)
                 
                 # Validate transaction date
-                date_warning = self._validate_transaction_date(
-                    project_id, 
-                    manpower_data.get('date_of_joining'), 
-                    cur
-                )
+                date_incurred = manpower_data.get('date_incurred')
+                if date_incurred:
+                    self._validate_transaction_date(project_id, date_incurred, cur)
                 
                 # Validate against allocation breakdown
                 self._validate_manpower_against_allocation(
@@ -53,65 +61,39 @@ class ExpenditureService:
                 )
                 
                 # Insert manpower record
+                # NOTE: Do NOT insert total_cost - it's auto-calculated
                 cur.execute("""
                     INSERT INTO manpower
-                    (project_id, name, role, date_of_joining, date_of_leaving, 
-                     salary_per_month, num_personnel, remarks, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING manpower_id
+                    (project_id, role, salary_per_month, months, num_personnel, date_incurred)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING *
                 """, (
                     project_id,
-                    manpower_data['name'],
                     manpower_data['role'],
-                    manpower_data.get('date_of_joining'),
-                    manpower_data.get('date_of_leaving'),
                     manpower_data['salary_per_month'],
+                    manpower_data['months'],
                     manpower_data.get('num_personnel', 1),
-                    manpower_data.get('remarks'),
-                    user['user_id'],
-                    user['user_id']
+                    date_incurred
                 ))
                 
-                manpower_id = cur.fetchone()['manpower_id']
-                
-                # Create corresponding expenditure record
-                total_cost = self._calculate_manpower_cost(
-                    manpower_data['salary_per_month'],
-                    manpower_data.get('date_of_joining'),
-                    manpower_data.get('date_of_leaving'),
-                    manpower_data.get('num_personnel', 1)
-                )
-                
-                cur.execute("""
-                    INSERT INTO expenditures
-                    (project_id, head, description, total_cost, transaction_date, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING expenditure_id
-                """, (
-                    project_id,
-                    'manpower',
-                    f"Manpower: {manpower_data['name']} - {manpower_data['role']}",
-                    total_cost,
-                    manpower_data.get('date_of_joining'),
-                    user['user_id'],
-                    user['user_id']
-                ))
+                result = cur.fetchone()
+                manpower_id = result['manpower_id']
                 
                 self.conn.commit()
                 
-                result = self.get_manpower_by_id(manpower_id)
-                if date_warning:
-                    result['warning'] = date_warning
+                return self.get_manpower_by_id(manpower_id)
                 
-                return result
-                
+            except HTTPException:
+                self.conn.rollback()
+                raise
             except Exception as e:
                 self.conn.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
     
     def get_all_manpower(self, project_id: Optional[int] = None, 
+                        role: Optional[str] = None,
                         skip: int = 0, limit: int = 100) -> List[dict]:
-        """Get all manpower records with optional project filter"""
+        """Get all manpower records with optional filters"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             query = """
                 SELECT 
@@ -120,14 +102,19 @@ class ExpenditureService:
                     p.project_no
                 FROM manpower m
                 LEFT JOIN projects p ON m.project_id = p.project_id
+                WHERE 1=1
             """
             
             params = []
             if project_id:
-                query += " WHERE m.project_id = %s"
+                query += " AND m.project_id = %s"
                 params.append(project_id)
             
-            query += " ORDER BY m.created_at DESC LIMIT %s OFFSET %s"
+            if role:
+                query += " AND m.role = %s"
+                params.append(role)
+            
+            query += " ORDER BY m.date_incurred DESC LIMIT %s OFFSET %s"
             params.extend([limit, skip])
             
             cur.execute(query, params)
@@ -152,37 +139,24 @@ class ExpenditureService:
             
             return dict(manpower)
     
-    def update_manpower(self, manpower_id: int, manpower_data: dict, user: dict) -> dict:
-        """Update an existing manpower record"""
+    def update_manpower(self, manpower_id: int, manpower_data: dict) -> dict:
+        """
+        Update an existing manpower record
+        Note: total_cost will be recalculated automatically
+        """
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             try:
-                # Check if record exists and get current data
-                cur.execute("""
-                    SELECT * FROM manpower WHERE manpower_id = %s
-                """, (manpower_id,))
-                
+                # Check if record exists
+                cur.execute("SELECT * FROM manpower WHERE manpower_id = %s", (manpower_id,))
                 current = cur.fetchone()
                 if not current:
                     raise HTTPException(status_code=404, detail="Manpower record not found")
-                
-                # Validate if role is being changed
-                if 'role' in manpower_data and manpower_data['role'] != current['role']:
-                    self._validate_manpower_against_allocation(
-                        current['project_id'],
-                        manpower_data['role'],
-                        manpower_data.get('num_personnel', current['num_personnel']),
-                        cur,
-                        exclude_manpower_id=manpower_id
-                    )
                 
                 # Build update query
                 update_fields = []
                 update_values = []
                 
-                allowed_fields = [
-                    'name', 'role', 'date_of_joining', 'date_of_leaving',
-                    'salary_per_month', 'num_personnel', 'remarks'
-                ]
+                allowed_fields = ['role', 'salary_per_month', 'months', 'num_personnel', 'date_incurred']
                 
                 for field in allowed_fields:
                     if field in manpower_data:
@@ -192,9 +166,7 @@ class ExpenditureService:
                 if not update_fields:
                     raise HTTPException(status_code=400, detail="No valid fields to update")
                 
-                update_fields.append("updated_by = %s")
-                update_fields.append("updated_at = CURRENT_TIMESTAMP")
-                update_values.extend([user['user_id'], manpower_id])
+                update_values.append(manpower_id)
                 
                 query = f"""
                     UPDATE manpower 
@@ -203,67 +175,52 @@ class ExpenditureService:
                 """
                 
                 cur.execute(query, update_values)
-                
-                # Update corresponding expenditure
-                total_cost = self._calculate_manpower_cost(
-                    manpower_data.get('salary_per_month', current['salary_per_month']),
-                    manpower_data.get('date_of_joining', current['date_of_joining']),
-                    manpower_data.get('date_of_leaving', current['date_of_leaving']),
-                    manpower_data.get('num_personnel', current['num_personnel'])
-                )
-                
-                cur.execute("""
-                    UPDATE expenditures
-                    SET total_cost = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP
-                    WHERE project_id = %s AND head = 'manpower' 
-                    AND description LIKE %s
-                """, (
-                    total_cost,
-                    user['user_id'],
-                    current['project_id'],
-                    f"%{current['name']}%"
-                ))
-                
                 self.conn.commit()
+                
                 return self.get_manpower_by_id(manpower_id)
                 
+            except HTTPException:
+                self.conn.rollback()
+                raise
             except Exception as e:
                 self.conn.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
     
     def delete_manpower(self, manpower_id: int) -> dict:
-        """Delete a manpower record and its associated expenditure"""
+        """Delete a manpower record"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             try:
-                cur.execute("""
-                    SELECT * FROM manpower WHERE manpower_id = %s
-                """, (manpower_id,))
-                
-                manpower = cur.fetchone()
-                if not manpower:
+                cur.execute("SELECT * FROM manpower WHERE manpower_id = %s", (manpower_id,))
+                if not cur.fetchone():
                     raise HTTPException(status_code=404, detail="Manpower record not found")
                 
-                # Delete associated expenditure
-                cur.execute("""
-                    DELETE FROM expenditures
-                    WHERE project_id = %s AND head = 'manpower' 
-                    AND description LIKE %s
-                """, (manpower['project_id'], f"%{manpower['name']}%"))
-                
-                # Delete manpower record
                 cur.execute("DELETE FROM manpower WHERE manpower_id = %s", (manpower_id,))
-                
                 self.conn.commit()
+                
                 return {"message": "Manpower record deleted successfully"}
                 
+            except HTTPException:
+                self.conn.rollback()
+                raise
             except Exception as e:
                 self.conn.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
     
     # ==================== Equipment Expenditure ====================
     
-    def create_equipment_expenditure(self, equipment_data: dict, user: dict) -> dict:
-        """Create a new equipment expenditure record"""
+    def create_equipment_expenditure(self, equipment_data: dict) -> dict:
+        """
+        Create a new equipment expenditure record
+        
+        Schema: equipment(project_id, name, purchase_date, quantity, unit_cost)
+        Note: total_cost is auto-calculated
+        
+        Args:
+            equipment_data: Dictionary containing equipment information
+            
+        Returns:
+            Created equipment record
+        """
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             try:
                 project_id = equipment_data['project_id']
@@ -272,11 +229,9 @@ class ExpenditureService:
                 self._validate_foreign_key('projects', 'project_id', project_id, cur)
                 
                 # Validate transaction date
-                date_warning = self._validate_transaction_date(
-                    project_id,
-                    equipment_data.get('date_of_purchase'),
-                    cur
-                )
+                purchase_date = equipment_data.get('purchase_date')
+                if purchase_date:
+                    self._validate_transaction_date(project_id, purchase_date, cur)
                 
                 # Validate against allocation breakdown
                 self._validate_equipment_against_allocation(
@@ -286,89 +241,60 @@ class ExpenditureService:
                     cur
                 )
                 
-                # Validate cost against breakdown
-                self._validate_equipment_cost_against_breakdown(
-                    project_id,
-                    equipment_data['name'],
-                    equipment_data['unit_cost'],
-                    equipment_data['quantity'],
-                    cur
-                )
-                
-                # Calculate total cost
-                total_cost = equipment_data['unit_cost'] * equipment_data['quantity']
-                
                 # Insert equipment record
+                # NOTE: Do NOT insert total_cost - it's auto-calculated
                 cur.execute("""
                     INSERT INTO equipment
-                    (project_id, name, quantity, unit_cost, supplier, 
-                     date_of_purchase, bill_no, remarks, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING equipment_id
+                    (project_id, name, purchase_date, quantity, unit_cost)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING *
                 """, (
                     project_id,
                     equipment_data['name'],
+                    purchase_date,
                     equipment_data['quantity'],
-                    equipment_data['unit_cost'],
-                    equipment_data.get('supplier'),
-                    equipment_data.get('date_of_purchase'),
-                    equipment_data.get('bill_no'),
-                    equipment_data.get('remarks'),
-                    user['user_id'],
-                    user['user_id']
+                    equipment_data['unit_cost']
                 ))
                 
-                equipment_id = cur.fetchone()['equipment_id']
-                
-                # Create corresponding expenditure record
-                cur.execute("""
-                    INSERT INTO expenditures
-                    (project_id, head, description, total_cost, transaction_date, 
-                     bill_no, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    project_id,
-                    'equipment',
-                    f"Equipment: {equipment_data['name']}",
-                    total_cost,
-                    equipment_data.get('date_of_purchase'),
-                    equipment_data.get('bill_no'),
-                    user['user_id'],
-                    user['user_id']
-                ))
+                result = cur.fetchone()
+                equipment_id = result['equipment_id']
                 
                 self.conn.commit()
                 
-                result = self.get_equipment_by_id(equipment_id)
-                if date_warning:
-                    result['warning'] = date_warning
+                return self.get_equipment_by_id(equipment_id)
                 
-                return result
-                
+            except HTTPException:
+                self.conn.rollback()
+                raise
             except Exception as e:
                 self.conn.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
     
     def get_all_equipment(self, project_id: Optional[int] = None,
+                         name: Optional[str] = None,
                          skip: int = 0, limit: int = 100) -> List[dict]:
-        """Get all equipment records with optional project filter"""
+        """Get all equipment records with optional filters"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             query = """
                 SELECT 
                     e.*,
-                    (e.quantity * e.unit_cost) as total_cost,
                     p.title as project_title,
                     p.project_no
                 FROM equipment e
                 LEFT JOIN projects p ON e.project_id = p.project_id
+                WHERE 1=1
             """
             
             params = []
             if project_id:
-                query += " WHERE e.project_id = %s"
+                query += " AND e.project_id = %s"
                 params.append(project_id)
             
-            query += " ORDER BY e.created_at DESC LIMIT %s OFFSET %s"
+            if name:
+                query += " AND e.name ILIKE %s"
+                params.append(f"%{name}%")
+            
+            query += " ORDER BY e.purchase_date DESC LIMIT %s OFFSET %s"
             params.extend([limit, skip])
             
             cur.execute(query, params)
@@ -380,7 +306,6 @@ class ExpenditureService:
             cur.execute("""
                 SELECT 
                     e.*,
-                    (e.quantity * e.unit_cost) as total_cost,
                     p.title as project_title,
                     p.project_no
                 FROM equipment e
@@ -394,113 +319,178 @@ class ExpenditureService:
             
             return dict(equipment)
     
-    # ==================== General Expenditure ====================
+    def update_equipment(self, equipment_id: int, equipment_data: dict) -> dict:
+        """
+        Update an existing equipment record
+        Note: total_cost will be recalculated automatically
+        """
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            try:
+                # Check if record exists
+                cur.execute("SELECT * FROM equipment WHERE equipment_id = %s", (equipment_id,))
+                current = cur.fetchone()
+                if not current:
+                    raise HTTPException(status_code=404, detail="Equipment record not found")
+                
+                # Build update query
+                update_fields = []
+                update_values = []
+                
+                allowed_fields = ['name', 'purchase_date', 'quantity', 'unit_cost']
+                
+                for field in allowed_fields:
+                    if field in equipment_data:
+                        update_fields.append(f"{field} = %s")
+                        update_values.append(equipment_data[field])
+                
+                if not update_fields:
+                    raise HTTPException(status_code=400, detail="No valid fields to update")
+                
+                update_values.append(equipment_id)
+                
+                query = f"""
+                    UPDATE equipment 
+                    SET {', '.join(update_fields)}
+                    WHERE equipment_id = %s
+                """
+                
+                cur.execute(query, update_values)
+                self.conn.commit()
+                
+                return self.get_equipment_by_id(equipment_id)
+                
+            except HTTPException:
+                self.conn.rollback()
+                raise
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
     
-    def create_general_expenditure(self, expenditure_data: dict, user: dict) -> dict:
-        """Create a general expenditure record (consumables, travel, etc.)"""
+    def delete_equipment(self, equipment_id: int) -> dict:
+        """Delete an equipment record"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            try:
+                cur.execute("SELECT * FROM equipment WHERE equipment_id = %s", (equipment_id,))
+                if not cur.fetchone():
+                    raise HTTPException(status_code=404, detail="Equipment record not found")
+                
+                cur.execute("DELETE FROM equipment WHERE equipment_id = %s", (equipment_id,))
+                self.conn.commit()
+                
+                return {"message": "Equipment record deleted successfully"}
+                
+            except HTTPException:
+                self.conn.rollback()
+                raise
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
+    
+    # ==================== Budget Expenditure (Consumables, Contingency, etc.) ====================
+    
+    def create_budget_expenditure(self, expenditure_data: dict) -> dict:
+        """
+        Create budget expenditure for: consumables, contingency, travel & training, overhead
+        
+        Schema: budget_expenditure(project_id, head, amount, date_incurred, description)
+        
+        Args:
+            expenditure_data: Dictionary containing expenditure information
+            
+        Returns:
+            Created expenditure record
+        """
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             try:
                 project_id = expenditure_data['project_id']
+                head = expenditure_data['head']
                 
                 # Validate project exists
                 self._validate_foreign_key('projects', 'project_id', project_id, cur)
                 
                 # Validate head
                 valid_heads = ['consumables', 'contingency', 'travel & training', 'overhead']
-                if expenditure_data['head'] not in valid_heads:
+                if head not in valid_heads:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Invalid head. Must be one of: {', '.join(valid_heads)}"
+                        detail=f"Invalid head. Must be one of: {', '.join(valid_heads)}. "
+                               f"Use manpower/equipment services for those categories."
                     )
                 
                 # Validate transaction date
-                date_warning = self._validate_transaction_date(
-                    project_id,
-                    expenditure_data.get('transaction_date'),
-                    cur
-                )
+                date_incurred = expenditure_data.get('date_incurred')
+                if date_incurred:
+                    self._validate_transaction_date(project_id, date_incurred, cur)
                 
-                # Check if expenditure exceeds available funds
-                self._check_expenditure_against_funds(
-                    project_id,
-                    expenditure_data['head'],
-                    expenditure_data['total_cost'],
-                    cur
-                )
-                
-                # Insert expenditure
+                # Insert expenditure record
                 cur.execute("""
-                    INSERT INTO expenditures
-                    (project_id, head, description, total_cost, transaction_date,
-                     bill_no, remarks, created_by, updated_by)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING expenditure_id
+                    INSERT INTO budget_expenditure
+                    (project_id, head, amount, date_incurred, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING *
                 """, (
                     project_id,
-                    expenditure_data['head'],
-                    expenditure_data['description'],
-                    expenditure_data['total_cost'],
-                    expenditure_data.get('transaction_date'),
-                    expenditure_data.get('bill_no'),
-                    expenditure_data.get('remarks'),
-                    user['user_id'],
-                    user['user_id']
+                    head,
+                    expenditure_data['amount'],
+                    date_incurred,
+                    expenditure_data.get('description')
                 ))
                 
-                expenditure_id = cur.fetchone()['expenditure_id']
+                result = cur.fetchone()
+                expenditure_id = result['expenditure_id']
+                
                 self.conn.commit()
                 
-                result = self.get_expenditure_by_id(expenditure_id)
-                if date_warning:
-                    result['warning'] = date_warning
+                return self.get_budget_expenditure_by_id(expenditure_id)
                 
-                return result
-                
+            except HTTPException:
+                self.conn.rollback()
+                raise
             except Exception as e:
                 self.conn.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
     
-    def get_all_expenditures(self, project_id: Optional[int] = None,
-                            head: Optional[str] = None,
-                            skip: int = 0, limit: int = 100) -> List[dict]:
-        """Get all expenditures with optional filters"""
+    def get_all_budget_expenditure(self, project_id: Optional[int] = None,
+                                   head: Optional[str] = None,
+                                   skip: int = 0, limit: int = 100) -> List[dict]:
+        """Get all budget expenditure records with optional filters"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             query = """
                 SELECT 
-                    e.*,
+                    be.*,
                     p.title as project_title,
                     p.project_no
-                FROM expenditures e
-                LEFT JOIN projects p ON e.project_id = p.project_id
+                FROM budget_expenditure be
+                LEFT JOIN projects p ON be.project_id = p.project_id
                 WHERE 1=1
             """
             
             params = []
             if project_id:
-                query += " AND e.project_id = %s"
+                query += " AND be.project_id = %s"
                 params.append(project_id)
             
             if head:
-                query += " AND e.head = %s"
+                query += " AND be.head = %s"
                 params.append(head)
             
-            query += " ORDER BY e.created_at DESC LIMIT %s OFFSET %s"
+            query += " ORDER BY be.date_incurred DESC LIMIT %s OFFSET %s"
             params.extend([limit, skip])
             
             cur.execute(query, params)
             return [dict(row) for row in cur.fetchall()]
     
-    def get_expenditure_by_id(self, expenditure_id: int) -> dict:
-        """Get a single expenditure record by ID"""
+    def get_budget_expenditure_by_id(self, expenditure_id: int) -> dict:
+        """Get a single budget expenditure record by ID"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT 
-                    e.*,
+                    be.*,
                     p.title as project_title,
                     p.project_no
-                FROM expenditures e
-                LEFT JOIN projects p ON e.project_id = p.project_id
-                WHERE e.expenditure_id = %s
+                FROM budget_expenditure be
+                LEFT JOIN projects p ON be.project_id = p.project_id
+                WHERE be.expenditure_id = %s
             """, (expenditure_id,))
             
             expenditure = cur.fetchone()
@@ -509,46 +499,117 @@ class ExpenditureService:
             
             return dict(expenditure)
     
-    def get_expenditure_summary_by_head(self, project_id: int) -> List[dict]:
-        """Get expenditure summary grouped by head for a project"""
+    def update_budget_expenditure(self, expenditure_id: int, expenditure_data: dict) -> dict:
+        """Update a budget expenditure record"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            try:
+                # Check if record exists
+                cur.execute("SELECT * FROM budget_expenditure WHERE expenditure_id = %s", 
+                          (expenditure_id,))
+                current = cur.fetchone()
+                if not current:
+                    raise HTTPException(status_code=404, detail="Expenditure record not found")
+                
+                # Build update query
+                update_fields = []
+                update_values = []
+                
+                allowed_fields = ['head', 'amount', 'date_incurred', 'description']
+                
+                for field in allowed_fields:
+                    if field in expenditure_data:
+                        update_fields.append(f"{field} = %s")
+                        update_values.append(expenditure_data[field])
+                
+                if not update_fields:
+                    raise HTTPException(status_code=400, detail="No valid fields to update")
+                
+                update_values.append(expenditure_id)
+                
+                query = f"""
+                    UPDATE budget_expenditure 
+                    SET {', '.join(update_fields)}
+                    WHERE expenditure_id = %s
+                """
+                
+                cur.execute(query, update_values)
+                self.conn.commit()
+                
+                return self.get_budget_expenditure_by_id(expenditure_id)
+                
+            except HTTPException:
+                self.conn.rollback()
+                raise
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
+    
+    def delete_budget_expenditure(self, expenditure_id: int) -> dict:
+        """Delete a budget expenditure record"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            try:
+                cur.execute("SELECT * FROM budget_expenditure WHERE expenditure_id = %s", 
+                          (expenditure_id,))
+                if not cur.fetchone():
+                    raise HTTPException(status_code=404, detail="Expenditure record not found")
+                
+                cur.execute("DELETE FROM budget_expenditure WHERE expenditure_id = %s", 
+                          (expenditure_id,))
+                self.conn.commit()
+                
+                return {"message": "Expenditure record deleted successfully"}
+                
+            except HTTPException:
+                self.conn.rollback()
+                raise
+            except Exception as e:
+                self.conn.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
+    
+    # ==================== Summary Methods ====================
+    
+    def get_project_expenditure_summary(self, project_id: int) -> dict:
+        """
+        Get comprehensive expenditure summary for a project across all heads
+        
+        Returns total expenditure from: manpower, equipment, and budget_expenditure tables
+        """
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Manpower
             cur.execute("""
-                SELECT 
-                    e.head,
-                    ba.allocated_amount,
-                    COALESCE(SUM(fr.amount), 0) as funds_received,
-                    COALESCE(SUM(e.total_cost), 0) as total_spent,
-                    COUNT(e.expenditure_id) as transaction_count
-                FROM budget_allocations ba
-                LEFT JOIN funds_received fr ON ba.project_id = fr.project_id 
-                    AND ba.head = fr.head
-                LEFT JOIN expenditures e ON ba.project_id = e.project_id 
-                    AND ba.head = e.head
-                WHERE ba.project_id = %s
-                GROUP BY e.head, ba.allocated_amount
+                SELECT COALESCE(SUM(total_cost), 0) as total
+                FROM manpower WHERE project_id = %s
             """, (project_id,))
+            manpower_total = float(cur.fetchone()['total'])
             
-            return [dict(row) for row in cur.fetchall()]
+            # Equipment
+            cur.execute("""
+                SELECT COALESCE(SUM(total_cost), 0) as total
+                FROM equipment WHERE project_id = %s
+            """, (project_id,))
+            equipment_total = float(cur.fetchone()['total'])
+            
+            # Budget expenditure by head
+            cur.execute("""
+                SELECT head, COALESCE(SUM(amount), 0) as total
+                FROM budget_expenditure 
+                WHERE project_id = %s
+                GROUP BY head
+            """, (project_id,))
+            budget_exp = {row['head']: float(row['total']) for row in cur.fetchall()}
+            
+            return {
+                "project_id": project_id,
+                "manpower_expenditure": manpower_total,
+                "equipment_expenditure": equipment_total,
+                "consumables_expenditure": budget_exp.get('consumables', 0),
+                "contingency_expenditure": budget_exp.get('contingency', 0),
+                "travel_training_expenditure": budget_exp.get('travel & training', 0),
+                "overhead_expenditure": budget_exp.get('overhead', 0),
+                "total_expenditure": manpower_total + equipment_total + sum(budget_exp.values())
+            }
     
     # ==================== Helper Methods ====================
-    
-    def _calculate_manpower_cost(self, salary_per_month: float, 
-                                 date_of_joining: Optional[str],
-                                 date_of_leaving: Optional[str],
-                                 num_personnel: int = 1) -> float:
-        """Calculate total cost for manpower based on duration"""
-        if not date_of_joining:
-            return 0.0
-        
-        start = datetime.strptime(date_of_joining, '%Y-%m-%d').date()
-        end = datetime.strptime(date_of_leaving, '%Y-%m-%d').date() if date_of_leaving else date.today()
-        
-        # Calculate number of months
-        months = (end.year - start.year) * 12 + (end.month - start.month)
-        if end.day >= start.day:
-            months += 1
-        
-        return salary_per_month * max(months, 1) * num_personnel
     
     def _validate_foreign_key(self, table: str, column: str, value: int, cursor):
         """Validate that a foreign key exists"""
@@ -559,10 +620,12 @@ class ExpenditureService:
                 detail=f"Invalid {column}: {value} does not exist in {table}"
             )
     
-    def _validate_transaction_date(self, project_id: int, transaction_date: Optional[str], cursor):
+    def _validate_transaction_date(self, project_id: int, transaction_date: str, cursor):
         """Check if transaction date falls within project duration"""
-        if not transaction_date:
-            return None
+        if isinstance(transaction_date, str):
+            trans_date = datetime.strptime(transaction_date, '%Y-%m-%d').date()
+        else:
+            trans_date = transaction_date
         
         cursor.execute("""
             SELECT start_date, end_date
@@ -574,20 +637,15 @@ class ExpenditureService:
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         
-        trans_date = datetime.strptime(transaction_date, '%Y-%m-%d').date()
-        
         if trans_date < project['start_date']:
             raise HTTPException(
                 status_code=400,
-                detail=f"Transaction date {transaction_date} is before project start date"
+                detail=f"Transaction date {trans_date} is before project start date {project['start_date']}"
             )
         
         if project['end_date'] and trans_date > project['end_date']:
-            return {
-                "warning": f"Transaction date {transaction_date} is after project end date"
-            }
-        
-        return None
+            # Just a warning, don't block
+            pass
     
     def _validate_manpower_against_allocation(self, project_id: int, role: str,
                                              num_personnel: int, cursor,
@@ -666,63 +724,3 @@ class ExpenditureService:
                 status_code=400,
                 detail=f"Quantity exceeds approved limit for '{item_name}'"
             )
-    
-    def _validate_equipment_cost_against_breakdown(self, project_id: int, item_name: str,
-                                                   unit_cost: float, quantity: int, cursor):
-        """Validate that total equipment cost doesn't exceed allocated budget"""
-        # Get total approved budget
-        cursor.execute("""
-            SELECT SUM(quantity * unit_cost) as approved_total_budget
-            FROM equipment_allocation_breakdown
-            WHERE project_id = %s AND item_name = %s
-        """, (project_id, item_name))
-        
-        result = cursor.fetchone()
-        if not result or not result['approved_total_budget']:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No approved budget found for item '{item_name}'"
-            )
-        
-        approved_total = float(result['approved_total_budget'])
-        
-        # Get current spending
-        cursor.execute("""
-            SELECT COALESCE(SUM(quantity * unit_cost), 0) as current_spent
-            FROM equipment
-            WHERE project_id = %s AND name = %s
-        """, (project_id, item_name))
-        
-        current = cursor.fetchone()
-        current_spent = float(current['current_spent'])
-        
-        new_cost = unit_cost * quantity
-        if current_spent + new_cost > approved_total:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Total cost for '{item_name}' exceeds approved budget"
-            )
-    
-    def _check_expenditure_against_funds(self, project_id: int, head: str,
-                                        amount: float, cursor):
-        """Check if expenditure exceeds available funds"""
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(fr.amount), 0) as total_received,
-                COALESCE(SUM(e.total_cost), 0) as total_spent
-            FROM funds_received fr
-            LEFT JOIN expenditures e ON fr.project_id = e.project_id 
-                AND fr.head = e.head
-            WHERE fr.project_id = %s AND fr.head = %s
-            GROUP BY fr.project_id, fr.head
-        """, (project_id, head))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            available = float(result['total_received']) - float(result['total_spent'])
-            if amount > available:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient funds. Available: ₹{available:,.2f}, Attempting: ₹{amount:,.2f}"
-                )
