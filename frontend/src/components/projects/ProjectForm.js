@@ -97,12 +97,10 @@ useEffect(() => {
   const fetchAndPopulateProject = async () => {
     if (editProject && editProject.project_id) {
       setLoadingProjectData(true);
-      console.log("🔄 Fetching full project data for ID:", editProject.project_id);
       
       try {
         // Use the SAME endpoint as ProjectDetails to get COMPLETE data
         const fullProject = await projectService.getProject(editProject.project_id);
-        console.log("✅ Received full project:", fullProject);
         
         // Populate ALL fields
         setFormData({
@@ -156,10 +154,7 @@ useEffect(() => {
             : []
         });
         
-        console.log("✅ Form populated!");
-        
       } catch (error) {
-        console.error("❌ Error fetching project:", error);
         alert("Failed to load project data");
       } finally {
         setLoadingProjectData(false);

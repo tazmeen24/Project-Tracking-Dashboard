@@ -248,8 +248,8 @@ async def get_all_projects(
             query = f"""
                 SELECT 
                     p.*,
-                    fa.agency_name as funding_agency_name,
-                    tg.group_name as technical_group_name,
+                    fa.name as funding_agency_name,
+                    tg.name as technical_group_name,
                     i.principal_investigator,
                     i.pi_email,
                     -- Total Budget Allocation
@@ -348,6 +348,87 @@ async def get_all_projects(
     finally:
         conn.close()
 
+# ==================== TECHNICAL GROUPS ====================
+# MUST come BEFORE /{project_id} to avoid path collision
+@router.get("/technical-groups", status_code=status.HTTP_200_OK)
+async def get_all_technical_groups(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    search: Optional[str] = Query(None)
+):
+    """Get all technical groups with pagination"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            where_clause = ""
+            params = []
+            
+            if search:
+                where_clause = "WHERE name ILIKE %s"
+                params.append(f"%{search}%")
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) as total FROM technical_groups {where_clause}"
+            cur.execute(count_query, params)
+            total_count = cur.fetchone()['total']
+            
+            # Get results
+            query = f"SELECT group_id, name as group_name, description FROM technical_groups {where_clause} ORDER BY name LIMIT %s OFFSET %s"
+            params.extend([limit, skip])
+            cur.execute(query, params)
+            groups = [dict(row) for row in cur.fetchall()]
+            
+            return {
+                "total": total_count,
+                "skip": skip,
+                "limit": limit,
+                "data": json.loads(json.dumps(groups, cls=DecimalEncoder))
+            }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ==================== TECHNICAL GROUPS ====================
+@router.get("/technical-groups", status_code=status.HTTP_200_OK)
+async def get_all_technical_groups(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    search: Optional[str] = Query(None)
+):
+    """Get all technical groups with pagination"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            where_clause = ""
+            params = []
+            
+            if search:
+                where_clause = "WHERE name ILIKE %s"
+                params.append(f"%{search}%")
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) as total FROM technical_groups {where_clause}"
+            cur.execute(count_query, params)
+            total_count = cur.fetchone()['total']
+            
+            # Get results - KEY FIX: name as group_name
+            query = f"SELECT group_id, name as group_name, description FROM technical_groups {where_clause} ORDER BY name LIMIT %s OFFSET %s"
+            params.extend([limit, skip])
+            cur.execute(query, params)
+            groups = [dict(row) for row in cur.fetchall()]
+            
+            return {
+                "total": total_count,
+                "skip": skip,
+                "limit": limit,
+                "data": json.loads(json.dumps(groups, cls=DecimalEncoder))
+            }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
 
 # ==================== READ ONE ====================
 @router.get("/{project_id}", status_code=status.HTTP_200_OK)
@@ -368,9 +449,9 @@ async def get_project_by_id(project_id: int):
             cur.execute("""
                 SELECT 
                     p.*,
-                    fa.agency_name,
-                    tg.group_name,
-                    tg.group_code,
+                    fa.name as agency_name,
+                    tg.name as group_name,
+                    tg.description as group_description,
                     i.principal_investigator,
                     i.pi_email,
                     i.pi_mobile,
@@ -411,7 +492,7 @@ async def get_project_by_id(project_id: int):
             
             # Get budget allocations
             cur.execute("""
-                SELECT head, allocated_amount, utilized_amount 
+                SELECT head, allocated_amount
                 FROM budget_allocation 
                 WHERE project_id = %s
             """, (project_id,))
@@ -672,7 +753,6 @@ async def get_project_summary(project_id: int):
             cur.execute("""
                 SELECT 
                     COALESCE(SUM(allocated_amount), 0) as total_allocated,
-                    COALESCE(SUM(utilized_amount), 0) as total_utilized
                 FROM budget_allocation
                 WHERE project_id = %s
             """, (project_id,))

@@ -60,7 +60,7 @@ async def get_all_funding_agencies(
             total_count = cur.fetchone()['total']
             
             # Get results
-            query = f"SELECT * FROM funding_agencies {where_clause} ORDER BY name LIMIT %s OFFSET %s"
+            query = f"SELECT agency_id, name as agency_name, address FROM funding_agencies {where_clause} ORDER BY name LIMIT %s OFFSET %s"
             params.extend([limit, skip])
             cur.execute(query, params)
             agencies = [dict(row) for row in cur.fetchall()]

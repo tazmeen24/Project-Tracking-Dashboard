@@ -85,7 +85,7 @@ const ProjectsPage = () => {
 
   // ✅ FIXED: Use backend-provided total_budget instead of trying to sum non-existent fields
   const getTotalAllocation = (project) => {
-    return project.total_budget || 0;
+    return project.total_allocation || 0;
   };
 
   // ✅ FIXED: Use backend-provided total_expenditure
@@ -212,7 +212,7 @@ const ProjectsPage = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -316,7 +316,7 @@ const ProjectsPage = () => {
                 <option value="all">All Agencies</option>
                 {fundingAgencies.map((agency) => (
                   <option key={agency.agency_id} value={agency.agency_id}>
-                    {agency.agency_name}
+                    {agency.name}
                   </option>
                 ))}
               </select>

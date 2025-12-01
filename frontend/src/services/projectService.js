@@ -130,8 +130,13 @@ const projectService = {
    * Get all funding agencies
    */
   async getAllFundingAgencies() {
-    return api.get('/funding-agencies');
-  },
+  try {
+    const result = await api.get('/funding-agencies');
+    return result.data || result; 
+  } catch (error) {
+    throw error;
+  }
+},
 
   /**
    * Get single funding agency
@@ -209,7 +214,7 @@ const projectService = {
    * NOTE: Backend only provides GET all endpoint, no CRUD operations
    */
   async getAllTechnicalGroups() {
-    return api.get('/technical-groups');
+    return api.get('/projects/technical-groups');
   },
 
   // NOTE: The following methods are kept for backward compatibility,
