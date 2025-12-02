@@ -431,27 +431,32 @@ async def get_all_technical_groups(
         conn.close()
 
 # ==================== READ ONE ====================
+# ==================== READ ONE PROJECT ====================
 @router.get("/{project_id}", status_code=status.HTTP_200_OK)
 async def get_project_by_id(project_id: int):
     """
     Get detailed information about a specific project including:
-    - Basic project details
-    - Investigator information
+    - Project details
+    - Investigator details
     - Funding agency details
-    - Budget allocations with breakdowns
-    - Funds received
-    - Expenditures
+    - Budget allocations + breakdowns
+    - Funds received (with manpower/equipment breakdown)
+    - Expenditure details
     """
     conn = get_db_connection()
+
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Get basic project info with investigators and funding agency
+
+            # ----------------------------------------------------
+            # (1) BASIC PROJECT DETAILS + INVESTIGATORS + AGENCY
+            # ----------------------------------------------------
             cur.execute("""
                 SELECT 
                     p.*,
-                    fa.name as agency_name,
-                    tg.name as group_name,
-                    tg.description as group_description,
+                    fa.name AS agency_name,
+                    tg.name AS group_name,
+                    tg.description AS group_description,
                     i.principal_investigator,
                     i.pi_email,
                     i.pi_mobile,
@@ -464,18 +469,21 @@ async def get_project_by_id(project_id: int):
                 LEFT JOIN investigators i ON p.project_id = i.project_id
                 WHERE p.project_id = %s
             """, (project_id,))
-            
+
             project = cur.fetchone()
             if not project:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-            
+                raise HTTPException(404, "Project not found")
+
             response = dict(project)
-            
-            # Get funding agency details
+
+            # ----------------------------------------------------
+            # (2) FUNDING AGENCY EXTRA DETAILS
+            # ----------------------------------------------------
             cur.execute("""
-                SELECT * FROM funding_agency_details 
+                SELECT * FROM funding_agency_details
                 WHERE agency_id = %s
-            """, (response['funding_agency_id'],))
+            """, (response["funding_agency_id"],))
+
             agency_details = cur.fetchone()
             if agency_details:
                 response.update({
@@ -487,18 +495,12 @@ async def get_project_by_id(project_id: int):
                     "funding_scheme": agency_details.get("scheme"),
                     "cna_sub_agency": agency_details.get("cna_sub_agency"),
                     "bank_name": agency_details.get("bank_name"),
-                    "bank_account_no": agency_details.get("bank_account_no")
+                    "bank_account_no": agency_details.get("bank_account_no"),
                 })
-            
-            # Get budget allocations
-            cur.execute("""
-                SELECT head, allocated_amount
-                FROM budget_allocation 
-                WHERE project_id = %s
-            """, (project_id,))
-            ba = cur.fetchall()
-            
-            # Initialize allocations
+
+            # ----------------------------------------------------
+            # (3) BUDGET ALLOCATION (HEAD-WISE)
+            # ----------------------------------------------------
             response.update({
                 "manpower_allocation": 0,
                 "equipment_allocation": 0,
@@ -507,48 +509,100 @@ async def get_project_by_id(project_id: int):
                 "contingency_allocation": 0,
                 "overhead_allocation": 0,
             })
-            
-            for row in ba:
-                if row["head"] == "manpower":
-                    response["manpower_allocation"] = float(row["allocated_amount"])
-                elif row["head"] == "equipment":
-                    response["equipment_allocation"] = float(row["allocated_amount"])
-                elif row["head"] == "travel & training":
-                    response["travel_training_allocation"] = float(row["allocated_amount"])
-                elif row["head"] == "consumables":
-                    response["consumables_allocation"] = float(row["allocated_amount"])
-                elif row["head"] == "contingency":
-                    response["contingency_allocation"] = float(row["allocated_amount"])
-                elif row["head"] == "overhead":
-                    response["overhead_allocation"] = float(row["allocated_amount"])
-            
-            # Get manpower breakdown
+
             cur.execute("""
-                SELECT * FROM manpower_allocation_breakdown 
+                SELECT head, allocated_amount
+                FROM budget_allocation
                 WHERE project_id = %s
             """, (project_id,))
-            response["manpower_breakdown"] = [dict(row) for row in cur.fetchall()]
-            
-            # Get equipment breakdown
+
+            for row in cur.fetchall():
+                h = row["head"]
+                amt = float(row["allocated_amount"])
+                if h == "manpower":
+                    response["manpower_allocation"] = amt
+                elif h == "equipment":
+                    response["equipment_allocation"] = amt
+                elif h == "travel & training":
+                    response["travel_training_allocation"] = amt
+                elif h == "consumables":
+                    response["consumables_allocation"] = amt
+                elif h == "contingency":
+                    response["contingency_allocation"] = amt
+                elif h == "overhead":
+                    response["overhead_allocation"] = amt
+
+            # ----------------------------------------------------
+            # (4) MANPOWER BREAKDOWN
+            # ----------------------------------------------------
             cur.execute("""
-                SELECT * FROM equipment_allocation_breakdown 
+                SELECT *
+                FROM manpower_allocation_breakdown
                 WHERE project_id = %s
             """, (project_id,))
-            response["equipment_breakdown"] = [dict(row) for row in cur.fetchall()]
-            
-            # Get funds received
+            response["manpower_breakdown"] = [dict(r) for r in cur.fetchall()]
+
+            # ----------------------------------------------------
+            # (5) EQUIPMENT BREAKDOWN
+            # ----------------------------------------------------
+            cur.execute("""
+                SELECT *
+                FROM equipment_allocation_breakdown
+                WHERE project_id = %s
+            """, (project_id,))
+            response["equipment_breakdown"] = [dict(r) for r in cur.fetchall()]
+
+            # ----------------------------------------------------
+            # (6) FUNDS RECEIVED + MANPOWER/EQUIPMENT BREAKDOWN
+            # ----------------------------------------------------
             cur.execute("""
                 SELECT 
+                    fund_id,
                     date_received AS received_date,
+                    head,
                     remarks AS description,
                     amount
                 FROM funds_received
                 WHERE project_id = %s
                 ORDER BY date_received DESC
             """, (project_id,))
-            response["funds"] = [dict(row) for row in cur.fetchall()]
-            
-            # Get expenditures
+
+            fund_rows = cur.fetchall()
+            funds_with_breakdown = []
+
+            for fund in fund_rows:
+                f = dict(fund)
+                f["breakdown"] = None
+
+                # ---- MANPOWER BREAKDOWN FOR FUNDS ----
+                if f["head"] == "manpower":
+                    cur.execute("""
+                        SELECT role, salary_per_month, months, num_personnel
+                        FROM manpower_funds_breakdown
+                        WHERE fund_id = %s
+                    """, (f["fund_id"],))
+                    b = cur.fetchone()
+                    if b:
+                        f["breakdown"] = dict(b)
+
+                # ---- EQUIPMENT BREAKDOWN FOR FUNDS ----
+                if f["head"] == "equipment":
+                    cur.execute("""
+                        SELECT item_name, quantity, unit_cost
+                        FROM equipment_funds_breakdown
+                        WHERE fund_id = %s
+                    """, (f["fund_id"],))
+                    b = cur.fetchone()
+                    if b:
+                        f["breakdown"] = dict(b)
+
+                funds_with_breakdown.append(f)
+
+            response["funds"] = funds_with_breakdown
+
+            # ----------------------------------------------------
+            # (7) EXPENDITURE LIST
+            # ----------------------------------------------------
             cur.execute("""
                 SELECT 
                     date_incurred AS expenditure_date,
@@ -559,14 +613,15 @@ async def get_project_by_id(project_id: int):
                 WHERE project_id = %s
                 ORDER BY date_incurred DESC
             """, (project_id,))
-            response["expenditures"] = [dict(row) for row in cur.fetchall()]
-            
+            response["expenditures"] = [dict(r) for r in cur.fetchall()]
+
             return json.loads(json.dumps(response, cls=DecimalEncoder))
-            
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        print("ERROR:", e)
+        raise HTTPException(500, str(e))
     finally:
         conn.close()
 

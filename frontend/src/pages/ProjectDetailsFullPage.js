@@ -26,14 +26,23 @@ import {
 import Button from "../components/common/Button";
 import projectService from "../services/projectService";
 import { formatCurrency, getProjectStatus } from "../utils/helpers";
+import { useProject } from "../contexts/ProjectContext";
 
 const ProjectDetailsFullPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  // ✅ FIX 1: Use selectedProject directly from context
+  const { selectedProject, fetchProjectById, loading, error } = useProject();
+
+  // ✅ FIX 2: Add state for actual expenditures
+  const [actualExpenditures, setActualExpenditures] = useState({
+    manpower_expenditures: [],
+    equipment_expenditures: [],
+    budget_expenditures: [],
+  });
+  const [expendituresLoading, setExpendituresLoading] = useState(false);
+
   const [expandedSections, setExpandedSections] = useState({
     metadata: true,
     investigators: true,
@@ -45,24 +54,42 @@ const ProjectDetailsFullPage = () => {
     expenditure: true,
   });
 
+  // ✅ FIX 3: Fetch project and expenditures
   useEffect(() => {
-    if (projectId) {
-      fetchProjectDetails();
-    }
-  }, [projectId]);
+    const fetchAllData = async () => {
+      if (!projectId) return;
 
-  const fetchProjectDetails = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await projectService.getProject(projectId);
-      setProject(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Fetch main project data
+      await fetchProjectById(projectId);
+
+      // Fetch actual expenditures separately
+      setExpendituresLoading(true);
+      try {
+        const [manpower, equipment, budget] = await Promise.all([
+          projectService.getManpower(projectId),
+          projectService.getEquipment(projectId),
+          projectService.getExpenditure(projectId),
+        ]);
+
+        setActualExpenditures({
+          manpower_expenditures: manpower || [],
+          equipment_expenditures: equipment || [],
+          budget_expenditures: budget || [],
+        });
+      } catch (err) {
+        console.error("Failed to fetch expenditures:", err);
+        setActualExpenditures({
+          manpower_expenditures: [],
+          equipment_expenditures: [],
+          budget_expenditures: [],
+        });
+      } finally {
+        setExpendituresLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, [projectId, fetchProjectById]);
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => ({
@@ -70,6 +97,9 @@ const ProjectDetailsFullPage = () => {
       [section]: !prev[section],
     }));
   };
+
+  // ✅ FIX 4: Use selectedProject as project
+  const project = selectedProject;
 
   // Budget calculations
   const getTotalBudget = () => {
@@ -89,13 +119,64 @@ const ProjectDetailsFullPage = () => {
     return project.funds.reduce((sum, fund) => sum + (fund.amount || 0), 0);
   };
 
+  // ✅ FIX 5: Updated expenditure calculation using actual data
   const getTotalExpenditure = () => {
-    if (!project?.expenditures) return 0;
-    return project.expenditures.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    if (!actualExpenditures) return 0;
+
+    const manpowerTotal = actualExpenditures.manpower_expenditures.reduce(
+      (sum, exp) => sum + (exp.total_cost || 0),
+      0
+    );
+
+    const equipmentTotal = actualExpenditures.equipment_expenditures.reduce(
+      (sum, exp) => sum + (exp.total_cost || 0),
+      0
+    );
+
+    const budgetTotal = actualExpenditures.budget_expenditures.reduce(
+      (sum, exp) => sum + (exp.amount || 0),
+      0
+    );
+
+    return manpowerTotal + equipmentTotal + budgetTotal;
+  };
+
+  // ✅ FIX 6: Get expenditure by head for detailed breakdown
+  const getExpenditureByHead = (head) => {
+    if (!actualExpenditures) return 0;
+
+    if (head === "manpower") {
+      return actualExpenditures.manpower_expenditures.reduce(
+        (sum, exp) => sum + (exp.total_cost || 0),
+        0
+      );
+    }
+
+    if (head === "equipment") {
+      return actualExpenditures.equipment_expenditures.reduce(
+        (sum, exp) => sum + (exp.total_cost || 0),
+        0
+      );
+    }
+
+    // For other heads (consumables, contingency, etc.)
+    return actualExpenditures.budget_expenditures
+      .filter((exp) => exp.head === head)
+      .reduce((sum, exp) => sum + (exp.amount || 0), 0);
   };
 
   const getBalance = () => {
     return getTotalFunds() - getTotalExpenditure();
+  };
+
+  const calculateDuration = () => {
+    if (!project?.start_date || !project?.end_date) return null;
+    const start = new Date(project.start_date);
+    const end = new Date(project.end_date);
+    const months =
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth());
+    return months;
   };
 
   if (loading) {
@@ -111,16 +192,22 @@ const ProjectDetailsFullPage = () => {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto p-6">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-red-600" />
             <div>
-              <h3 className="font-semibold text-red-900">Error Loading Project</h3>
+              <h3 className="font-semibold text-red-900">
+                Error Loading Project
+              </h3>
               <p className="text-red-700 mt-1">{error}</p>
             </div>
           </div>
-          <Button onClick={() => navigate('/projects')} className="mt-4" variant="outline">
+          <Button
+            onClick={() => navigate("/projects")}
+            className="mt-4"
+            variant="outline"
+          >
             Back to Projects
           </Button>
         </div>
@@ -132,15 +219,23 @@ const ProjectDetailsFullPage = () => {
 
   const status = getProjectStatus(project);
   const statusColors = {
-    Active: { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: CheckCircle },
-    Completed: { bg: 'bg-slate-100', text: 'text-slate-800', icon: CheckCircle },
-    Upcoming: { bg: 'bg-blue-100', text: 'text-blue-800', icon: Calendar },
+    Active: {
+      bg: "bg-emerald-100",
+      text: "text-emerald-800",
+      icon: CheckCircle,
+    },
+    Completed: {
+      bg: "bg-slate-100",
+      text: "text-slate-800",
+      icon: CheckCircle,
+    },
+    Upcoming: { bg: "bg-blue-100", text: "text-blue-800", icon: Calendar },
   };
   const StatusIcon = statusColors[status]?.icon || CheckCircle;
 
   const CollapsibleSection = ({ title, icon: Icon, sectionKey, children }) => {
     const isExpanded = expandedSections[sectionKey];
-    
+
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <button
@@ -159,11 +254,9 @@ const ProjectDetailsFullPage = () => {
             <ChevronDown className="w-5 h-5 text-slate-400" />
           )}
         </button>
-        
+
         {isExpanded && (
-          <div className="px-6 pb-6 border-t border-slate-100">
-            {children}
-          </div>
+          <div className="px-6 pb-6 border-t border-slate-100">{children}</div>
         )}
       </div>
     );
@@ -183,31 +276,37 @@ const ProjectDetailsFullPage = () => {
     </div>
   );
 
+  const duration = calculateDuration();
+
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate('/projects')}
+          onClick={() => navigate("/projects")}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Projects</span>
         </button>
-        
+
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-slate-900">{project.title}</h1>
-                <span className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 ${statusColors[status]?.bg} ${statusColors[status]?.text}`}>
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {project.title}
+                </h1>
+                <span
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 ${statusColors[status]?.bg} ${statusColors[status]?.text}`}
+                >
                   <StatusIcon className="w-4 h-4" />
                   {status}
                 </span>
               </div>
               <p className="text-slate-600 font-medium">{project.project_no}</p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -228,20 +327,36 @@ const ProjectDetailsFullPage = () => {
           {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-6">
             <div className="bg-blue-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-blue-600 mb-1">Total Budget</div>
-              <div className="text-2xl font-bold text-blue-900">{formatCurrency(getTotalBudget())}</div>
+              <div className="text-sm font-medium text-blue-600 mb-1">
+                Total Budget
+              </div>
+              <div className="text-2xl font-bold text-blue-900">
+                {formatCurrency(getTotalBudget())}
+              </div>
             </div>
             <div className="bg-emerald-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-emerald-600 mb-1">Funds Received</div>
-              <div className="text-2xl font-bold text-emerald-900">{formatCurrency(getTotalFunds())}</div>
+              <div className="text-sm font-medium text-emerald-600 mb-1">
+                Funds Received
+              </div>
+              <div className="text-2xl font-bold text-emerald-900">
+                {formatCurrency(getTotalFunds())}
+              </div>
             </div>
             <div className="bg-orange-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-orange-600 mb-1">Expenditure</div>
-              <div className="text-2xl font-bold text-orange-900">{formatCurrency(getTotalExpenditure())}</div>
+              <div className="text-sm font-medium text-orange-600 mb-1">
+                Expenditure
+              </div>
+              <div className="text-2xl font-bold text-orange-900">
+                {formatCurrency(getTotalExpenditure())}
+              </div>
             </div>
             <div className="bg-purple-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-purple-600 mb-1">Balance</div>
-              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getBalance())}</div>
+              <div className="text-sm font-medium text-purple-600 mb-1">
+                Balance
+              </div>
+              <div className="text-2xl font-bold text-purple-900">
+                {formatCurrency(getBalance())}
+              </div>
             </div>
           </div>
         </div>
@@ -250,45 +365,88 @@ const ProjectDetailsFullPage = () => {
       {/* Content Sections */}
       <div className="space-y-6">
         {/* Project Metadata */}
-        <CollapsibleSection title="Project Information" icon={Briefcase} sectionKey="metadata">
+        <CollapsibleSection
+          title="Project Information"
+          icon={Briefcase}
+          sectionKey="metadata"
+        >
           <div className="grid grid-cols-2 gap-x-8 mt-4">
-            <InfoRow label="Project Category" value={project.project_category} />
+            <InfoRow
+              label="Project Category"
+              value={project.project_category}
+            />
             <InfoRow label="Project Type" value={project.project_type} />
-            <InfoRow label="PFMS ID" value={project.PFMS_id} />
-            <InfoRow label="Technical Group" value={project.technical_group?.name} />
-            <InfoRow 
-              label="Start Date" 
-              value={project.start_date ? new Date(project.start_date).toLocaleDateString('en-IN') : 'N/A'}
+            <InfoRow label="PFMS ID" value={project.pfms_id} />
+            <InfoRow label="Technical Group" value={project.group_name} />
+            <InfoRow
+              label="Start Date"
+              value={
+                project.start_date
+                  ? new Date(project.start_date).toLocaleDateString("en-IN")
+                  : "N/A"
+              }
               icon={Calendar}
             />
-            <InfoRow 
-              label="End Date" 
-              value={project.end_date ? new Date(project.end_date).toLocaleDateString('en-IN') : 'N/A'}
+            <InfoRow
+              label="End Date"
+              value={
+                project.end_date
+                  ? new Date(project.end_date).toLocaleDateString("en-IN")
+                  : "N/A"
+              }
               icon={Calendar}
             />
-            {project.duration_months && (
-              <InfoRow label="Duration" value={`${project.duration_months} months`} />
+            {duration && (
+              <InfoRow label="Duration" value={`${duration} months`} />
             )}
           </div>
         </CollapsibleSection>
 
         {/* Funding Agency */}
-        <CollapsibleSection title="Funding Agency" icon={Building2} sectionKey="funding">
+        <CollapsibleSection
+          title="Funding Agency"
+          icon={Building2}
+          sectionKey="funding"
+        >
           <div className="grid grid-cols-2 gap-x-8 mt-4">
-            <InfoRow label="Agency Name" value={project.funding_agency?.name} icon={Building2} />
-            <InfoRow label="Contact Person" value={project.funding_agency?.contact_person} icon={User} />
-            <InfoRow label="Email" value={project.funding_agency?.email} icon={Mail} />
-            <InfoRow label="Phone" value={project.funding_agency?.phone} icon={Phone} />
-            {project.funding_agency?.address && (
-              <div className="col-span-2">
-                <InfoRow label="Address" value={project.funding_agency.address} />
-              </div>
-            )}
+            <InfoRow
+              label="Agency Name"
+              value={project.agency_name}
+              icon={Building2}
+            />
+            <InfoRow
+              label="Contact Person"
+              value={project.contact_person}
+              icon={User}
+            />
+            <InfoRow
+              label="Designation"
+              value={project.contact_designation}
+              icon={Briefcase}
+            />
+            <InfoRow label="Email" value={project.contact_email} icon={Mail} />
+            <InfoRow
+              label="Mobile"
+              value={project.contact_mobile}
+              icon={Phone}
+            />
+            <InfoRow
+              label="Sanctioned Number"
+              value={project.sanctioned_number}
+            />
+            <InfoRow label="Scheme" value={project.funding_scheme} />
+            <InfoRow label="CNA Sub Agency" value={project.cna_sub_agency} />
+            <InfoRow label="Bank Name" value={project.bank_name} />
+            <InfoRow label="Bank Account No" value={project.bank_account_no} />
           </div>
         </CollapsibleSection>
 
         {/* Investigators */}
-        <CollapsibleSection title="Investigators" icon={Users} sectionKey="investigators">
+        <CollapsibleSection
+          title="Investigators"
+          icon={Users}
+          sectionKey="investigators"
+        >
           <div className="mt-4 space-y-6">
             {/* Principal Investigator */}
             <div>
@@ -297,56 +455,151 @@ const ProjectDetailsFullPage = () => {
                 Principal Investigator
               </h3>
               <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-2 gap-4">
-                <InfoRow label="Name" value={project.pi_name} icon={User} />
-                <InfoRow label="Designation" value={project.pi_designation} icon={Briefcase} />
+                <InfoRow
+                  label="Name"
+                  value={project.principal_investigator}
+                  icon={User}
+                />
                 <InfoRow label="Email" value={project.pi_email} icon={Mail} />
-                <InfoRow label="Phone" value={project.pi_phone} icon={Phone} />
+                <InfoRow
+                  label="Mobile"
+                  value={project.pi_mobile}
+                  icon={Phone}
+                />
               </div>
             </div>
 
-            {/* Co-Investigators */}
-            {project.co_investigators && project.co_investigators.length > 0 && (
+            {/* Co-Investigator */}
+            {project.co_investigator && (
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                   <Users className="w-5 h-5 text-purple-600" />
-                  Co-Investigators
+                  Co-Investigator
                 </h3>
-                <div className="space-y-4">
-                  {project.co_investigators.map((co, index) => (
-                    <div key={index} className="bg-slate-50 rounded-xl p-4 grid grid-cols-2 gap-4">
-                      <InfoRow label="Name" value={co.name} icon={User} />
-                      <InfoRow label="Designation" value={co.designation} icon={Briefcase} />
-                      <InfoRow label="Email" value={co.email} icon={Mail} />
-                      <InfoRow label="Phone" value={co.phone} icon={Phone} />
-                    </div>
-                  ))}
+                <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-2 gap-4">
+                  <InfoRow
+                    label="Name"
+                    value={project.co_investigator}
+                    icon={User}
+                  />
+                  <InfoRow label="Email" value={project.co_email} icon={Mail} />
+                  <InfoRow
+                    label="Mobile"
+                    value={project.co_mobile}
+                    icon={Phone}
+                  />
                 </div>
               </div>
             )}
           </div>
         </CollapsibleSection>
 
-        {/* Budget Allocation */}
-        <CollapsibleSection title="Budget Allocation" icon={DollarSign} sectionKey="budget">
-          <div className="mt-4 space-y-4">
-            {[
-              { label: 'Manpower', value: project.manpower_allocation, color: 'blue' },
-              { label: 'Equipment', value: project.equipment_allocation, color: 'purple' },
-              { label: 'Travel & Training', value: project.travel_training_allocation, color: 'indigo' },
-              { label: 'Consumables', value: project.consumables_allocation, color: 'emerald' },
-              { label: 'Contingency', value: project.contingency_allocation, color: 'orange' },
-              { label: 'Overhead', value: project.overhead_allocation, color: 'pink' },
-            ].map((item) => (
-              <div key={item.label} className={`bg-${item.color}-50 rounded-xl p-4 flex items-center justify-between`}>
-                <span className={`text-${item.color}-900 font-semibold`}>{item.label}</span>
-                <span className={`text-${item.color}-900 text-xl font-bold`}>
-                  {formatCurrency(item.value || 0)}
-                </span>
-              </div>
-            ))}
-            
+        {/* Budget Allocation Table View */}
+        <CollapsibleSection
+          title="Budget Allocation & Expenditure"
+          icon={DollarSign}
+          sectionKey="budget"
+        >
+          <div className="mt-4">
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                    Head
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                    Allocated
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                    Spent
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                    Spent (%)
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                    Balance
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-200">
+                {[
+                  {
+                    label: "Manpower",
+                    allocated: project.manpower_allocation,
+                    head: "manpower",
+                  },
+                  {
+                    label: "Equipment",
+                    allocated: project.equipment_allocation,
+                    head: "equipment",
+                  },
+                  {
+                    label: "Travel & Training",
+                    allocated: project.travel_training_allocation,
+                    head: "travel & training",
+                  },
+                  {
+                    label: "Consumables",
+                    allocated: project.consumables_allocation,
+                    head: "consumables",
+                  },
+                  {
+                    label: "Contingency",
+                    allocated: project.contingency_allocation,
+                    head: "contingency",
+                  },
+                  {
+                    label: "Overhead",
+                    allocated: project.overhead_allocation,
+                    head: "overhead",
+                  },
+                ].map((item, index) => {
+                  const spent = getExpenditureByHead(item.head);
+                  const balance = item.allocated - spent;
+                  const percentSpent =
+                    item.allocated > 0 ? (spent / item.allocated) * 100 : 0;
+
+                  return (
+                    <tr key={index}>
+                      <td className="px-4 py-3 text-slate-900">{item.label}</td>
+
+                      <td className="px-4 py-3 text-right text-slate-900 font-semibold">
+                        {formatCurrency(item.allocated || 0)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right text-slate-900">
+                        {formatCurrency(spent)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right text-slate-900">
+                        {percentSpent.toFixed(1)}%
+                      </td>
+
+                      <td
+                        className={`px-4 py-3 text-right font-semibold ${
+                          balance >= 0 ? "text-emerald-600" : "text-red-600"
+                        }`}
+                      >
+                        {formatCurrency(balance)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Total Budget Row */}
             <div className="bg-slate-900 rounded-xl p-6 flex items-center justify-between mt-6">
-              <span className="text-white text-lg font-bold">Total Budget</span>
+              <div>
+                <span className="text-white text-lg font-bold">
+                  Total Budget
+                </span>
+                <div className="text-slate-300 text-sm mt-1">
+                  Spent: {formatCurrency(getTotalExpenditure())} • Balance:{" "}
+                  {formatCurrency(getTotalBudget() - getTotalExpenditure())}
+                </div>
+              </div>
               <span className="text-white text-2xl font-bold">
                 {formatCurrency(getTotalBudget())}
               </span>
@@ -355,134 +608,571 @@ const ProjectDetailsFullPage = () => {
         </CollapsibleSection>
 
         {/* Manpower Breakdown */}
-        {project.manpower_breakdown && project.manpower_breakdown.length > 0 && (
-          <CollapsibleSection title="Manpower Breakdown" icon={Users} sectionKey="manpower">
-            <div className="mt-4">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Description</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {project.manpower_breakdown.map((item, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-slate-900">{item.description}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                        {formatCurrency(item.amount)}
-                      </td>
+        {project.manpower_breakdown &&
+          project.manpower_breakdown.length > 0 && (
+            <CollapsibleSection
+              title="Manpower Breakdown"
+              icon={Users}
+              sectionKey="manpower"
+            >
+              <div className="mt-4">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Role
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Salary/Month
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Months
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Personnel
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Qualification
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CollapsibleSection>
-        )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {project.manpower_breakdown.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-3 text-slate-900">
+                          {item.role}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {formatCurrency(item.salary_per_month)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {item.months}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {item.num_personnel || 1}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 text-sm">
+                          {item.qualification && (
+                            <div className="flex items-center gap-1">
+                              <GraduationCap className="w-3 h-3" />
+                              <span>{item.qualification}</span>
+                            </div>
+                          )}
+                          {item.experience_required && (
+                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                              <Award className="w-3 h-3" />
+                              <span>{item.experience_required}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          {formatCurrency(
+                            (item.salary_per_month || 0) *
+                              (item.months || 0) *
+                              (item.num_personnel || 1)
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CollapsibleSection>
+          )}
 
         {/* Equipment Breakdown */}
-        {project.equipment_breakdown && project.equipment_breakdown.length > 0 && (
-          <CollapsibleSection title="Equipment Breakdown" icon={Briefcase} sectionKey="equipment">
-            <div className="mt-4">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Description</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {project.equipment_breakdown.map((item, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-slate-900">{item.description}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                        {formatCurrency(item.amount)}
-                      </td>
+        {project.equipment_breakdown &&
+          project.equipment_breakdown.length > 0 && (
+            <CollapsibleSection
+              title="Equipment Breakdown"
+              icon={Briefcase}
+              sectionKey="equipment"
+            >
+              <div className="mt-4">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Item
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Quantity
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Unit Cost
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
+                        Description
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CollapsibleSection>
-        )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {project.equipment_breakdown.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-3 text-slate-900">
+                          {item.item_name}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {item.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {formatCurrency(item.unit_cost)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 text-sm max-w-xs truncate">
+                          {item.description || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          {formatCurrency(
+                            (item.quantity || 0) * (item.unit_cost || 0)
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CollapsibleSection>
+          )}
 
-        {/* Funds Received */}
+        {/* ======================== FUNDS RECEIVED ======================== */}
         {project.funds && project.funds.length > 0 && (
-          <CollapsibleSection title="Funds Received" icon={TrendingUp} sectionKey="funds">
-            <div className="mt-4">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Description</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {project.funds.map((fund, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-slate-600">
-                        {new Date(fund.received_date).toLocaleDateString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3 text-slate-900">{fund.description}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-emerald-600">
-                        {formatCurrency(fund.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-emerald-50">
-                    <td colSpan="2" className="px-4 py-3 font-bold text-emerald-900">Total Funds</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-900">
-                      {formatCurrency(getTotalFunds())}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <CollapsibleSection
+            title="Funds Received"
+            icon={TrendingUp}
+            sectionKey="funds"
+          >
+            <div className="mt-6 space-y-8">
+              {/* FUNDS MANPOWER BREAKDOWN */}
+              {project.funds.some((f) => f.head === "manpower") && (
+                <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                    Manpower
+                  </div>
+                  <table className="w-full">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">
+                          Role
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">
+                          Salary/Month
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">
+                          Months
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">
+                          Personnel
+                        </th>
+                        <th className="px-4 py-3 text-right text-sm font-medium">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {project.funds
+                        .filter((f) => f.head === "manpower")
+                        .map((fund) => (
+                          <tr key={fund.fund_id}>
+                            <td className="px-4 py-3 text-sm">
+                              {new Date(fund.received_date).toLocaleDateString(
+                                "en-IN"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-medium">
+                              {fund.breakdown.role}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              ₹
+                              {fund.breakdown.salary_per_month.toLocaleString(
+                                "en-IN"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {fund.breakdown.months}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {fund.breakdown.num_personnel}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                              ₹{fund.amount.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        ))}
+                      <tr className="bg-purple-50 font-bold">
+                        <td
+                          colSpan={5}
+                          className="px-4 py-3 text-purple-900 text-right"
+                        >
+                          Subtotal (Manpower)
+                        </td>
+                        <td className="px-4 py-3 text-right text-purple-900">
+                          ₹
+                          {project.funds
+                            .filter((f) => f.head === "manpower")
+                            .reduce((s, f) => s + f.amount, 0)
+                            .toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* FUNDS EQUIPMENT BREAKDOWN */}
+              {project.funds.some((f) => f.head === "equipment") && (
+                <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                    Equipment
+                  </div>
+                  <table className="w-full">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">
+                          Item
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">
+                          Qty
+                        </th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">
+                          Unit Cost
+                        </th>
+                        <th className="px-4 py-3 text-right text-sm font-medium">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {project.funds
+                        .filter((f) => f.head === "equipment")
+                        .map((fund) => (
+                          <tr key={fund.fund_id}>
+                            <td className="px-4 py-3 text-sm">
+                              {new Date(fund.received_date).toLocaleDateString(
+                                "en-IN"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-medium">
+                              {fund.breakdown.item_name}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {fund.breakdown.quantity}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              ₹
+                              {fund.breakdown.unit_cost.toLocaleString("en-IN")}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                              ₹{fund.amount.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        ))}
+                      <tr className="bg-purple-50 font-bold">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-3 text-purple-900 text-right"
+                        >
+                          Subtotal (Equipment)
+                        </td>
+                        <td className="px-4 py-3 text-right text-purple-900">
+                          ₹
+                          {project.funds
+                            .filter((f) => f.head === "equipment")
+                            .reduce((s, f) => s + f.amount, 0)
+                            .toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ============== OTHER HEADS ==== */}
+              {[
+                "travel & training",
+                "consumables",
+                "contingency",
+                "overhead",
+              ].map((head) => {
+                const items = project.funds.filter((f) => f.head === head);
+                if (items.length === 0) return null;
+
+                const total = items.reduce((s, f) => s + f.amount, 0);
+                const displayName =
+                  head === "travel & training"
+                    ? "Travel & Training"
+                    : head.charAt(0).toUpperCase() + head.slice(1);
+
+                return (
+                  <div
+                    key={head}
+                    className="flex justify-between items-center py-3 border-b border-slate-200"
+                  >
+                    <div className="text-slate-800 font-medium">
+                      {displayName}
+                    </div>
+                    <div className="font-semibold text-emerald-600">
+                      ₹{total.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* ============== TOTAL FUNDS RECEIVED – BEAUTIFUL BOX ============== */}
+              <div className="bg-orange-50 rounded-xl p-6 border border-orange-200 mt-10">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-orange-900 text-lg">
+                      TOTAL FUNDS RECEIVED
+                    </span>
+                    <div className="text-orange-700 text-sm mt-1">
+                      Across all budget heads
+                    </div>
+                  </div>
+                  <span className="text-3xl font-bold text-orange-900">
+                    ₹
+                    {project.funds
+                      .reduce((sum, f) => sum + f.amount, 0)
+                      .toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
             </div>
           </CollapsibleSection>
         )}
 
-        {/* Expenditure */}
-        {project.expenditures && project.expenditures.length > 0 && (
-          <CollapsibleSection title="Expenditure" icon={TrendingDown} sectionKey="expenditure">
-            <div className="mt-4">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Head</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Description</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {project.expenditures.map((exp, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-slate-600">
-                        {new Date(exp.expenditure_date).toLocaleDateString('en-IN')}
+        {/* ======================== EXPENDITURE ======================== */}
+        <CollapsibleSection
+          title="Expenditure"
+          icon={TrendingDown}
+          sectionKey="expenditure"
+        >
+          <div className="mt-6 space-y-8">
+            {/* ============== MANPOWER EXPENDITURE (Detailed Box) ============== */}
+            {actualExpenditures.manpower_expenditures?.length > 0 && (
+              <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                  Manpower Expenditure
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Role
+                      </th>
+                      <th className="px-4 py-3 text-center text-sm font-medium">
+                        Salary/Month
+                      </th>
+                      <th className="px-4 py-3 text-center text-sm font-medium">
+                        Months
+                      </th>
+                      <th className="px-4 py-3 text-center text-sm font-medium">
+                        Personnel
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-medium">
+                        Amount Spent
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {actualExpenditures.manpower_expenditures.map(
+                      (exp, idx) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-3 text-sm">
+                            {exp.date_incurred
+                              ? new Date(exp.date_incurred).toLocaleDateString(
+                                  "en-IN"
+                                )
+                              : "N/A"}
+                          </td>
+                          <td className="px-4 py-3 font-medium">{exp.role}</td>
+                          <td className="px-4 py-3 text-center">
+                            ₹
+                            {(exp.salary_per_month || 0).toLocaleString(
+                              "en-IN"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {exp.months}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {exp.num_personnel || 1}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                            {formatCurrency(exp.total_cost)}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                    <tr className="bg-purple-50 font-bold">
+                      <td
+                        colSpan={5}
+                        className="px-4 py-3 text-purple-900 text-right"
+                      >
+                        Subtotal (Manpower)
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                          {exp.head}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-900">{exp.description}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-orange-600">
-                        {formatCurrency(exp.amount)}
+                      <td className="px-4 py-3 text-right text-purple-900">
+                        {formatCurrency(getExpenditureByHead("manpower"))}
                       </td>
                     </tr>
-                  ))}
-                  <tr className="bg-orange-50">
-                    <td colSpan="3" className="px-4 py-3 font-bold text-orange-900">Total Expenditure</td>
-                    <td className="px-4 py-3 text-right font-bold text-orange-900">
-                      {formatCurrency(getTotalExpenditure())}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </CollapsibleSection>
-        )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ============== EQUIPMENT EXPENDITURE (Detailed Box) ============== */}
+            {actualExpenditures.equipment_expenditures?.length > 0 && (
+              <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                  Equipment Expenditure
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Purchase Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Item
+                      </th>
+                      <th className="px-4 py-3 text-center text-sm font-medium">
+                        Qty
+                      </th>
+                      <th className="px-4 py-3 text-center text-sm font-medium">
+                        Unit Cost
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-medium">
+                        Amount Spent
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {actualExpenditures.equipment_expenditures.map(
+                      (exp, idx) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-3 text-sm">
+                            {exp.purchase_date
+                              ? new Date(exp.purchase_date).toLocaleDateString(
+                                  "en-IN"
+                                )
+                              : "N/A"}
+                          </td>
+                          <td className="px-4 py-3 font-medium">{exp.name}</td>
+                          <td className="px-4 py-3 text-center">
+                            {exp.quantity}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            ₹{(exp.unit_cost || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                            {formatCurrency(exp.total_cost)}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                    <tr className="bg-purple-50 font-bold">
+                      <td
+                        colSpan={4}
+                        className="px-4 py-3 text-purple-900 text-right"
+                      >
+                        Subtotal (Equipment)
+                      </td>
+                      <td className="px-4 py-3 text-right text-purple-900">
+                        {formatCurrency(getExpenditureByHead("equipment"))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ============== OTHER HEADS – Simple One-Line Summaries ============== */}
+            {(() => {
+              const heads = {};
+              actualExpenditures.budget_expenditures?.forEach((exp) => {
+                if (!heads[exp.head]) heads[exp.head] = 0;
+                heads[exp.head] += exp.amount;
+              });
+
+              return Object.entries(heads).map(([head, amount]) => {
+                const displayName =
+                  head === "travel & training"
+                    ? "Travel & Training"
+                    : head === "consumables"
+                    ? "Consumables"
+                    : head === "contingency"
+                    ? "Contingency"
+                    : head === "overhead"
+                    ? "Overhead"
+                    : head;
+
+                return (
+                  <div
+                    key={head}
+                    className="flex justify-between items-center py-3 border-b border-slate-200"
+                  >
+                    <div className="text-slate-800 font-medium">
+                      {displayName}
+                    </div>
+                    <div className="font-semibold text-orange-600">
+                      {formatCurrency(amount)}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+
+            {/* ============== NO EXPENDITURE MESSAGE ============== */}
+            {!actualExpenditures.manpower_expenditures?.length &&
+              !actualExpenditures.equipment_expenditures?.length &&
+              !actualExpenditures.budget_expenditures?.length && (
+                <div className="text-center py-12 bg-slate-50 rounded-xl">
+                  <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-600 font-medium text-lg">
+                    No expenditures recorded yet
+                  </p>
+                  <p className="text-slate-500 text-sm mt-2">
+                    Start adding expenses to track project spending
+                  </p>
+                </div>
+              )}
+
+            {/* ============== TOTAL EXPENDITURE – BEAUTIFUL ORANGE BOX ============== */}
+            {(actualExpenditures.manpower_expenditures?.length > 0 ||
+              actualExpenditures.equipment_expenditures?.length > 0 ||
+              actualExpenditures.budget_expenditures?.length > 0) && (
+              <div className="bg-orange-50 rounded-xl p-6 border border-orange-200 mt-10">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-orange-900 text-lg">
+                      Total Expenditure
+                    </span>
+                    <div className="text-orange-700 text-sm mt-1">
+                      Across all budget heads
+                    </div>
+                  </div>
+                  <span className="text-3xl font-bold text-orange-900">
+                    {formatCurrency(getTotalExpenditure())}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </CollapsibleSection>
       </div>
     </div>
   );

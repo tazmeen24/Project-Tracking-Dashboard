@@ -687,6 +687,23 @@ const projectService = {
     return api.get(`/expenditure/project/${projectId}/summary`);
   },
 
+  /**
+ * Get comprehensive expenditure data for project
+ */
+async getProjectExpenditures(projectId) {
+  const [manpower, equipment, budget] = await Promise.all([
+    this.getManpower(projectId),           // Already exists
+    this.getEquipment(projectId),          // Already exists  
+    this.getExpenditure(projectId)         // Already exists
+  ]);
+  
+  return {
+    manpower_expenditures: manpower,
+    equipment_expenditures: equipment,
+    budget_expenditures: budget  // consumables, contingency, etc.
+  };
+},
+
   // ==================== DASHBOARD & REPORTS ====================
   // NOTE: These endpoints were not in the provided backend files
   // They will return 404 if not implemented
