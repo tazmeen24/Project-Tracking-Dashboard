@@ -16,7 +16,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/projects', icon: FolderOpen, label: 'Projects' },
-    { path: '/budget-breakdown', icon: BarChart3, label: 'Financial Summary' },
+    { path: '/financial-summary', icon: BarChart3, label: 'Financial Summary' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/funding-agencies', icon: Building2, label: 'Funding Agencies' },

@@ -13,7 +13,7 @@ import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/ProjectsPage';
 import AddEditProjectPage from './pages/AddEditProjectPage';
 import ProjectDetailsFullPage from './pages/ProjectDetailsFullPage';
-import BudgetBreakdownPage from './pages/BudgetBreakdownPage';
+import FinancialSummaryPage from './pages/FinancialSummaryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
 import FundingAgenciesPage from './pages/FundingAgenciesPage';
@@ -54,7 +54,7 @@ function App() {
               <Route path="projects/:projectId/edit" element={<AddEditProjectPage />} />
 
               {/* Other Routes */}
-              <Route path="budget-breakdown" element={<BudgetBreakdownPage />} />
+              <Route path="financial-summary" element={<FinancialSummaryPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="funding-agencies" element={<FundingAgenciesPage />} />
