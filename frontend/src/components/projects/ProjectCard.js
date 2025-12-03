@@ -1,10 +1,22 @@
 // components/projects/ProjectCard.js
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createPortal } from 'react-dom';
-import { Calendar, Eye, Edit, Trash2, BarChart3, MoreVertical } from 'lucide-react';
-import Card from '../common/Card';
-import { formatCurrency, getProjectStatus, getProjectCategoryLabel, getProjectTypeLabel } from '../../utils/helpers';
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import {
+  Calendar,
+  Eye,
+  Edit,
+  Trash2,
+  BarChart3,
+  MoreVertical,
+} from "lucide-react";
+import Card from "../common/Card";
+import {
+  formatCurrency,
+  getProjectStatus,
+  getProjectCategoryLabel,
+  getProjectTypeLabel,
+} from "../../utils/helpers";
 
 const ProjectCard = ({ project, onEdit, onDelete }) => {
   const navigate = useNavigate();
@@ -17,7 +29,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
   const openMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
       setMenuPosition({
@@ -41,15 +53,15 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
     };
 
     const handleEscape = (e) => {
-      if (e.key === 'Escape') closeMenu();
+      if (e.key === "Escape") closeMenu();
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen]);
 
@@ -91,9 +103,9 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
 
   const status = getProjectStatus(project);
   const statusColors = {
-    Active: 'bg-emerald-100 text-emerald-800',
-    Completed: 'bg-slate-100 text-slate-800',
-    Upcoming: 'bg-blue-100 text-blue-800',
+    Active: "bg-emerald-100 text-emerald-800",
+    Completed: "bg-slate-100 text-slate-800",
+    Upcoming: "bg-blue-100 text-blue-800",
   };
 
   return (
@@ -114,7 +126,9 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
               <h3 className="text-xl font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                 {project.title}
               </h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusColors[status]}`}>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusColors[status]}`}
+              >
                 {status}
               </span>
             </div>
@@ -123,7 +137,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
             <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
-                {new Date(project.start_date).toLocaleDateString('en-IN')}
+                {new Date(project.start_date).toLocaleDateString("en-IN")}
               </span>
               <span className="font-medium">{project.project_no}</span>
             </div>
@@ -140,9 +154,9 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
                   {getProjectTypeLabel(project.project_type)}
                 </span>
               )}
-              {project.PFMS_id && (
+              {project.pfms_id && (
                 <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-lg">
-                  PFMS: {project.PFMS_id}
+                  PFMS: {project.pfms_id}
                 </span>
               )}
             </div>
@@ -152,7 +166,9 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
           <div className="flex items-center gap-6">
             {/* Budget */}
             <div className="text-right">
-              <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
+              <div className="text-sm text-slate-500 mb-1">
+                Total Allocation
+              </div>
               <div className="text-2xl font-bold text-slate-900">
                 {formatCurrency(totalAllocation)}
               </div>
@@ -175,7 +191,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
       {/* Portal-based Dropdown Menu */}
       {isOpen &&
         createPortal(
-          <div 
+          <div
             className="fixed inset-0 z-[9999]"
             onClick={(e) => {
               e.stopPropagation();
@@ -198,7 +214,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
                 <Eye className="w-4 h-4" />
                 <span>View Details</span>
               </button>
-              
+
               <button
                 type="button"
                 onClick={handleEdit}
@@ -207,7 +223,7 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
                 <Edit className="w-4 h-4" />
                 <span>Edit Project</span>
               </button>
-              
+
               <button
                 type="button"
                 onClick={handleAnalytics}
@@ -216,9 +232,9 @@ const ProjectCard = ({ project, onEdit, onDelete }) => {
                 <BarChart3 className="w-4 h-4" />
                 <span>View Analytics</span>
               </button>
-              
+
               <div className="border-t border-slate-200 my-1" />
-              
+
               <button
                 type="button"
                 onClick={handleDelete}

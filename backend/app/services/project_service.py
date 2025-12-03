@@ -47,7 +47,7 @@ class ProjectService:
                     INSERT INTO projects 
                     (project_no, title, alias, start_date, end_date, 
                      funding_agency_id, technical_group_id,
-                     project_category, project_type, PFMS_id)
+                     project_category, project_type, pfms_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING project_id
                 """, (
@@ -60,7 +60,7 @@ class ProjectService:
                     project_data['technical_group_id'],
                     project_data['project_category'],
                     project_data['project_type'],
-                    project_data.get('PFMS_id')
+                    project_data.get('pfms_id')
                 ))
                 
                 project_id = cur.fetchone()['project_id']
@@ -308,7 +308,7 @@ class ProjectService:
                 allowed_fields = [
                     'project_no', 'title', 'alias', 'start_date', 'end_date',
                     'funding_agency_id', 'technical_group_id',
-                    'project_category', 'project_type', 'PFMS_id'
+                    'project_category', 'project_type', 'pfms_id'
                 ]
                 
                 for field in allowed_fields:

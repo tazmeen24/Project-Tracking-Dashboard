@@ -15,7 +15,6 @@ import {
   AlertCircle,
   CheckCircle,
   Edit,
-  Download,
   ChevronDown,
   ChevronUp,
   User,
@@ -32,10 +31,10 @@ const ProjectDetailsFullPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  // ✅ FIX 1: Use selectedProject directly from context
+  // Use selectedProject directly from context
   const { selectedProject, fetchProjectById, loading, error } = useProject();
 
-  // ✅ FIX 2: Add state for actual expenditures
+  // Add state for actual expenditures
   const [actualExpenditures, setActualExpenditures] = useState({
     manpower_expenditures: [],
     equipment_expenditures: [],
@@ -54,7 +53,7 @@ const ProjectDetailsFullPage = () => {
     expenditure: true,
   });
 
-  // ✅ FIX 3: Fetch project and expenditures
+  // Fetch project and expenditures
   useEffect(() => {
     const fetchAllData = async () => {
       if (!projectId) return;
@@ -98,7 +97,7 @@ const ProjectDetailsFullPage = () => {
     }));
   };
 
-  // ✅ FIX 4: Use selectedProject as project
+  // Use selectedProject as project
   const project = selectedProject;
 
   // Budget calculations
@@ -119,7 +118,7 @@ const ProjectDetailsFullPage = () => {
     return project.funds.reduce((sum, fund) => sum + (fund.amount || 0), 0);
   };
 
-  // ✅ FIX 5: Updated expenditure calculation using actual data
+  // Updated expenditure calculation using actual data
   const getTotalExpenditure = () => {
     if (!actualExpenditures) return 0;
 
@@ -141,7 +140,7 @@ const ProjectDetailsFullPage = () => {
     return manpowerTotal + equipmentTotal + budgetTotal;
   };
 
-  // ✅ FIX 6: Get expenditure by head for detailed breakdown
+  // Get expenditure by head for detailed breakdown
   const getExpenditureByHead = (head) => {
     if (!actualExpenditures) return 0;
 
@@ -934,7 +933,7 @@ const ProjectDetailsFullPage = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="font-bold text-orange-900 text-lg">
-                      TOTAL FUNDS RECEIVED
+                      Total Funds Recieved
                     </span>
                     <div className="text-orange-700 text-sm mt-1">
                       Across all budget heads

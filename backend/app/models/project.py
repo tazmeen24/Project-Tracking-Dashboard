@@ -94,7 +94,7 @@ class ProjectCreate(BaseModel):
     # Project categorization
     project_category: Literal['sponsored', 'non-sponsored']
     project_type: Literal['PFMS', 'NON-PFMS', 'contract-research']
-    PFMS_id: Optional[str] = None
+    pfms_id: Optional[str] = None
     
     # Investigator details
     principal_investigator: str
@@ -172,12 +172,12 @@ class ProjectCreate(BaseModel):
         return self
     
     @model_validator(mode='after')
-    def validate_PFMS_identifier(self):
-        """Validate that PFMS_id is provided when project_type is 'PFMS'"""
+    def validate_pfms_identifier(self):
+        """Validate that pfms_id is provided when project_type is 'PFMS'"""
         if self.project_category == 'sponsored' and self.project_type == 'PFMS':
-            if not self.PFMS_id or self.PFMS_id.strip() == '':
+            if not self.pfms_id or self.pfms_id.strip() == '':
                 raise ValueError(
-                    "PFMS_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
+                    "pfms_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
                 )
         return self
 
@@ -192,7 +192,7 @@ class ProjectUpdate(BaseModel):
     technical_group_id: Optional[int] = None
     project_category: Optional[Literal['sponsored', 'non-sponsored']] = None
     project_type: Optional[Literal['PFMS', 'NON-PFMS', 'contract-research']] = None
-    PFMS_id: Optional[str] = None
+    pfms_id: Optional[str] = None
     
     @field_validator('start_date', 'end_date')
     @classmethod
@@ -222,12 +222,12 @@ class ProjectUpdate(BaseModel):
         return self
     
     @model_validator(mode='after')
-    def validate_PFMS_identifier(self):
-        """Validate PFMS_id requirements when updating"""
+    def validate_pfms_identifier(self):
+        """Validate pfms_id requirements when updating"""
         if self.project_type == 'PFMS' and self.project_category == 'sponsored':
-            if self.PFMS_id is not None and self.PFMS_id.strip() == '':
+            if self.pfms_id is not None and self.pfms_id.strip() == '':
                 raise ValueError(
-                    "PFMS_id cannot be empty when project_type is 'PFMS' and project_category is 'sponsored'"
+                    "pfms_id cannot be empty when project_type is 'PFMS' and project_category is 'sponsored'"
                 )
         return self
 
@@ -243,7 +243,7 @@ class ProjectResponse(BaseModel):
     technical_group_id: int
     project_category: str
     project_type: str
-    PFMS_id: Optional[str] = None
+    pfms_id: Optional[str] = None
     created_at: datetime
 
 class TechnicalGroupCreate(BaseModel):

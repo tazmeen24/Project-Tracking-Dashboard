@@ -33,7 +33,7 @@ async def create_project(project: ProjectCreate):
             cur.execute(
                 """INSERT INTO projects 
                    (project_no, title, alias, start_date, end_date, funding_agency_id, technical_group_id,
-                    project_category, project_type, PFMS_id) 
+                    project_category, project_type, pfms_id) 
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                 (
                     project.project_no,
@@ -45,7 +45,7 @@ async def create_project(project: ProjectCreate):
                     project.technical_group_id,
                     project.project_category,
                     project.project_type,
-                    project.PFMS_id if project.PFMS_id else None
+                    project.pfms_id if project.pfms_id else None
                 )
             )
             project_result = cur.fetchone()
@@ -685,9 +685,9 @@ async def update_project(project_id: int, project: ProjectUpdate):
                 update_fields.append("project_type = %s")
                 values.append(project.project_type)
             
-            if project.PFMS_id is not None:
-                update_fields.append("PFMS_id = %s")
-                values.append(project.PFMS_id)
+            if project.pfms_id is not None:
+                update_fields.append("pfms_id = %s")
+                values.append(project.pfms_id)
             
             if not update_fields:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
@@ -707,11 +707,11 @@ async def update_project(project_id: int, project: ProjectUpdate):
                     detail="When project_category is 'non-sponsored', project_type must be 'contract-research'"
                 )
             
-            new_PFMS_id = project.PFMS_id if project.PFMS_id is not None else existing_project.get('PFMS_id')
-            if new_category == 'sponsored' and new_type == 'PFMS' and not new_PFMS_id:
+            new_pfms_id = project.pfms_id if project.pfms_id is not None else existing_project.get('pfms_id')
+            if new_category == 'sponsored' and new_type == 'PFMS' and not new_pfms_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="PFMS_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
+                    detail="pfms_id is required when project_category is 'sponsored' and project_type is 'PFMS'"
                 )
             
             # Execute update

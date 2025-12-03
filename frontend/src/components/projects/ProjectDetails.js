@@ -90,19 +90,22 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
 
   const getTotalExpenditure = () => {
     if (!project) return 0;
-    const manpowerExp = project.manpower_expenditure?.reduce(
-      (sum, exp) =>
-        sum + exp.salary_per_month * exp.months * (exp.num_personnel || 1),
-      0
-    ) || 0;
-    const equipmentExp = project.equipment_expenditure?.reduce(
-      (sum, exp) => sum + exp.unit_cost * (exp.quantity || 1),
-      0
-    ) || 0;
-    const otherExp = project.other_expenditure?.reduce(
-      (sum, exp) => sum + (exp.amount || 0),
-      0
-    ) || 0;
+    const manpowerExp =
+      project.manpower_expenditure?.reduce(
+        (sum, exp) =>
+          sum + exp.salary_per_month * exp.months * (exp.num_personnel || 1),
+        0
+      ) || 0;
+    const equipmentExp =
+      project.equipment_expenditure?.reduce(
+        (sum, exp) => sum + exp.unit_cost * (exp.quantity || 1),
+        0
+      ) || 0;
+    const otherExp =
+      project.other_expenditure?.reduce(
+        (sum, exp) => sum + (exp.amount || 0),
+        0
+      ) || 0;
     return manpowerExp + equipmentExp + otherExp;
   };
 
@@ -131,7 +134,12 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
 
   if (loading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Project Details" size="2xl">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Project Details"
+        size="2xl"
+      >
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
         </div>
@@ -141,7 +149,12 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
 
   if (error || !project) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Project Details" size="2xl">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Project Details"
+        size="2xl"
+      >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -159,12 +172,7 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
   const utilizationPercent = getBudgetUtilization();
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Project Details"
-      size="2xl"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Project Details" size="2xl">
       <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
         {/* Header with Quick Actions */}
         <div className="bg-gradient-to-r from-slate-900 to-slate-700 text-white p-6 rounded-2xl -mt-4">
@@ -203,9 +211,9 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
             <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">
               {project.project_type}
             </span>
-            {project.PFMS_id && (
+            {project.pfms_id && (
               <span className="px-3 py-1 bg-blue-500/30 rounded-full text-xs font-medium">
-                PFMS: {project.PFMS_id}
+                PFMS: {project.pfms_id}
               </span>
             )}
           </div>
@@ -224,7 +232,9 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
             value={formatCurrency(totalFunds)}
             icon={TrendingDown}
             color="green"
-            subtitle={`${((totalFunds / totalBudget) * 100 || 0).toFixed(1)}% of budget`}
+            subtitle={`${((totalFunds / totalBudget) * 100 || 0).toFixed(
+              1
+            )}% of budget`}
           />
           <StatCard
             title="Expenditure"
@@ -274,8 +284,14 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
         >
           <div className="grid grid-cols-2 gap-4">
             <InfoItem label="Project Number" value={project.project_no} />
-            <InfoItem label="Technical Group" value={project.technical_group_name} />
-            <InfoItem label="Funding Agency" value={project.funding_agency_name} />
+            <InfoItem
+              label="Technical Group"
+              value={project.technical_group_name}
+            />
+            <InfoItem
+              label="Funding Agency"
+              value={project.funding_agency_name}
+            />
             <InfoItem
               label="Start Date"
               value={formatDate(project.start_date)}
@@ -291,7 +307,8 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
               value={
                 project.start_date && project.end_date
                   ? `${Math.ceil(
-                      (new Date(project.end_date) - new Date(project.start_date)) /
+                      (new Date(project.end_date) -
+                        new Date(project.start_date)) /
                         (1000 * 60 * 60 * 24 * 30)
                     )} months`
                   : "Ongoing"
@@ -315,15 +332,8 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
                 Principal Investigator
               </h4>
               <div className="grid grid-cols-3 gap-3">
-                <InfoItem
-                  label="Name"
-                  value={project.principal_investigator}
-                />
-                <InfoItem
-                  label="Email"
-                  value={project.pi_email}
-                  icon={Mail}
-                />
+                <InfoItem label="Name" value={project.principal_investigator} />
+                <InfoItem label="Email" value={project.pi_email} icon={Mail} />
                 <InfoItem
                   label="Mobile"
                   value={project.pi_mobile}
@@ -341,7 +351,11 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
                 </h4>
                 <div className="grid grid-cols-3 gap-3">
                   <InfoItem label="Name" value={project.co_investigator} />
-                  <InfoItem label="Email" value={project.co_email} icon={Mail} />
+                  <InfoItem
+                    label="Email"
+                    value={project.co_email}
+                    icon={Mail}
+                  />
                   <InfoItem
                     label="Mobile"
                     value={project.co_mobile}
@@ -464,141 +478,145 @@ const ProjectDetails = ({ isOpen, onClose, projectId, onEdit }) => {
         </CollapsibleSection>
 
         {/* Manpower Breakdown */}
-        {project.manpower_breakdown && project.manpower_breakdown.length > 0 && (
-          <CollapsibleSection
-            title="Manpower Breakdown"
-            icon={Users}
-            isExpanded={expandedSections.manpower}
-            onToggle={() => toggleSection("manpower")}
-            badge={project.manpower_breakdown.length}
-          >
-            <div className="space-y-3">
-              {project.manpower_breakdown.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-blue-50 p-4 rounded-xl border border-blue-200"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-semibold text-slate-900 text-lg">
-                        {item.role}
-                      </h4>
-                      <p className="text-sm text-slate-600">
-                        {item.num_personnel} person(s) × ₹
-                        {item.salary_per_month.toLocaleString("en-IN")}/month ×{" "}
-                        {item.months} months
-                      </p>
+        {project.manpower_breakdown &&
+          project.manpower_breakdown.length > 0 && (
+            <CollapsibleSection
+              title="Manpower Breakdown"
+              icon={Users}
+              isExpanded={expandedSections.manpower}
+              onToggle={() => toggleSection("manpower")}
+              badge={project.manpower_breakdown.length}
+            >
+              <div className="space-y-3">
+                {project.manpower_breakdown.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-blue-50 p-4 rounded-xl border border-blue-200"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 text-lg">
+                          {item.role}
+                        </h4>
+                        <p className="text-sm text-slate-600">
+                          {item.num_personnel} person(s) × ₹
+                          {item.salary_per_month.toLocaleString("en-IN")}/month
+                          × {item.months} months
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-semibold">
+                        {formatCurrency(
+                          item.salary_per_month *
+                            item.months *
+                            item.num_personnel
+                        )}
+                      </span>
                     </div>
-                    <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-semibold">
-                      {formatCurrency(
-                        item.salary_per_month * item.months * item.num_personnel
-                      )}
-                    </span>
-                  </div>
 
-                  {/* NEW FIELDS DISPLAY */}
-                  {(item.qualification || item.experience_required) && (
-                    <div className="grid grid-cols-1 gap-3 mt-3 pt-3 border-t border-blue-200">
-                      {item.qualification && (
-                        <div className="flex items-start gap-2">
-                          <GraduationCap className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs font-semibold text-blue-900 mb-1">
-                              Qualification
-                            </p>
-                            <p className="text-sm text-slate-700">
-                              {item.qualification}
-                            </p>
+                    {/* NEW FIELDS DISPLAY */}
+                    {(item.qualification || item.experience_required) && (
+                      <div className="grid grid-cols-1 gap-3 mt-3 pt-3 border-t border-blue-200">
+                        {item.qualification && (
+                          <div className="flex items-start gap-2">
+                            <GraduationCap className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-semibold text-blue-900 mb-1">
+                                Qualification
+                              </p>
+                              <p className="text-sm text-slate-700">
+                                {item.qualification}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {item.experience_required && (
-                        <div className="flex items-start gap-2">
-                          <Award className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs font-semibold text-blue-900 mb-1">
-                              Experience Required
-                            </p>
-                            <p className="text-sm text-slate-700">
-                              {item.experience_required}
-                            </p>
+                        )}
+                        {item.experience_required && (
+                          <div className="flex items-start gap-2">
+                            <Award className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-semibold text-blue-900 mb-1">
+                                Experience Required
+                              </p>
+                              <p className="text-sm text-slate-700">
+                                {item.experience_required}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
 
         {/* Equipment Breakdown */}
-        {project.equipment_breakdown && project.equipment_breakdown.length > 0 && (
-          <CollapsibleSection
-            title="Equipment Breakdown"
-            icon={Briefcase}
-            isExpanded={expandedSections.equipment}
-            onToggle={() => toggleSection("equipment")}
-            badge={project.equipment_breakdown.length}
-          >
-            <div className="space-y-3">
-              {project.equipment_breakdown.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-green-50 p-4 rounded-xl border border-green-200"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-semibold text-slate-900 text-lg">
-                        {item.item_name}
-                      </h4>
-                      <p className="text-sm text-slate-600">
-                        Quantity: {item.quantity} × ₹
-                        {item.unit_cost.toLocaleString("en-IN")} per unit
-                      </p>
+        {project.equipment_breakdown &&
+          project.equipment_breakdown.length > 0 && (
+            <CollapsibleSection
+              title="Equipment Breakdown"
+              icon={Briefcase}
+              isExpanded={expandedSections.equipment}
+              onToggle={() => toggleSection("equipment")}
+              badge={project.equipment_breakdown.length}
+            >
+              <div className="space-y-3">
+                {project.equipment_breakdown.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-green-50 p-4 rounded-xl border border-green-200"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 text-lg">
+                          {item.item_name}
+                        </h4>
+                        <p className="text-sm text-slate-600">
+                          Quantity: {item.quantity} × ₹
+                          {item.unit_cost.toLocaleString("en-IN")} per unit
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 bg-green-600 text-white rounded-full text-sm font-semibold">
+                        {formatCurrency(item.quantity * item.unit_cost)}
+                      </span>
                     </div>
-                    <span className="px-3 py-1 bg-green-600 text-white rounded-full text-sm font-semibold">
-                      {formatCurrency(item.quantity * item.unit_cost)}
-                    </span>
-                  </div>
 
-                  {/* NEW FIELDS DISPLAY */}
-                  {(item.description || item.product_website) && (
-                    <div className="space-y-2 mt-3 pt-3 border-t border-green-200">
-                      {item.description && (
-                        <div>
-                          <p className="text-xs font-semibold text-green-900 mb-1">
-                            Description
-                          </p>
-                          <p className="text-sm text-slate-700">
-                            {item.description}
-                          </p>
-                        </div>
-                      )}
-                      {item.product_website && (
-                        <div>
-                          <p className="text-xs font-semibold text-green-900 mb-1 flex items-center gap-1">
-                            <LinkIcon className="w-3 h-3" />
-                            Product Website
-                          </p>
-                          <a
-                            href={item.product_website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
-                          >
-                            {item.product_website}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
+                    {/* NEW FIELDS DISPLAY */}
+                    {(item.description || item.product_website) && (
+                      <div className="space-y-2 mt-3 pt-3 border-t border-green-200">
+                        {item.description && (
+                          <div>
+                            <p className="text-xs font-semibold text-green-900 mb-1">
+                              Description
+                            </p>
+                            <p className="text-sm text-slate-700">
+                              {item.description}
+                            </p>
+                          </div>
+                        )}
+                        {item.product_website && (
+                          <div>
+                            <p className="text-xs font-semibold text-green-900 mb-1 flex items-center gap-1">
+                              <LinkIcon className="w-3 h-3" />
+                              Product Website
+                            </p>
+                            <a
+                              href={item.product_website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
+                            >
+                              {item.product_website}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          )}
 
         {/* Funds Received */}
         <CollapsibleSection
@@ -931,9 +949,9 @@ const SummaryRow = ({ label, value, percentage, highlight, positive }) => {
   return (
     <div className="flex justify-between items-center">
       <span
-        className={`${
-          highlight ? "text-lg font-bold" : "text-sm"
-        } ${positive === false ? "text-red-300" : ""}`}
+        className={`${highlight ? "text-lg font-bold" : "text-sm"} ${
+          positive === false ? "text-red-300" : ""
+        }`}
       >
         {label}
       </span>

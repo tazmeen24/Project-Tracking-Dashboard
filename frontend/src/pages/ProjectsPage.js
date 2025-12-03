@@ -5,7 +5,6 @@ import {
   Search,
   Filter,
   X,
-  Calendar,
   Eye,
   Edit,
   Trash2,
@@ -20,7 +19,6 @@ import projectService from "../services/projectService";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
 import Input from "../components/common/Input";
-import ProjectForm from "../components/projects/ProjectForm";
 import { formatCurrency } from "../utils/helpers";
 
 const ProjectsPage = () => {
@@ -32,8 +30,6 @@ const ProjectsPage = () => {
     fundingAgencies,
     technicalGroups,
   } = useProject();
-  const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -158,19 +154,7 @@ const ProjectsPage = () => {
     dateRangeStart && dateRangeEnd,
   ].filter(Boolean).length;
 
-  const handleFormClose = () => {
-    setShowForm(false);
-    setEditingProject(null);
-  };
-
-  const handleEdit = (e, project) => {
-    e.stopPropagation();
-    setEditingProject(project);
-    setShowForm(true);
-    setOpenDropdown(null);
-  };
-
-  // ✅ FIXED: Use projectService instead of direct axios call
+  //  Use projectService instead of direct axios call
   const handleDelete = async (e, project) => {
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
@@ -212,7 +196,7 @@ const ProjectsPage = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -223,7 +207,7 @@ const ProjectsPage = () => {
             Manage and track all research projects
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} icon={Plus}>
+        <Button onClick={() => navigate("/projects/new")} icon={Plus}>
           New Project
         </Button>
       </div>
@@ -624,16 +608,22 @@ const ProjectsPage = () => {
                             {openDropdown === project.project_id && (
                               <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
                                 <button
-                                  onClick={() =>
-                                    navigate(`/projects/${project.project_id}`)
-                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/projects/${project.project_id}`);
+                                  }}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                   <Eye className="w-4 h-4 text-blue-600" />
                                   <span>View</span>
                                 </button>
                                 <button
-                                  onClick={(e) => handleEdit(e, project)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/projects/${project.project_id}/edit`
+                                    );
+                                  }}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                   <Edit className="w-4 h-4 text-blue-600" />
@@ -671,17 +661,6 @@ const ProjectsPage = () => {
           </table>
         </div>
       </div>
-
-      {/* Project Form Modal */}
-      <ProjectForm
-        isOpen={showForm}
-        onClose={handleFormClose}
-        onSuccess={() => {
-          refreshProjects();
-          handleFormClose();
-        }}
-        editProject={editingProject}
-      />
 
       {/* Add Fund Modal */}
       <AddFundModal

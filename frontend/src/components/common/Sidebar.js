@@ -42,7 +42,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                   ProjectHub
                 </h1>
                 <p className="text-xs text-slate-500 whitespace-nowrap">
-                  Manage your projects
+                  Manage projects
                 </p>
               </div>
             )}
