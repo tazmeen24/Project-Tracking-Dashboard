@@ -4,35 +4,25 @@
  * Place in: frontend/src/pages/FinancialSummaryPage.js
  */
 
-import React, { useState, useEffect } from "react";
-import {
-  FileDown,
-  TrendingUp,
-  DollarSign,
-  PiggyBank,
-  AlertCircle,
-} from "lucide-react";
-import financialSummaryService from "../services/financialSummaryService";
-import ByProjectTable from "../components/FinancialSummary/ByProjectTable";
-import {
-  ByBudgetHeadTable,
-  ByTechnicalGroupTable,
-  ByFundingAgencyTable,
-} from "../components/FinancialSummary/OtherTables";
+import React, { useState, useEffect } from 'react';
+import { FileDown, TrendingUp, DollarSign, PiggyBank, AlertCircle } from 'lucide-react';
+import financialSummaryService from '../services/financialSummaryService';
+import ByProjectTable from '../components/FinancialSummary/ByProjectTable';
+import { ByBudgetHeadTable, ByTechnicalGroupTable, ByFundingAgencyTable } from '../components/FinancialSummary/OtherTables';
 
 const FinancialSummaryPage = () => {
   // State management
-  const [viewMode, setViewMode] = useState("by_project");
-  const [dateFilterMode, setDateFilterMode] = useState("current");
-  const [asOfDate, setAsOfDate] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [financialYear, setFinancialYear] = useState("2024");
+  const [viewMode, setViewMode] = useState('by_project');
+  const [dateFilterMode, setDateFilterMode] = useState('current');
+  const [asOfDate, setAsOfDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [financialYear, setFinancialYear] = useState('2024');
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [month, setMonth] = useState((new Date().getMonth() + 1).toString());
-  const [quarter, setQuarter] = useState("1");
-  const [projectFilter, setProjectFilter] = useState("");
-
+  const [quarter, setQuarter] = useState('1');
+  const [projectFilter, setProjectFilter] = useState('');
+  
   const [financialData, setFinancialData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -43,48 +33,36 @@ const FinancialSummaryPage = () => {
   // Fetch data on component mount and when filters change
   useEffect(() => {
     fetchFinancialSummary();
-  }, [
-    viewMode,
-    dateFilterMode,
-    asOfDate,
-    startDate,
-    endDate,
-    financialYear,
-    year,
-    month,
-    quarter,
-    projectFilter,
-    currentPage,
-  ]);
+  }, [viewMode, dateFilterMode, asOfDate, startDate, endDate, financialYear, year, month, quarter, projectFilter, currentPage]);
 
   const fetchFinancialSummary = async () => {
-    // Prevent premature API calls
-    if (dateFilterMode === "as_of_date" && !asOfDate) return;
-    if (dateFilterMode === "date_range" && (!startDate || !endDate)) return;
+     // Prevent premature API calls
+    if (dateFilterMode === 'as_of_date' && !asOfDate) return;
+    if (dateFilterMode === 'date_range' && (!startDate || !endDate)) return;
 
     setLoading(true);
     setError(null);
-
+    
     try {
       const params = {
         viewMode,
         dateFilterMode,
         page: currentPage,
-        perPage,
+        perPage
       };
 
       // Add date parameters based on filter mode
-      if (dateFilterMode === "as_of_date" && asOfDate) {
+      if (dateFilterMode === 'as_of_date' && asOfDate) {
         params.asOfDate = asOfDate;
-      } else if (dateFilterMode === "date_range" && startDate && endDate) {
+      } else if (dateFilterMode === 'date_range' && startDate && endDate) {
         params.startDate = startDate;
         params.endDate = endDate;
-      } else if (dateFilterMode === "financial_year" && financialYear) {
+      } else if (dateFilterMode === 'financial_year' && financialYear) {
         params.financialYear = parseInt(financialYear);
-      } else if (dateFilterMode === "monthly" && year && month) {
+      } else if (dateFilterMode === 'monthly' && year && month) {
         params.year = parseInt(year);
         params.month = parseInt(month);
-      } else if (dateFilterMode === "quarterly" && year && quarter) {
+      } else if (dateFilterMode === 'quarterly' && year && quarter) {
         params.year = parseInt(year);
         params.quarter = parseInt(quarter);
       }
@@ -96,10 +74,8 @@ const FinancialSummaryPage = () => {
       const data = await financialSummaryService.getFinancialSummary(params);
       setFinancialData(data);
     } catch (err) {
-      setError(
-        err.response?.data?.detail || "Failed to fetch financial summary"
-      );
-      console.error("Error fetching financial summary:", err);
+      setError(err.response?.data?.detail || 'Failed to fetch financial summary');
+      console.error('Error fetching financial summary:', err);
     } finally {
       setLoading(false);
     }
@@ -107,23 +83,23 @@ const FinancialSummaryPage = () => {
 
   // Helper functions
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
     }).format(amount || 0);
   };
 
   const getBalanceColor = (balance) => {
-    if (balance > 0) return "text-green-600";
-    if (balance < 0) return "text-red-600";
-    return "text-gray-600";
+    if (balance > 0) return 'text-green-600';
+    if (balance < 0) return 'text-red-600';
+    return 'text-gray-600';
   };
 
   const getUtilizationColor = (percentage) => {
-    if (percentage < 80) return "bg-green-100 text-green-800";
-    if (percentage < 100) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
+    if (percentage < 80) return 'bg-green-100 text-green-800';
+    if (percentage < 100) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
   };
 
   const toggleRowExpansion = (projectId) => {
@@ -140,22 +116,20 @@ const FinancialSummaryPage = () => {
     try {
       const params = {
         viewMode,
-        dateFilterMode,
+        dateFilterMode
       };
 
-      if (dateFilterMode === "as_of_date" && asOfDate)
-        params.asOfDate = asOfDate;
-      if (dateFilterMode === "date_range") {
+      if (dateFilterMode === 'as_of_date' && asOfDate) params.asOfDate = asOfDate;
+      if (dateFilterMode === 'date_range') {
         params.startDate = startDate;
         params.endDate = endDate;
       }
-      if (dateFilterMode === "financial_year")
-        params.financialYear = parseInt(financialYear);
-      if (dateFilterMode === "monthly") {
+      if (dateFilterMode === 'financial_year') params.financialYear = parseInt(financialYear);
+      if (dateFilterMode === 'monthly') {
         params.year = parseInt(year);
         params.month = parseInt(month);
       }
-      if (dateFilterMode === "quarterly") {
+      if (dateFilterMode === 'quarterly') {
         params.year = parseInt(year);
         params.quarter = parseInt(quarter);
       }
@@ -163,7 +137,7 @@ const FinancialSummaryPage = () => {
 
       await financialSummaryService.exportToExcel(params);
     } catch (err) {
-      alert("Export feature not yet implemented");
+      alert('Export feature not yet implemented');
     }
   };
 
@@ -175,11 +149,11 @@ const FinancialSummaryPage = () => {
       data: financialData.data,
       formatCurrency,
       getBalanceColor,
-      getUtilizationColor,
+      getUtilizationColor
     };
 
     switch (viewMode) {
-      case "by_project":
+      case 'by_project':
         return (
           <ByProjectTable
             {...tableProps}
@@ -187,11 +161,11 @@ const FinancialSummaryPage = () => {
             toggleRowExpansion={toggleRowExpansion}
           />
         );
-      case "by_budget_head":
+      case 'by_budget_head':
         return <ByBudgetHeadTable {...tableProps} />;
-      case "by_technical_group":
+      case 'by_technical_group':
         return <ByTechnicalGroupTable {...tableProps} />;
-      case "by_funding_agency":
+      case 'by_funding_agency':
         return <ByFundingAgencyTable {...tableProps} />;
       default:
         return null;
@@ -199,13 +173,11 @@ const FinancialSummaryPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen p-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Financial Summary</h1>
-        <p className="text-gray-600 mt-1">
-          Comprehensive financial overview with dual balance tracking
-        </p>
+        <p className="text-gray-600 mt-1">Comprehensive financial overview with dual balance tracking</p>
       </div>
 
       {/* Filter Panel */}
@@ -213,9 +185,7 @@ const FinancialSummaryPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* View Mode */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              View Mode
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">View Mode</label>
             <select
               value={viewMode}
               onChange={(e) => setViewMode(e.target.value)}
@@ -230,9 +200,7 @@ const FinancialSummaryPage = () => {
 
           {/* Date Filter Mode */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date Filter
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date Filter</label>
             <select
               value={dateFilterMode}
               onChange={(e) => setDateFilterMode(e.target.value)}
@@ -248,11 +216,9 @@ const FinancialSummaryPage = () => {
           </div>
 
           {/* Conditional Date Inputs */}
-          {dateFilterMode === "as_of_date" && (
+          {dateFilterMode === 'as_of_date' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                As of Date
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">As of Date</label>
               <input
                 type="date"
                 value={asOfDate}
@@ -262,12 +228,10 @@ const FinancialSummaryPage = () => {
             </div>
           )}
 
-          {dateFilterMode === "date_range" && (
+          {dateFilterMode === 'date_range' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                 <input
                   type="date"
                   value={startDate}
@@ -276,9 +240,7 @@ const FinancialSummaryPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
                 <input
                   type="date"
                   value={endDate}
@@ -289,11 +251,9 @@ const FinancialSummaryPage = () => {
             </>
           )}
 
-          {dateFilterMode === "financial_year" && (
+          {dateFilterMode === 'financial_year' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Financial Year
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Financial Year</label>
               <select
                 value={financialYear}
                 onChange={(e) => setFinancialYear(e.target.value)}
@@ -306,12 +266,10 @@ const FinancialSummaryPage = () => {
             </div>
           )}
 
-          {dateFilterMode === "monthly" && (
+          {dateFilterMode === 'monthly' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Year
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
@@ -323,9 +281,7 @@ const FinancialSummaryPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Month
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Month</label>
                 <select
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
@@ -333,9 +289,7 @@ const FinancialSummaryPage = () => {
                 >
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
-                      {new Date(2000, i).toLocaleString("default", {
-                        month: "long",
-                      })}
+                      {new Date(2000, i).toLocaleString('default', { month: 'long' })}
                     </option>
                   ))}
                 </select>
@@ -343,12 +297,10 @@ const FinancialSummaryPage = () => {
             </>
           )}
 
-          {dateFilterMode === "quarterly" && (
+          {dateFilterMode === 'quarterly' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Year
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
@@ -360,9 +312,7 @@ const FinancialSummaryPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quarter
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quarter</label>
                 <select
                   value={quarter}
                   onChange={(e) => setQuarter(e.target.value)}
@@ -379,9 +329,7 @@ const FinancialSummaryPage = () => {
 
           {/* Project Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Project ID (Optional)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Project ID (Optional)</label>
             <input
               type="number"
               value={projectFilter}
@@ -419,9 +367,7 @@ const FinancialSummaryPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Projects</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {financialData.summary.total_projects}
-                </p>
+                <p className="text-2xl font-bold text-gray-800">{financialData.summary.total_projects}</p>
               </div>
               <TrendingUp className="text-blue-600" size={32} />
             </div>
@@ -467,11 +413,7 @@ const FinancialSummaryPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Budget Balance</p>
-                <p
-                  className={`text-xl font-bold ${getBalanceColor(
-                    financialData.summary.budget_balance
-                  )}`}
-                >
+                <p className={`text-xl font-bold ${getBalanceColor(financialData.summary.budget_balance)}`}>
                   {formatCurrency(financialData.summary.budget_balance)}
                 </p>
               </div>
@@ -483,11 +425,7 @@ const FinancialSummaryPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Funds Balance</p>
-                <p
-                  className={`text-xl font-bold ${getBalanceColor(
-                    financialData.summary.funds_balance
-                  )}`}
-                >
+                <p className={`text-xl font-bold ${getBalanceColor(financialData.summary.funds_balance)}`}>
                   {formatCurrency(financialData.summary.funds_balance)}
                 </p>
               </div>
@@ -512,30 +450,19 @@ const FinancialSummaryPage = () => {
             {financialData && financialData.pagination && (
               <div className="mt-6 flex justify-between items-center">
                 <p className="text-sm text-gray-600">
-                  Showing {(currentPage - 1) * perPage + 1} to{" "}
-                  {Math.min(
-                    currentPage * perPage,
-                    financialData.pagination.total_items
-                  )}{" "}
-                  of {financialData.pagination.total_items} results
+                  Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, financialData.pagination.total_items)} of {financialData.pagination.total_items} results
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
                   <button
-                    onClick={() =>
-                      setCurrentPage((p) =>
-                        Math.min(financialData.pagination.total_pages, p + 1)
-                      )
-                    }
-                    disabled={
-                      currentPage === financialData.pagination.total_pages
-                    }
+                    onClick={() => setCurrentPage(p => Math.min(financialData.pagination.total_pages, p + 1))}
+                    disabled={currentPage === financialData.pagination.total_pages}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
