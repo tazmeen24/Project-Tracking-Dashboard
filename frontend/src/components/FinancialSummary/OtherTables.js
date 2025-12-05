@@ -23,7 +23,7 @@ const budgetHeadIcons = {
 
 export const ByBudgetHeadTable = ({ data, formatCurrency, getBalanceColor, getUtilizationColor }) => {
   const getIcon = (headName) => {
-    const Icon = budgetHeadIcons[headName.toLowerCase()] || DollarSign;
+    const Icon = budgetHeadIcons[(headName || "").toLowerCase()] || DollarSign;
     return <Icon size={20} className="inline mr-2 text-blue-600" />;
   };
 

@@ -16,7 +16,7 @@ from .routes import (
     reports,
     investigators,
     agency_details,
-    financial_summary_routes as financial_summary
+    financial_summary
 )
 
 app = FastAPI(
