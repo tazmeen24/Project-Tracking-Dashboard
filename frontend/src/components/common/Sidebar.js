@@ -4,10 +4,10 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderOpen,
+  BarChart2,
   BarChart3,
   FileText,
   Building2,
-  Users,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -16,11 +16,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/projects', icon: FolderOpen, label: 'Projects' },
-    { path: '/financial-summary', icon: BarChart3, label: 'Financial Summary' },
+    { path: '/financial-summary', icon: BarChart2, label: 'Financial Summary' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/reports', icon: FileText, label: 'Reports' },
-    { path: '/funding-agencies', icon: Building2, label: 'Funding Agencies' },
-    { path: '/technical-groups', icon: Users, label: 'Technical Groups' },
   ];
 
   return (

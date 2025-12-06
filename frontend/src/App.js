@@ -16,8 +16,7 @@ import ProjectDetailsFullPage from './pages/ProjectDetailsFullPage';
 import FinancialSummaryPage from './pages/FinancialSummaryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
-import FundingAgenciesPage from './pages/FundingAgenciesPage';
-import TechnicalGroupsPage from './pages/TechnicalGroupsPage';
+import ProjectFinancialsPage from './pages/ProjectFinancialsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -57,8 +56,7 @@ function App() {
               <Route path="financial-summary" element={<FinancialSummaryPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="reports" element={<ReportsPage />} />
-              <Route path="funding-agencies" element={<FundingAgenciesPage />} />
-              <Route path="technical-groups" element={<TechnicalGroupsPage />} />
+              <Route path="/projects/:projectId/finances" element={<ProjectFinancialsPage />} />
             </Route>
 
             {/* 404 Catch-all */}

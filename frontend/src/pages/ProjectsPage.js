@@ -8,6 +8,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Wallet,
   MoreVertical,
   DollarSign,
   TrendingDown,
@@ -628,6 +629,18 @@ const ProjectsPage = () => {
                                 >
                                   <Edit className="w-4 h-4 text-blue-600" />
                                   <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/projects/${project.project_id}/finances`
+                                    );
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Wallet className="w-4 h-4 text-green-600" />
+                                  <span>Manage Finances</span>
                                 </button>
                                 <div className="border-t border-slate-200 my-1"></div>
                                 <button
