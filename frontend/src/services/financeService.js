@@ -200,7 +200,51 @@ const financeService = {
     if (balance < 0) return 'overspent';
     if (balance < totalFunds * 0.1) return 'warning';
     return 'healthy';
+  },
+
+  // Add to financeService object:
+
+/**
+ * Update fund
+ */
+  updateFund: async (fundId, data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`http://localhost:8000/funds/received/${fundId}`, {
+    method: 'PUT',
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!response.ok) throw new Error('Failed to update fund');
+  return response.json();
+},
+
+/**
+ * Delete fund breakdown by fund_id (deletes ALL breakdown items for a fund)
+ */
+deleteFundBreakdown: async (fundId) => {
+  const token = localStorage.getItem('token');
+  
+  // We need to fetch the fund first to get breakdown IDs
+  const fund = await financeService.getFundWithBreakdown(fundId);
+  
+  if (fund.breakdown && fund.breakdown.length > 0) {
+    // Delete each breakdown item
+    for (const item of fund.breakdown) {
+      const endpoint = fund.head === 'manpower' 
+        ? `/funds/breakdown/manpower/${item.breakdown_id}`
+        : `/funds/breakdown/equipment/${item.breakdown_id}`;
+      
+      await fetch(`http://localhost:8000${endpoint}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    }
   }
+},
+
 };
 
 export default financeService;

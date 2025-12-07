@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProjectProvider } from './contexts/ProjectContext';
 import Layout from './components/layout/Layout';
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 // Auth Pages
 import LoginPage from './pages/LoginPage';
@@ -29,6 +30,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <ProjectProvider>
+          <ThemeProvider>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
@@ -62,6 +64,7 @@ function App() {
             {/* 404 Catch-all */}
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
+          </ThemeProvider>
         </ProjectProvider>
       </AuthProvider>
     </BrowserRouter>

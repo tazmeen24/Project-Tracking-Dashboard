@@ -1,8 +1,8 @@
 // frontend/src/components/finances/FundsTable.jsx
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 const FundsTable = ({
   funds,
@@ -11,7 +11,7 @@ const FundsTable = ({
   projectId,
   breakdownCache,
   onBreakdownExpand,
-  onRefresh
+  onRefresh,
 }) => {
   const navigate = useNavigate();
   const [expandedBreakdowns, setExpandedBreakdowns] = useState({});
@@ -19,33 +19,115 @@ const FundsTable = ({
   const [deleting, setDeleting] = useState(false);
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
+  const renderBreakdownTables = (breakdown, head) => {
+    if (!breakdown || breakdown.length === 0) return null;
+
+    // Detect type based on fields present
+    const isManpower = head === "manpower" || breakdown[0]?.role !== undefined;
+    const isEquipment =
+      head === "equipment" || breakdown[0]?.item_name !== undefined;
+
+    return (
+      <div className="mt-4 space-y-6">
+        {/* Manpower Table */}
+        {isManpower && (
+          <div className="border rounded-lg">
+            <div className="bg-gray-100 px-4 py-2 font-semibold">
+              Manpower Breakdown
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="px-3 py-2 text-left">Role</th>
+                  <th className="px-3 py-2 text-left">Salary/Month</th>
+                  <th className="px-3 py-2 text-left">Months</th>
+                  <th className="px-3 py-2 text-left">Personnel</th>
+                  <th className="px-3 py-2 text-left">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((m, idx) => (
+                  <tr key={idx} className="border-t">
+                    <td className="px-3 py-2">{m.role}</td>
+                    <td className="px-3 py-2">
+                      ₹{m.salary_per_month?.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">{m.months}</td>
+                    <td className="px-3 py-2">{m.num_personnel}</td>
+                    <td className="px-3 py-2">
+                      ₹{m.total_amount?.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Equipment Table */}
+        {isEquipment && (
+          <div className="border rounded-lg">
+            <div className="bg-gray-100 px-4 py-2 font-semibold">
+              Equipment Breakdown
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="px-3 py-2 text-left">Item</th>
+                  <th className="px-3 py-2 text-left">Qty</th>
+                  <th className="px-3 py-2 text-left">Unit Cost</th>
+                  <th className="px-3 py-2 text-left">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((e, idx) => (
+                  <tr key={idx} className="border-t">
+                    <td className="px-3 py-2">{e.item_name}</td>
+                    <td className="px-3 py-2">{e.quantity}</td>
+                    <td className="px-3 py-2">
+                      ₹{e.unit_cost?.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      ₹{e.total_amount?.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleBreakdownToggle = async (fundId) => {
+    console.log("🔍 Requesting breakdown for fund_id:", fundId);
     if (!expandedBreakdowns[fundId]) {
       // Expanding - fetch breakdown if not cached
       if (!breakdownCache[fundId]) {
         await onBreakdownExpand(fundId);
       }
     }
-    
+
     setExpandedBreakdowns({
       ...expandedBreakdowns,
-      [fundId]: !expandedBreakdowns[fundId]
+      [fundId]: !expandedBreakdowns[fundId],
     });
   };
 
@@ -62,33 +144,32 @@ const FundsTable = ({
 
     setDeleting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const res = await fetch(
         `http://localhost:8000/funds/received/${deleteModal.fund.fund_id}`,
         {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (!res.ok) {
-        throw new Error('Failed to delete fund');
+        throw new Error("Failed to delete fund");
       }
 
       // Success - close modal and refresh
       setDeleteModal({ show: false, fund: null });
       onRefresh();
-
     } catch (err) {
-      console.error('Error deleting fund:', err);
-      alert('Failed to delete fund. Please try again.');
+      console.error("Error deleting fund:", err);
+      alert("Failed to delete fund. Please try again.");
     } finally {
       setDeleting(false);
     }
   };
 
   const hasBreakdown = (head) => {
-    return head === 'manpower' || head === 'equipment';
+    return head === "manpower" || head === "equipment";
   };
 
   return (
@@ -134,11 +215,19 @@ const FundsTable = ({
                         onClick={() => handleBreakdownToggle(fund.fund_id)}
                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
                       >
-                        {breakdownCache[fund.fund_id] ? (
+                        {breakdownCache[fund.fund_id] &&
+                        breakdownCache[fund.fund_id].length > 0 ? (
                           <>
-                            {breakdownCache[fund.fund_id].length} item{breakdownCache[fund.fund_id].length !== 1 ? 's' : ''}
+                            {breakdownCache[fund.fund_id].length} item
+                            {breakdownCache[fund.fund_id].length !== 1
+                              ? "s"
+                              : ""}
                             <svg
-                              className={`w-4 h-4 transition-transform ${expandedBreakdowns[fund.fund_id] ? 'rotate-180' : ''}`}
+                              className={`w-4 h-4 transition-transform ${
+                                expandedBreakdowns[fund.fund_id]
+                                  ? "rotate-180"
+                                  : ""
+                              }`}
                               fill="none"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -150,13 +239,13 @@ const FundsTable = ({
                             </svg>
                           </>
                         ) : (
-                          <span className="text-gray-400">View breakdown</span>
+                          <span>View breakdown ▼</span>
                         )}
                       </button>
                     </td>
                   )}
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {fund.remarks || '-'}
+                    {fund.remarks || "-"}
                   </td>
                   {canEdit && (
                     <td className="px-4 py-3 text-right text-sm">
@@ -177,27 +266,13 @@ const FundsTable = ({
                 </tr>
 
                 {/* Breakdown Row */}
-                {hasBreakdown(head) && expandedBreakdowns[fund.fund_id] && breakdownCache[fund.fund_id] && (
+                {expandedBreakdowns[fund.fund_id] && (
                   <tr>
-                    <td colSpan={canEdit ? 5 : 4} className="px-4 py-3 bg-blue-50">
-                      <div className="pl-4">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Breakdown Details:</p>
-                        <ul className="space-y-1">
-                          {breakdownCache[fund.fund_id].map((item, idx) => (
-                            <li key={idx} className="text-sm text-gray-700">
-                              {head === 'manpower' ? (
-                                <>
-                                  • <strong>{item.role}</strong>: {formatCurrency(item.salary_per_month)}/month × {item.months} month{item.months !== 1 ? 's' : ''} × {item.num_personnel} person{item.num_personnel !== 1 ? 'nel' : ''} = <strong>{formatCurrency(item.total_amount)}</strong>
-                                </>
-                              ) : (
-                                <>
-                                  • <strong>{item.item_name}</strong>: {item.quantity} × {formatCurrency(item.unit_cost)} = <strong>{formatCurrency(item.total_amount)}</strong>
-                                </>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                    <td colSpan="100%" className="bg-gray-50 px-6 py-4">
+                      {renderBreakdownTables(
+                        breakdownCache[fund.fund_id],
+                        head
+                      )}
                     </td>
                   </tr>
                 )}
@@ -215,13 +290,23 @@ const FundsTable = ({
             <>
               Are you sure you want to delete this fund record?
               <div className="mt-2 p-3 bg-gray-100 rounded">
-                <p><strong>Amount:</strong> {formatCurrency(deleteModal.fund.amount)}</p>
-                <p><strong>Date:</strong> {formatDate(deleteModal.fund.date_received)}</p>
+                <p>
+                  <strong>Amount:</strong>{" "}
+                  {formatCurrency(deleteModal.fund.amount)}
+                </p>
+                <p>
+                  <strong>Date:</strong>{" "}
+                  {formatDate(deleteModal.fund.date_received)}
+                </p>
                 {deleteModal.fund.remarks && (
-                  <p><strong>Remarks:</strong> {deleteModal.fund.remarks}</p>
+                  <p>
+                    <strong>Remarks:</strong> {deleteModal.fund.remarks}
+                  </p>
                 )}
               </div>
-              <p className="mt-2 text-red-600 font-semibold">This action cannot be undone.</p>
+              <p className="mt-2 text-red-600 font-semibold">
+                This action cannot be undone.
+              </p>
             </>
           }
           onConfirm={handleDeleteConfirm}

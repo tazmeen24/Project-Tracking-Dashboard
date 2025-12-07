@@ -692,9 +692,9 @@ const projectService = {
  */
 async getProjectExpenditures(projectId) {
   const [manpower, equipment, budget] = await Promise.all([
-    this.getManpower(projectId),           // Already exists
-    this.getEquipment(projectId),          // Already exists  
-    this.getExpenditure(projectId)         // Already exists
+    this.getManpower(projectId),           
+    this.getEquipment(projectId),           
+    this.getExpenditure(projectId)        
   ]);
   
   return {
@@ -704,14 +704,57 @@ async getProjectExpenditures(projectId) {
   };
 },
 
-  // ==================== DASHBOARD & REPORTS ====================
+// Fund Operations
+// ============================================================================
+
+/**
+ * Get fund with breakdown details
+ * @param {number} fundId - Fund ID
+ * @returns {Promise<Object>} Fund with breakdown array
+ */
+getFundWithBreakdown: async (fundId) => {
+  return api.get(`/funds/received/${fundId}`);
+},
+
+/**
+ * Update existing fund
+ * @param {number} fundId - Fund ID  
+ * @param {Object} data - Update data {head, amount, date_received, remarks}
+ * @returns {Promise<Object>} Updated fund
+ */
+updateFund: async (fundId, data) => {
+  return api.put(`/funds/received/${fundId}`, data);
+},
+
+/**
+ * Delete all breakdown items for a fund
+ * Fetches fund first to determine breakdown type, then deletes each item
+ * @param {number} fundId - Fund ID
+ * @returns {Promise<void>}
+ */
+deleteFundBreakdown: async (fundId) => {
+  try {
+    // Get fund to check if it has breakdown
+    const fund = await projectService.getFundWithBreakdown(fundId);
+    
+    if (fund.breakdown && fund.breakdown.length > 0) {
+      // Delete each breakdown item based on fund head type
+      for (const item of fund.breakdown) {
+        const endpoint = fund.head === 'manpower'
+          ? `/funds/breakdown/manpower/${item.breakdown_id}`
+          : `/funds/breakdown/equipment/${item.breakdown_id}`;
+        
+        await api.delete(endpoint);
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting fund breakdown:', error);
+    throw error;
+  }
+},
+
   // NOTE: These endpoints were not in the provided backend files
-  // They will return 404 if not implemented
-  
-  /**
-   * Get dashboard statistics
-   * WARNING: Verify this endpoint exists in backend
-   */
+
   async getDashboardStats() {
     return api.get('/dashboard/stats');
   },

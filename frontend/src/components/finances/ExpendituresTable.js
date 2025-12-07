@@ -1,7 +1,8 @@
-// frontend/src/components/finances/ExpendituresTable.jsx
+// frontend/src/components/finances/ExpendituresTable.js
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 const ExpendituresTable = ({
@@ -14,6 +15,7 @@ const ExpendituresTable = ({
   const navigate = useNavigate();
   const [deleteModal, setDeleteModal] = useState({ show: false, expenditure: null });
   const [deleting, setDeleting] = useState(false);
+  const [expandedRows, setExpandedRows] = useState({});
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -32,28 +34,19 @@ const ExpendituresTable = ({
     });
   };
 
-  const getExpenditureDetails = (exp) => {
-    if (head === 'manpower') {
-      return (
-        <>
-          <div><strong>Role:</strong> {exp.role}</div>
-          <div className="text-xs text-gray-600">
-            {formatCurrency(exp.salary_per_month)}/month × {exp.months} month{exp.months !== 1 ? 's' : ''} × {exp.num_personnel} person{exp.num_personnel !== 1 ? 'nel' : ''}
-          </div>
-        </>
-      );
-    } else if (head === 'equipment') {
-      return (
-        <>
-          <div><strong>{exp.name}</strong></div>
-          <div className="text-xs text-gray-600">
-            {exp.quantity} unit{exp.quantity !== 1 ? 's' : ''} × {formatCurrency(exp.unit_cost)}
-          </div>
-        </>
-      );
-    } else {
-      return exp.description || '-';
-    }
+  const toggleRowExpansion = (key) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const getExpenditureKey = (exp) => {
+    return exp.manpower_id || exp.equipment_id || exp.expenditure_id;
+  };
+
+  const getExpenditureAmount = (exp) => {
+    return exp.total_cost || exp.amount;
   };
 
   const getExpenditureDate = (exp) => {
@@ -64,11 +57,8 @@ const ExpendituresTable = ({
     }
   };
 
-  const getExpenditureAmount = (exp) => {
-    return exp.total_cost || exp.amount;
-  };
-
-  const handleEdit = (exp) => {
+  const handleEdit = (exp, e) => {
+    e.stopPropagation();
     if (head === 'manpower') {
       navigate(`/projects/${projectId}/finances/manpower/edit/${exp.manpower_id}`);
     } else if (head === 'equipment') {
@@ -78,7 +68,8 @@ const ExpendituresTable = ({
     }
   };
 
-  const handleDeleteClick = (exp) => {
+  const handleDeleteClick = (exp, e) => {
+    e.stopPropagation();
     setDeleteModal({ show: true, expenditure: exp });
   };
 
@@ -107,7 +98,6 @@ const ExpendituresTable = ({
         throw new Error('Failed to delete expenditure');
       }
 
-      // Success - close modal and refresh
       setDeleteModal({ show: false, expenditure: null });
       onRefresh();
 
@@ -154,19 +144,176 @@ const ExpendituresTable = ({
     );
   };
 
+  // Render breakdown table for Equipment
+  const renderEquipmentBreakdown = (exp) => {
+    return (
+      <div className="px-4 py-3 bg-gray-50">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Equipment Breakdown</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Item</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Qty</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Unit Cost</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              <tr>
+                <td className="px-4 py-2 text-sm text-gray-900">{exp.name}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.quantity}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700">{formatCurrency(exp.unit_cost)}</td>
+                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(exp.total_cost)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {exp.justification && (
+          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+            <strong>Justification:</strong> {exp.justification}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render breakdown table for Manpower
+  const renderManpowerBreakdown = (exp) => {
+    return (
+      <div className="px-4 py-3 bg-gray-50">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Manpower Breakdown</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Role</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Salary/Month</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Months</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Personnel</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              <tr>
+                <td className="px-4 py-2 text-sm text-gray-900">{exp.role}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700">{formatCurrency(exp.salary_per_month)}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.months}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.num_personnel}</td>
+                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(exp.total_cost)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {exp.justification && (
+          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+            <strong>Justification:</strong> {exp.justification}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render breakdown for other expenditures
+  const renderOtherBreakdown = (exp) => {
+    return (
+      <div className="px-4 py-3 bg-gray-50">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Description</p>
+            <p className="text-sm text-gray-900 mt-1">{exp.description || '-'}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Amount</p>
+            <p className="text-sm font-semibold text-gray-900 mt-1">{formatCurrency(exp.amount)}</p>
+          </div>
+          {exp.vendor && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase">Vendor</p>
+              <p className="text-sm text-gray-900 mt-1">{exp.vendor}</p>
+            </div>
+          )}
+          {exp.invoice_number && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase">Invoice Number</p>
+              <p className="text-sm text-gray-900 mt-1">{exp.invoice_number}</p>
+            </div>
+          )}
+        </div>
+        {exp.justification && (
+          <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-gray-700">
+            <strong>Justification:</strong> {exp.justification}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderBreakdown = (exp) => {
+    if (head === 'equipment') {
+      return renderEquipmentBreakdown(exp);
+    } else if (head === 'manpower') {
+      return renderManpowerBreakdown(exp);
+    } else {
+      return renderOtherBreakdown(exp);
+    }
+  };
+
+  const getRowSummary = (exp) => {
+    if (head === 'manpower') {
+      return (
+        <div>
+          <div className="font-medium text-gray-900">{exp.role}</div>
+          <div className="text-xs text-gray-500">
+            {exp.num_personnel} personnel × {exp.months} months
+          </div>
+        </div>
+      );
+    } else if (head === 'equipment') {
+      return (
+        <div>
+          <div className="font-medium text-gray-900">{exp.name}</div>
+          <div className="text-xs text-gray-500">
+            Qty: {exp.quantity} × {formatCurrency(exp.unit_cost)}
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <div className="font-medium text-gray-900">{exp.description || 'Expenditure'}</div>
+          {exp.vendor && (
+            <div className="text-xs text-gray-500">Vendor: {exp.vendor}</div>
+          )}
+        </div>
+      );
+    }
+  };
+
+  if (!expenditures || expenditures.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        No expenditures recorded yet
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
+                {/* Expand icon column */}
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Date
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Details
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Amount
               </th>
               {canEdit && (
@@ -178,36 +325,56 @@ const ExpendituresTable = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {expenditures.map((exp, idx) => {
-              const uniqueKey = exp.manpower_id || exp.equipment_id || exp.expenditure_id || idx;
+              const uniqueKey = getExpenditureKey(exp);
+              const isExpanded = expandedRows[uniqueKey];
               
               return (
-                <tr key={uniqueKey} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {getExpenditureDate(exp)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {getExpenditureDetails(exp)}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                    {formatCurrency(getExpenditureAmount(exp))}
-                  </td>
-                  {canEdit && (
-                    <td className="px-4 py-3 text-right text-sm">
-                      <button
-                        onClick={() => handleEdit(exp)}
-                        className="text-blue-600 hover:text-blue-800 mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(exp)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
+                <React.Fragment key={uniqueKey}>
+                  <tr 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleRowExpansion(uniqueKey)}
+                  >
+                    <td className="px-4 py-3 text-sm">
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                      )}
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {getExpenditureDate(exp)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {getRowSummary(exp)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                      {formatCurrency(getExpenditureAmount(exp))}
+                    </td>
+                    {canEdit && (
+                      <td className="px-4 py-3 text-right text-sm">
+                        <button
+                          onClick={(e) => handleEdit(exp, e)}
+                          className="text-blue-600 hover:text-blue-800 mr-3"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteClick(exp, e)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={canEdit ? 5 : 4} className="p-0">
+                        {renderBreakdown(exp)}
+                      </td>
+                    </tr>
                   )}
-                </tr>
+                </React.Fragment>
               );
             })}
           </tbody>

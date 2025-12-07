@@ -144,6 +144,7 @@ const ProjectFinancialsPage = () => {
 
   // Handle fetching breakdown for a fund
   const handleBreakdownExpand = async (fundId, head) => {
+    console.log('🔍 Requesting breakdown for fund_id:', fundId); 
     if (breakdownCache[fundId]) {
       // Already cached, toggle visibility is handled by child component
       return;
@@ -210,7 +211,7 @@ const ProjectFinancialsPage = () => {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => navigate(`/projects/${projectId}`)}
+          onClick={() => navigate('/projects')}
           className="text-blue-600 hover:text-blue-800 mb-2 flex items-center"
         >
           ← Back to Project

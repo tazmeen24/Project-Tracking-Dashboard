@@ -700,7 +700,7 @@ const ProjectsPage = () => {
   );
 };
 
-// ✅ FIXED: Add Fund Modal Component with proper endpoint usage
+// Add Fund Modal Component with proper endpoint usage
 const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
   const [formData, setFormData] = useState({
     head: "manpower",
@@ -734,7 +734,6 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
 
   const fetchBudgetInfo = async () => {
     try {
-      // ✅ FIXED: Use correct endpoint
       const allocations = await projectService.getBudgetAllocations(
         project.project_id
       );
