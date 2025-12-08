@@ -15,6 +15,225 @@ from ..utils.json_encoder import DecimalEncoder
 
 router = APIRouter(prefix="/api/financial-summary", tags=["Financial Summary"])
 
+def _get_project_budget_head_detail(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                   financial_year, year, month, quarter, project_id):
+    """
+    Get detailed budget head breakdown for a specific project
+    Including item-wise breakdown for Manpower and Equipment
+    """
+    
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id is required for this view")
+    
+    # Get main budget head data
+    if date_filter_mode == "current":
+        query = """
+            SELECT 
+                budget_head,
+                SUM(approved_budget) as approved_budget,
+                SUM(funds_received) as funds_received,
+                SUM(expenditure) as expenditure,
+                SUM(budget_balance) as budget_balance,
+                SUM(funds_balance) as funds_balance,
+                CASE 
+                    WHEN SUM(approved_budget) > 0 
+                    THEN (SUM(expenditure) / SUM(approved_budget) * 100)
+                    ELSE 0 
+                END as utilization_percentage
+            FROM vw_financial_summary_by_project
+            WHERE project_id = %s
+            GROUP BY budget_head
+            ORDER BY 
+                CASE budget_head
+                    WHEN 'Manpower' THEN 1
+                    WHEN 'Equipment' THEN 2
+                    WHEN 'Consumables' THEN 3
+                    WHEN 'Travel' THEN 4
+                    WHEN 'Other Costs' THEN 5
+                    WHEN 'Overhead' THEN 6
+                    ELSE 7
+                END
+        """
+        cursor.execute(query, (project_id,))
+    else:
+        # For date-filtered queries - use the helper function
+        query, params = _build_date_filtered_query(
+            "get_project_financial_summary_as_of_date",
+            date_filter_mode, as_of_date, start_date, end_date,
+            financial_year, year, month, quarter, project_id
+        )
+        
+        agg_query = f"""
+            WITH filtered_data AS ({query})
+            SELECT 
+                budget_head,
+                SUM(approved_budget) as approved_budget,
+                SUM(funds_received) as funds_received,
+                SUM(expenditure) as expenditure,
+                SUM(budget_balance) as budget_balance,
+                SUM(funds_balance) as funds_balance,
+                CASE 
+                    WHEN SUM(approved_budget) > 0 
+                    THEN (SUM(expenditure) / SUM(approved_budget) * 100)
+                    ELSE 0 
+                END as utilization_percentage
+            FROM filtered_data
+            GROUP BY budget_head
+            ORDER BY 
+                CASE budget_head
+                    WHEN 'Manpower' THEN 1
+                    WHEN 'Equipment' THEN 2
+                    WHEN 'Consumables' THEN 3
+                    WHEN 'Travel' THEN 4
+                    WHEN 'Other Costs' THEN 5
+                    WHEN 'Overhead' THEN 6
+                    ELSE 7
+                END
+        """
+        cursor.execute(agg_query, params)
+    
+    rows = cursor.fetchall()
+    
+    # Build result with breakdowns
+    result = []
+    for row in rows:
+        budget_head = row['budget_head']
+        item = {
+            "budget_head": budget_head,
+            "approved_budget": float(row['approved_budget'] or 0),
+            "funds_received": float(row['funds_received'] or 0),
+            "expenditure": float(row['expenditure'] or 0),
+            "budget_balance": float(row['budget_balance'] or 0),
+            "funds_balance": float(row['funds_balance'] or 0),
+            "utilization_percentage": float(row['utilization_percentage'] or 0),
+            "breakdown": []
+        }
+        
+        # Get breakdown for Manpower
+        if budget_head == 'Manpower':
+            manpower_query = """
+                SELECT 
+                    me.role as item_name,
+                    COALESCE(fb.approved_budget, 0) as approved_budget,
+                    COALESCE(fr.funds_received, 0) as funds_received,
+                    COALESCE(me.total_expenditure, 0) as expenditure,
+                    COALESCE(fb.approved_budget, 0) - COALESCE(me.total_expenditure, 0) as budget_balance,
+                    COALESCE(fr.funds_received, 0) - COALESCE(me.total_expenditure, 0) as funds_balance,
+                    CASE 
+                        WHEN COALESCE(fb.approved_budget, 0) > 0 
+                        THEN (COALESCE(me.total_expenditure, 0) / fb.approved_budget * 100)
+                        ELSE 0 
+                    END as utilization_percentage
+                FROM (
+                    SELECT 
+                        project_id,
+                        role,
+                        SUM(salary_per_month * months * num_personnel) as total_expenditure
+                    FROM manpower_expenditure
+                    WHERE project_id = %s
+                    GROUP BY project_id, role
+                ) me
+                LEFT JOIN (
+                    SELECT 
+                        mfb.project_id,
+                        mfb.role,
+                        SUM(mfb.salary_per_month * mfb.months * mfb.num_personnel) as approved_budget
+                    FROM manpower_funds_breakdown mfb
+                    JOIN funds_received fr ON mfb.fund_id = fr.id
+                    WHERE mfb.project_id = %s
+                    GROUP BY mfb.project_id, mfb.role
+                ) fb ON me.role = fb.role
+                LEFT JOIN (
+                    SELECT 
+                        mfb.project_id,
+                        mfb.role,
+                        SUM(mfb.salary_per_month * mfb.months * mfb.num_personnel) as funds_received
+                    FROM manpower_funds_breakdown mfb
+                    JOIN funds_received fr ON mfb.fund_id = fr.id
+                    WHERE mfb.project_id = %s
+                    GROUP BY mfb.project_id, mfb.role
+                ) fr ON me.role = fr.role
+                ORDER BY me.role
+            """
+            cursor.execute(manpower_query, (project_id, project_id, project_id))
+            manpower_breakdown = cursor.fetchall()
+            item["breakdown"] = [
+                {
+                    "item_name": mb['item_name'],
+                    "approved_budget": float(mb['approved_budget'] or 0),
+                    "funds_received": float(mb['funds_received'] or 0),
+                    "expenditure": float(mb['expenditure'] or 0),
+                    "budget_balance": float(mb['budget_balance'] or 0),
+                    "funds_balance": float(mb['funds_balance'] or 0),
+                    "utilization_percentage": float(mb['utilization_percentage'] or 0)
+                }
+                for mb in manpower_breakdown
+            ]
+        
+        # Get breakdown for Equipment
+        elif budget_head == 'Equipment':
+            equipment_query = """
+                SELECT 
+                    ee.item_name,
+                    COALESCE(fb.approved_budget, 0) as approved_budget,
+                    COALESCE(fr.funds_received, 0) as funds_received,
+                    COALESCE(ee.total_expenditure, 0) as expenditure,
+                    COALESCE(fb.approved_budget, 0) - COALESCE(ee.total_expenditure, 0) as budget_balance,
+                    COALESCE(fr.funds_received, 0) - COALESCE(ee.total_expenditure, 0) as funds_balance,
+                    CASE 
+                        WHEN COALESCE(fb.approved_budget, 0) > 0 
+                        THEN (COALESCE(ee.total_expenditure, 0) / fb.approved_budget * 100)
+                        ELSE 0 
+                    END as utilization_percentage
+                FROM (
+                    SELECT 
+                        project_id,
+                        item_name,
+                        SUM(quantity * unit_cost) as total_expenditure
+                    FROM equipment_expenditure
+                    WHERE project_id = %s
+                    GROUP BY project_id, item_name
+                ) ee
+                LEFT JOIN (
+                    SELECT 
+                        efb.project_id,
+                        efb.item_name,
+                        SUM(efb.quantity * efb.unit_cost) as approved_budget
+                    FROM equipment_funds_breakdown efb
+                    JOIN funds_received fr ON efb.fund_id = fr.id
+                    WHERE efb.project_id = %s
+                    GROUP BY efb.project_id, efb.item_name
+                ) fb ON ee.item_name = fb.item_name
+                LEFT JOIN (
+                    SELECT 
+                        efb.project_id,
+                        efb.item_name,
+                        SUM(efb.quantity * efb.unit_cost) as funds_received
+                    FROM equipment_funds_breakdown efb
+                    JOIN funds_received fr ON efb.fund_id = fr.id
+                    WHERE efb.project_id = %s
+                    GROUP BY efb.project_id, efb.item_name
+                ) fr ON ee.item_name = fr.item_name
+                ORDER BY ee.item_name
+            """
+            cursor.execute(equipment_query, (project_id, project_id, project_id))
+            equipment_breakdown = cursor.fetchall()
+            item["breakdown"] = [
+                {
+                    "item_name": eb['item_name'],
+                    "approved_budget": float(eb['approved_budget'] or 0),
+                    "funds_received": float(eb['funds_received'] or 0),
+                    "expenditure": float(eb['expenditure'] or 0),
+                    "budget_balance": float(eb['budget_balance'] or 0),
+                    "funds_balance": float(eb['funds_balance'] or 0),
+                    "utilization_percentage": float(eb['utilization_percentage'] or 0)
+                }
+                for eb in equipment_breakdown
+            ]
+        
+        result.append(item)
+    
+    return result
 
 @router.get("")
 async def get_financial_summary(
@@ -52,12 +271,36 @@ async def get_financial_summary(
         elif view_mode == "by_funding_agency":
             data = _get_by_funding_agency(cursor, date_filter_mode, as_of_date, start_date, end_date,
                                          financial_year, year, month, quarter, project_id)
+        elif view_mode == "project_budget_head_detail":
+    # ADD THIS NEW CONDITION
+            if not project_id:
+                raise HTTPException(
+            status_code=400,
+            detail="project_id is required for project_budget_head_detail view"
+        )
+            data = _get_project_budget_head_detail(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                           financial_year, year, month, quarter, project_id)
         else:
             raise HTTPException(status_code=400, detail=f"Invalid view_mode: {view_mode}")
         
-        # Get grand totals
-        grand_totals = _get_grand_totals(cursor, date_filter_mode, as_of_date, start_date, end_date,
-                                        financial_year, year, month, quarter, project_id)
+        # Get grand totals (skip for project_budget_head_detail as it's single project)
+        if view_mode != "project_budget_head_detail":
+            grand_totals = _get_grand_totals(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                    financial_year, year, month, quarter, project_id)
+        else:
+    # For single project detail, calculate totals from data
+            grand_totals = {
+        "total_projects": 1,
+        "total_approved_budget": sum(item['approved_budget'] for item in data),
+        "total_funds_received": sum(item['funds_received'] for item in data),
+        "total_expenditure": sum(item['expenditure'] for item in data),
+        "budget_balance": sum(item['budget_balance'] for item in data),
+        "funds_balance": sum(item['funds_balance'] for item in data),
+        "overall_utilization": (
+            sum(item['expenditure'] for item in data) / sum(item['approved_budget'] for item in data) * 100
+            if sum(item['approved_budget'] for item in data) > 0 else 0
+        )
+    }
         
         # Pagination
         total_items = len(data)

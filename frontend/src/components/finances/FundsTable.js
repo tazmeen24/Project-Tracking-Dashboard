@@ -178,6 +178,7 @@ const FundsTable = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
+              <th className="px-2 py-3 w-6"></th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Date Received
               </th>
@@ -202,51 +203,61 @@ const FundsTable = ({
           <tbody className="bg-white divide-y divide-gray-200">
             {funds.map((fund) => (
               <React.Fragment key={fund.fund_id}>
-                <tr className="hover:bg-gray-50">
+                <tr
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleBreakdownToggle(fund.fund_id)}
+                >
+                  {/* ARROW COLUMN */}
+                  <td
+                    className="px-2 py-3 w-6 text-lg select-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBreakdownToggle(fund.fund_id);
+                    }}
+                  >
+                    {hasBreakdown(head)
+                      ? expandedBreakdowns[fund.fund_id]
+                        ? "▼"
+                        : "▶"
+                      : null}
+                  </td>
+
+                  {/* DATE */}
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {formatDate(fund.date_received)}
                   </td>
+
+                  {/* AMOUNT */}
                   <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                     {formatCurrency(fund.amount)}
                   </td>
+
+                  {/* BREAKDOWN COUNT */}
                   {hasBreakdown(head) && (
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => handleBreakdownToggle(fund.fund_id)}
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      >
-                        {breakdownCache[fund.fund_id] &&
-                        breakdownCache[fund.fund_id].length > 0 ? (
-                          <>
-                            {breakdownCache[fund.fund_id].length} item
-                            {breakdownCache[fund.fund_id].length !== 1
-                              ? "s"
-                              : ""}
-                            <svg
-                              className={`w-4 h-4 transition-transform ${
-                                expandedBreakdowns[fund.fund_id]
-                                  ? "rotate-180"
-                                  : ""
-                              }`}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </>
-                        ) : (
-                          <span>View breakdown ▼</span>
-                        )}
-                      </button>
+                    <td
+                      className="px-4 py-3 text-sm cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBreakdownToggle(fund.fund_id);
+                      }}
+                    >
+                      {breakdownCache[fund.fund_id] &&
+                      breakdownCache[fund.fund_id].length > 0 ? (
+                        <span className="text-blue-600 font-medium">
+                          {breakdownCache[fund.fund_id].length} items
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 italic">—</span>
+                      )}
                     </td>
                   )}
+
+                  {/* REMARKS */}
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {fund.remarks || "-"}
                   </td>
+
+                  {/* ACTIONS */}
                   {canEdit && (
                     <td className="px-4 py-3 text-right text-sm">
                       <button

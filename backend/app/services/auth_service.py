@@ -117,11 +117,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        print(f"✅ Authentication SUCCESSFUL for user: {user['username']}")
+        print(f" Authentication SUCCESSFUL for user: {user['username']}")
         
         # Check if user is active
         if not user.get('is_active', False):
-            print(f"❌ User is INACTIVE: {user['username']}")
+            print(f" User is INACTIVE: {user['username']}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User account is inactive",
@@ -135,7 +135,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             expires_delta=access_token_expires
         )
         
-        print(f"✅ Token created successfully")
+        print(f" Token created successfully")
         print(f"Token expires in: {auth_service.ACCESS_TOKEN_EXPIRE_MINUTES} minutes")
         print(f"{'='*60}\n")
         

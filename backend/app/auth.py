@@ -14,7 +14,7 @@ from .config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")  # ✅ Updated tokenUrl
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")  # Updated tokenUrl
 
 # Database connection
 DB_CONFIG = {
