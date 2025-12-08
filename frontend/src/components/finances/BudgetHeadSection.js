@@ -1,8 +1,8 @@
 // frontend/src/components/finances/BudgetHeadSection.jsx
 
-import React from 'react';
-import FundsTable from './FundsTable.js';
-import ExpendituresTable from './ExpendituresTable';
+import React from "react";
+import FundsTable from "./FundsTable.js";
+import ExpendituresTable from "./ExpendituresTable";
 
 const BudgetHeadSection = ({
   head,
@@ -17,26 +17,29 @@ const BudgetHeadSection = ({
   projectId,
   onExpand,
   onBreakdownExpand,
-  onRefresh
+  onRefresh,
+  onEditFund,
+  onEditExpenditure,
 }) => {
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
   const getBalanceColor = () => {
-    if (summary.balance < 0) return 'bg-red-100 text-red-800';
-    if (summary.balance < summary.fundsReceived * 0.1) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-green-100 text-green-800';
+    if (summary.balance < 0) return "bg-red-100 text-red-800";
+    if (summary.balance < summary.fundsReceived * 0.1)
+      return "bg-yellow-100 text-yellow-800";
+    return "bg-green-100 text-green-800";
   };
 
   const getBalanceIcon = () => {
-    if (summary.balance < 0) return '🔴';
-    if (summary.balance < summary.fundsReceived * 0.1) return '🟡';
-    return '🟢';
+    if (summary.balance < 0) return "🔴";
+    if (summary.balance < summary.fundsReceived * 0.1) return "🟡";
+    return "🟢";
   };
 
   return (
@@ -49,11 +52,12 @@ const BudgetHeadSection = ({
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div className="text-left">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {label}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900">{label}</h3>
             <p className="text-sm text-gray-500">
-              {summary.fundsCount || 0} fund{summary.fundsCount !== 1 ? 's' : ''} • {summary.expendituresCount || 0} transaction{summary.expendituresCount !== 1 ? 's' : ''}
+              {summary.fundsCount || 0} fund
+              {summary.fundsCount !== 1 ? "s" : ""} •{" "}
+              {summary.expendituresCount || 0} transaction
+              {summary.expendituresCount !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -62,15 +66,23 @@ const BudgetHeadSection = ({
           {/* Summary Numbers */}
           <div className="text-right hidden md:block">
             <p className="text-sm text-gray-600">
-              Received: <span className="font-semibold">{formatCurrency(summary.fundsReceived || 0)}</span>
+              Received:{" "}
+              <span className="font-semibold">
+                {formatCurrency(summary.fundsReceived || 0)}
+              </span>
             </p>
             <p className="text-sm text-gray-600">
-              Spent: <span className="font-semibold">{formatCurrency(summary.expendituresTotal || 0)}</span>
+              Spent:{" "}
+              <span className="font-semibold">
+                {formatCurrency(summary.expendituresTotal || 0)}
+              </span>
             </p>
           </div>
 
           {/* Balance Badge */}
-          <div className={`px-4 py-2 rounded-lg font-semibold ${getBalanceColor()}`}>
+          <div
+            className={`px-4 py-2 rounded-lg font-semibold ${getBalanceColor()}`}
+          >
             <div className="flex items-center gap-2">
               <span>{getBalanceIcon()}</span>
               <span>{formatCurrency(summary.balance || 0)}</span>
@@ -79,7 +91,9 @@ const BudgetHeadSection = ({
 
           {/* Expand/Collapse Icon */}
           <svg
-            className={`w-6 h-6 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`w-6 h-6 text-gray-400 transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -120,6 +134,7 @@ const BudgetHeadSection = ({
                     breakdownCache={breakdownCache}
                     onBreakdownExpand={onBreakdownExpand}
                     onRefresh={onRefresh}
+                    onEditFund={onEditFund}
                   />
                 ) : (
                   <p className="text-gray-500 text-sm italic py-4">
@@ -144,6 +159,7 @@ const BudgetHeadSection = ({
                     canEdit={canEdit}
                     projectId={projectId}
                     onRefresh={onRefresh}
+                    onEditExpenditure={onEditExpenditure}
                   />
                 ) : (
                   <p className="text-gray-500 text-sm italic py-4">

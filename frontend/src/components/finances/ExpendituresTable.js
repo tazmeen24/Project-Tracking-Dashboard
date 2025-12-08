@@ -10,7 +10,8 @@ const ExpendituresTable = ({
   head,
   canEdit,
   projectId,
-  onRefresh
+  onRefresh,
+  onEditExpenditure,
 }) => {
   const navigate = useNavigate();
   const [deleteModal, setDeleteModal] = useState({ show: false, expenditure: null });
@@ -353,7 +354,10 @@ const ExpendituresTable = ({
                     {canEdit && (
                       <td className="px-4 py-3 text-right text-sm">
                         <button
-                          onClick={(e) => handleEdit(exp, e)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditExpenditure({ ...exp, head });
+                          }}
                           className="text-blue-600 hover:text-blue-800 mr-3"
                         >
                           Edit

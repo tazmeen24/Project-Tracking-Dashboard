@@ -102,24 +102,13 @@ const AddEditProjectPage = () => {
 
   // Load dropdown data first
   useEffect(() => {
-    console.log('🚀 useEffect #1: Loading dropdown data');
     refreshFundingAgencies();
     refreshTechnicalGroups();
   }, [refreshFundingAgencies, refreshTechnicalGroups]);
 
   // Load project data AFTER dropdown data is available (if editing)
   useEffect(() => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 useEffect #2: Checking conditions for loading project');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('   isEditMode:', isEditMode);
-    console.log('   projectId:', projectId);
-    console.log('   technicalGroups.length:', technicalGroups.length);
-    console.log('   fundingAgencies.length:', fundingAgencies.length);
-    
     const shouldLoad = isEditMode && projectId && technicalGroups.length > 0 && fundingAgencies.length > 0;
-    console.log('   Should load project?', shouldLoad ? '✅ YES' : '❌ NO');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     if (shouldLoad) {
       loadProjectData();
@@ -127,48 +116,14 @@ const AddEditProjectPage = () => {
   }, [isEditMode, projectId, technicalGroups.length, fundingAgencies.length]);
 
   const loadProjectData = async () => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔍 LOADING PROJECT DATA - START');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📍 Project ID:', projectId);
-    console.log('📊 Current technicalGroups length:', technicalGroups.length);
-    console.log('📊 Current fundingAgencies length:', fundingAgencies.length);
-    console.log('📋 Technical Groups:', technicalGroups);
-    console.log('📋 Funding Agencies:', fundingAgencies);
-    
     setLoadingProjectData(true);
     try {
       const project = await projectService.getProject(projectId);
       
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('✅ PROJECT DATA RECEIVED FROM BACKEND');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📦 Full project object:', project);
-      console.log('');
-      console.log('🔑 Key fields:');
-      console.log('   technical_group_id:', project.technical_group_id);
-      console.log('   technical_group_id TYPE:', typeof project.technical_group_id);
-      console.log('   funding_agency_id:', project.funding_agency_id);
-      console.log('   funding_agency_id TYPE:', typeof project.funding_agency_id);
-      console.log('   pfms_id:', project.pfms_id);
-      console.log('');
-      
       const techGroupIdString = project.technical_group_id ? String(project.technical_group_id) : "";
       const fundingAgencyIdString = project.funding_agency_id ? String(project.funding_agency_id) : "";
-      
-      console.log('🔄 After String conversion:');
-      console.log('   technical_group_id:', techGroupIdString);
-      console.log('   technical_group_id TYPE:', typeof techGroupIdString);
-      console.log('   funding_agency_id:', fundingAgencyIdString);
-      console.log('   funding_agency_id TYPE:', typeof fundingAgencyIdString);
-      console.log('');
-      
-      console.log('🔍 Checking if IDs exist in dropdown arrays:');
       const techGroupExists = technicalGroups.find(g => g.group_id === project.technical_group_id);
       const fundingAgencyExists = fundingAgencies.find(a => a.agency_id === project.funding_agency_id);
-      console.log('   Tech Group exists?', techGroupExists ? `✅ YES: ${techGroupExists.name}` : '❌ NO');
-      console.log('   Funding Agency exists?', fundingAgencyExists ? `✅ YES: ${fundingAgencyExists.name}` : '❌ NO');
-      console.log('');
 
       setFormData({
         project_no: project.project_no || "",
@@ -206,11 +161,6 @@ const AddEditProjectPage = () => {
         manpower_breakdown: project.manpower_breakdown || [],
         equipment_breakdown: project.equipment_breakdown || [],
       });
-      
-      console.log('✅ Form data set successfully');
-      console.log('   technical_group_id in formData:', techGroupIdString);
-      console.log('   funding_agency_id in formData:', fundingAgencyIdString);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
     } catch (error) {
       console.error('❌ FAILED TO LOAD PROJECT:', error);
@@ -391,15 +341,11 @@ const AddEditProjectPage = () => {
           });
         }
       }
-      console.log('=== SUBMITTING PROJECT DATA ===');
-      console.log('Full formData:', JSON.stringify(formData, null, 2));
 
       await refreshProjects();
       navigate("/projects");
     } catch (error) {
       console.error("Error saving project:", error);
-      console.log('=== SUBMITTING PROJECT DATA ===');
-      console.log('Full formData:', JSON.stringify(formData, null, 2));
       setErrors({ submit: error.message || "Failed to save project" });
     } finally {
       setLoading(false);
@@ -802,7 +748,6 @@ const Step1ProjectMetadata = ({
         <select
           value={formData.technical_group_id}
           onChange={(e) => {
-            console.log('🔄 Technical Group changed to:', e.target.value);
             handleChange("technical_group_id", e.target.value);
           }}
           className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"

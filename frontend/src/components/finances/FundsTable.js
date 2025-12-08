@@ -1,4 +1,4 @@
-// frontend/src/components/finances/FundsTable.jsx
+// frontend/src/components/finances/FundsTable.js
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ const FundsTable = ({
   breakdownCache,
   onBreakdownExpand,
   onRefresh,
+  onEditFund,
 }) => {
   const navigate = useNavigate();
   const [expandedBreakdowns, setExpandedBreakdowns] = useState({});
@@ -117,7 +118,6 @@ const FundsTable = ({
   };
 
   const handleBreakdownToggle = async (fundId) => {
-    console.log("🔍 Requesting breakdown for fund_id:", fundId);
     if (!expandedBreakdowns[fundId]) {
       // Expanding - fetch breakdown if not cached
       if (!breakdownCache[fundId]) {
@@ -250,13 +250,19 @@ const FundsTable = ({
                   {canEdit && (
                     <td className="px-4 py-3 text-right text-sm">
                       <button
-                        onClick={() => handleEdit(fund.fund_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditFund({ ...fund, head });
+                        }}
                         className="text-blue-600 hover:text-blue-800 mr-3"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDeleteClick(fund)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(fund);
+                        }}
                         className="text-red-600 hover:text-red-800"
                       >
                         Delete
