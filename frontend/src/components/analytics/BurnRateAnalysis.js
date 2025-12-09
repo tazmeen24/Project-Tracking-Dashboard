@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import analyticsService from '../services/analyticsService';
+import analyticsService from '../../services/analyticsService';
 
 const BurnRateAnalysis = () => {
   const [loading, setLoading] = useState(true);

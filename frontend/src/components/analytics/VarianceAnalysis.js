@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import analyticsService from '../services/analyticsService';
+import analyticsService from '../../services/analyticsService';
 
 const VarianceAnalysis = () => {
   const [loading, setLoading] = useState(true);
@@ -21,12 +21,14 @@ const VarianceAnalysis = () => {
   const fetchData = async (projectId = null) => {
     try {
       setLoading(true);
+      console.log('Fetching variance data for project:', projectId); // Debug log
       const result = await analyticsService.getVarianceAnalysis(projectId);
+      console.log('Received variance data:', result); // Debug log
       setData(result);
       setError(null);
     } catch (err) {
       setError('Failed to load variance analysis');
-      console.error(err);
+      console.error('Variance analysis error:', err);
     } finally {
       setLoading(false);
     }
@@ -207,6 +209,12 @@ const VarianceAnalysis = () => {
               ))}
             </select>
           )}
+          
+          {viewMode === 'single' && selectedProject && (
+            <span className="text-sm text-gray-600">
+              Viewing: <strong>Project #{selectedProject}</strong>
+            </span>
+          )}
         </div>
       </div>
 
@@ -240,7 +248,14 @@ const VarianceAnalysis = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data.projects.map((project) => (
+              {data.projects.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                    No variance data available
+                  </td>
+                </tr>
+              ) : (
+                data.projects.map((project) => (
                 <React.Fragment key={project.project_id}>
                   {project.categories.map((category, idx) => (
                     <tr key={`${project.project_id}-${idx}`} className="hover:bg-gray-50">
@@ -282,7 +297,8 @@ const VarianceAnalysis = () => {
                     </tr>
                   ))}
                 </React.Fragment>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

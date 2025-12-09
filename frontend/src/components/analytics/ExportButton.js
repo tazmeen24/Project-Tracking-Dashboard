@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import analyticsService from '../services/analyticsService';
+import analyticsService from '../../services/analyticsService';
 
 const ExportButton = ({ exportType = 'summary', className = '' }) => {
   const [loading, setLoading] = useState(false);

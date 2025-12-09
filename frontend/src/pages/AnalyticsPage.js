@@ -46,6 +46,7 @@ const AnalyticsPage = () => {
       setPortfolioHealth(health);
       setKPIs(kpiData);
       setCashFlow(cashFlowData);
+      console.log('Cash Flow Data:', cashFlowData); // Debug log
       setProjectsAtRisk(atRisk);
       setCategoryDistribution(categories);
     } catch (error) {
@@ -240,7 +241,7 @@ const AnalyticsPage = () => {
                             tick={{ fontSize: 12 }}
                           />
                           <YAxis 
-                            tickFormatter={(value) => `₹${(value / 1000000).toFixed(0)}M`}
+                            tickFormatter={(value) => `₹${(value / 100000).toFixed(1)}L`}
                           />
                           <Tooltip 
                             formatter={(value) => formatCurrency(value)}

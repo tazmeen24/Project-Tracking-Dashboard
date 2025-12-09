@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import analyticsService from '../services/analyticsService';
+import analyticsService from '../../services/analyticsService';
 
 const FYComparison = () => {
   const [loading, setLoading] = useState(true);
@@ -159,7 +159,7 @@ const FYComparison = () => {
               <div>
                 <p className="text-sm text-blue-700">Budget</p>
                 <p className="text-xl font-bold text-blue-900">{formatCurrency(currentFY.total_budget)}</p>
-                {currentFY.yoy_budget_growth !== null && (
+                {currentFY.yoy_budget_growth !== null && currentFY.yoy_budget_growth !== undefined && (
                   <p className={`text-sm font-medium ${getGrowthColor(currentFY.yoy_budget_growth)}`}>
                     {getGrowthIcon(currentFY.yoy_budget_growth)} {currentFY.yoy_budget_growth.toFixed(1)}% YoY
                   </p>
@@ -168,7 +168,7 @@ const FYComparison = () => {
               <div>
                 <p className="text-sm text-blue-700">Funds Received</p>
                 <p className="text-xl font-bold text-blue-900">{formatCurrency(currentFY.total_funds_received)}</p>
-                {currentFY.yoy_funds_growth !== null && (
+                {currentFY.yoy_funds_growth !== null && currentFY.yoy_funds_growth !== undefined && (
                   <p className={`text-sm font-medium ${getGrowthColor(currentFY.yoy_funds_growth)}`}>
                     {getGrowthIcon(currentFY.yoy_funds_growth)} {currentFY.yoy_funds_growth.toFixed(1)}% YoY
                   </p>
@@ -177,7 +177,7 @@ const FYComparison = () => {
               <div>
                 <p className="text-sm text-blue-700">Expenditure</p>
                 <p className="text-xl font-bold text-blue-900">{formatCurrency(currentFY.total_expenditure)}</p>
-                {currentFY.yoy_expenditure_growth !== null && (
+                {currentFY.yoy_expenditure_growth !== null && currentFY.yoy_expenditure_growth !== undefined && (
                   <p className={`text-sm font-medium ${getGrowthColor(currentFY.yoy_expenditure_growth)}`}>
                     {getGrowthIcon(currentFY.yoy_expenditure_growth)} {currentFY.yoy_expenditure_growth.toFixed(1)}% YoY
                   </p>
@@ -285,7 +285,7 @@ const FYComparison = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(fy.total_budget)}</div>
-                    {fy.yoy_budget_growth !== null && (
+                    {fy.yoy_budget_growth !== null && fy.yoy_budget_growth !== undefined && (
                       <div className={`text-xs font-medium ${getGrowthColor(fy.yoy_budget_growth)}`}>
                         {getGrowthIcon(fy.yoy_budget_growth)} {fy.yoy_budget_growth.toFixed(1)}%
                       </div>
@@ -293,7 +293,7 @@ const FYComparison = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(fy.total_funds_received)}</div>
-                    {fy.yoy_funds_growth !== null && (
+                    {fy.yoy_funds_growth !== null && fy.yoy_funds_growth !== undefined && (
                       <div className={`text-xs font-medium ${getGrowthColor(fy.yoy_funds_growth)}`}>
                         {getGrowthIcon(fy.yoy_funds_growth)} {fy.yoy_funds_growth.toFixed(1)}%
                       </div>
@@ -301,14 +301,16 @@ const FYComparison = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(fy.total_expenditure)}</div>
-                    {fy.yoy_expenditure_growth !== null && (
+                    {fy.yoy_expenditure_growth !== null && fy.yoy_expenditure_growth !== undefined && (
                       <div className={`text-xs font-medium ${getGrowthColor(fy.yoy_expenditure_growth)}`}>
                         {getGrowthIcon(fy.yoy_expenditure_growth)} {fy.yoy_expenditure_growth.toFixed(1)}%
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="text-sm font-medium text-gray-900">{fy.funds_utilization.toFixed(1)}%</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {fy.funds_utilization ? fy.funds_utilization.toFixed(1) : '0.0'}%
+                    </div>
                   </td>
                 </tr>
               ))}

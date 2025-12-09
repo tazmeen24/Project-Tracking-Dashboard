@@ -236,7 +236,6 @@ class AnalyticsService:
                 DATE_TRUNC('month', date_received)::date as month_start,
                 COALESCE(SUM(amount), 0) as funds_received
             FROM funds_received
-            WHERE date_received >= %s AND date_received <= %s
             GROUP BY DATE_TRUNC('month', date_received)::date
         ),
         monthly_expenditure AS (
@@ -256,7 +255,6 @@ class AnalyticsService:
                 FROM budget_expenditure 
                 WHERE date_incurred IS NOT NULL
             ) all_exp
-            WHERE expense_date >= %s AND expense_date <= %s
             GROUP BY DATE_TRUNC('month', expense_date)::date
         )
         SELECT 
@@ -270,7 +268,7 @@ class AnalyticsService:
         """
         
         try:
-            cursor.execute(query, (start_date, end_date, start_date, end_date, start_date, end_date))
+            cursor.execute(query, (start_date, end_date))
             rows = cursor.fetchall()
             cursor.close()
             
@@ -493,8 +491,9 @@ class AnalyticsService:
     
     def get_burn_rate_analysis(self) -> List[Dict[str, Any]]:
         """
-        Calculate burn rate for all active projects
+        Calculate burn rate for all projects
         Predicts when projects will run out of funds
+        Note: Shows all projects regardless of end date
         """
         cursor = self.conn.cursor()
         
@@ -509,7 +508,6 @@ class AnalyticsService:
                 COALESCE(SUM(ba.allocated_amount), 0) as total_budget
             FROM projects p
             LEFT JOIN budget_allocation ba ON p.project_id = ba.project_id
-            WHERE p.end_date IS NULL OR p.end_date > CURRENT_DATE
             GROUP BY p.project_id, p.project_no, p.title, p.start_date, p.end_date
         ),
         project_funds AS (
@@ -554,7 +552,7 @@ class AnalyticsService:
         project_age AS (
             SELECT 
                 project_id,
-                EXTRACT(DAY FROM (CURRENT_DATE - start_date)) as days_running
+                (CURRENT_DATE - start_date) as days_running
             FROM projects
             WHERE start_date IS NOT NULL
         )
@@ -658,8 +656,16 @@ class AnalyticsService:
         """
         cursor = self.conn.cursor()
         
-        project_filter = "AND p.project_id = %s" if project_id else ""
-        params = (project_id,) if project_id else ()
+        # Different filters for different tables
+        project_budget_filter = "AND p.project_id = %s" if project_id else ""
+        manpower_filter = "AND project_id = %s" if project_id else ""
+        equipment_filter = "AND project_id = %s" if project_id else ""
+        expenditure_filter = "AND project_id = %s" if project_id else ""
+        
+        # Build params tuple - one for each filter usage
+        params = ()
+        if project_id:
+            params = (project_id, project_id, project_id, project_id)
         
         query = f"""
         WITH project_budgets AS (
@@ -671,7 +677,7 @@ class AnalyticsService:
                 ba.allocated_amount as budgeted
             FROM projects p
             INNER JOIN budget_allocation ba ON p.project_id = ba.project_id
-            WHERE 1=1 {project_filter}
+            WHERE 1=1 {project_budget_filter}
         ),
         category_spending AS (
             SELECT 
@@ -679,7 +685,7 @@ class AnalyticsService:
                 'manpower' as category,
                 COALESCE(SUM(total_cost), 0) as actual_spent
             FROM manpower
-            WHERE 1=1 {project_filter}
+            WHERE 1=1 {manpower_filter}
             GROUP BY project_id
             
             UNION ALL
@@ -689,7 +695,7 @@ class AnalyticsService:
                 'equipment',
                 COALESCE(SUM(total_cost), 0)
             FROM equipment
-            WHERE 1=1 {project_filter}
+            WHERE 1=1 {equipment_filter}
             GROUP BY project_id
             
             UNION ALL
@@ -699,7 +705,7 @@ class AnalyticsService:
                 head,
                 COALESCE(SUM(amount), 0)
             FROM budget_expenditure
-            WHERE 1=1 {project_filter}
+            WHERE 1=1 {expenditure_filter}
             GROUP BY project_id, head
         ),
         aggregated_spending AS (
