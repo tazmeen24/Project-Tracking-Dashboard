@@ -45,12 +45,12 @@ def _get_project_budget_head_detail(cursor, date_filter_mode, as_of_date, start_
             GROUP BY budget_head
             ORDER BY 
                 CASE budget_head
-                    WHEN 'Manpower' THEN 1
-                    WHEN 'Equipment' THEN 2
-                    WHEN 'Consumables' THEN 3
-                    WHEN 'Travel' THEN 4
-                    WHEN 'Other Costs' THEN 5
-                    WHEN 'Overhead' THEN 6
+                    WHEN 'manpower' THEN 1
+                    WHEN 'equipment' THEN 2
+                    WHEN 'travel & training' THEN 3
+                    WHEN 'consumables' THEN 4
+                    WHEN 'contingency' THEN 5
+                    WHEN 'overhead' THEN 6
                     ELSE 7
                 END
         """
@@ -81,12 +81,12 @@ def _get_project_budget_head_detail(cursor, date_filter_mode, as_of_date, start_
             GROUP BY budget_head
             ORDER BY 
                 CASE budget_head
-                    WHEN 'Manpower' THEN 1
-                    WHEN 'Equipment' THEN 2
-                    WHEN 'Consumables' THEN 3
-                    WHEN 'Travel' THEN 4
-                    WHEN 'Other Costs' THEN 5
-                    WHEN 'Overhead' THEN 6
+                    WHEN 'manpower' THEN 1
+                    WHEN 'equipment' THEN 2
+                    WHEN 'travel & training' THEN 3
+                    WHEN 'consumables' THEN 4
+                    WHEN 'contingency' THEN 5
+                    WHEN 'overhead' THEN 6
                     ELSE 7
                 END
         """

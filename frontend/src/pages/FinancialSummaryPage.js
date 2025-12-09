@@ -45,7 +45,6 @@ const FinancialSummaryPage = () => {
     try {
       // Try without any parameters first to see what the endpoint expects
       const response = await projectService.getAllProjects({});
-      console.log('Projects response:', response);
       
       // Handle different response structures
       let projectsData = response.data || response.items || response;
@@ -57,16 +56,8 @@ const FinancialSummaryPage = () => {
         projectsData = response.data.data;
       }
       
-      console.log('Extracted projects data:', projectsData);
-      
       if (Array.isArray(projectsData) && projectsData.length > 0) {
-        console.log('First project FULL OBJECT:', JSON.stringify(projectsData[0], null, 2));
-        console.log('First project keys:', Object.keys(projectsData[0]));
-        console.log('First project id:', projectsData[0].id);
-        console.log('First project title:', projectsData[0].title);
-        
         setProjects(projectsData);
-        console.log('Loaded projects:', projectsData.length);
       } else if (Array.isArray(projectsData)) {
         console.warn('Projects array is empty');
         setProjects([]);
@@ -144,10 +135,8 @@ const FinancialSummaryPage = () => {
       if (projectFilter && viewMode === 'project_budget_head_detail') {
         params.projectId = parseInt(projectFilter);
       }
-
-      console.log('Fetching financial summary with params:', params);
       const data = await financialSummaryService.getFinancialSummary(params);
-      console.log('Financial summary data received:', data);
+      console.log("RAW SUMMARY DATA:", data);
       setFinancialData(data);
     } catch (err) {
       console.error('Financial Summary Error:', err);
@@ -535,8 +524,6 @@ const FinancialSummaryPage = () => {
                   const projectName = project.title || project.name || project.project_name || project.project_title || `Project ${project.id}`;
                   // Handle different field names for project ID
                   const projectId = project.id || project.project_id || project.projectId;
-                  
-                  console.log('Project in dropdown:', { id: projectId, name: projectName, fullProject: project });
                   
                   return (
                     <option key={projectId} value={projectId}>
