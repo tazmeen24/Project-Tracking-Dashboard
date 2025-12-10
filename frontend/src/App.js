@@ -18,6 +18,7 @@ import FinancialSummaryPage from './pages/FinancialSummaryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
 import ProjectFinancialsPage from './pages/ProjectFinancialsPage';
+import ProjectReportPage from './pages/ProjectReportPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -58,6 +59,7 @@ function App() {
               <Route path="financial-summary" element={<FinancialSummaryPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="/projects/:projectId/reports" element={<ProjectReportPage />} />
               <Route path="/projects/:projectId/finances" element={<ProjectFinancialsPage />} />
             </Route>
 

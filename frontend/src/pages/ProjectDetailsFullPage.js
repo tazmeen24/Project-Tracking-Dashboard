@@ -26,6 +26,7 @@ import Button from "../components/common/Button";
 import projectService from "../services/projectService";
 import { formatCurrency, getProjectStatus } from "../utils/helpers";
 import { useProject } from "../contexts/ProjectContext";
+import { FileText } from "lucide-react";
 
 const ProjectDetailsFullPage = () => {
   const { projectId } = useParams();
@@ -307,13 +308,13 @@ const ProjectDetailsFullPage = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                icon={BarChart3}
-                onClick={() => navigate(`/projects/${projectId}/analytics`)}
+              <button
+                onClick={() => navigate(`/projects/${projectId}/reports`)}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Analytics
-              </Button>
+                <FileText size={18} />
+                <span>View Reports</span>
+              </button>
               <Button
                 icon={Edit}
                 onClick={() => navigate(`/projects/${projectId}/edit`)}
@@ -360,7 +361,6 @@ const ProjectDetailsFullPage = () => {
           </div>
         </div>
       </div>
-
       {/* Content Sections */}
       <div className="space-y-6">
         {/* Project Metadata */}

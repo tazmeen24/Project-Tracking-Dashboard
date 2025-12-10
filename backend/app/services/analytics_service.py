@@ -236,6 +236,7 @@ class AnalyticsService:
                 DATE_TRUNC('month', date_received)::date as month_start,
                 COALESCE(SUM(amount), 0) as funds_received
             FROM funds_received
+            WHERE date_received IS NOT NULL
             GROUP BY DATE_TRUNC('month', date_received)::date
         ),
         monthly_expenditure AS (
