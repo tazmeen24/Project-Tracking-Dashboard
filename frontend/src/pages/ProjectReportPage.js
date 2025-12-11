@@ -1,333 +1,363 @@
-// frontend/src/pages/ReportsLandingPage.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  FileText, 
-  TrendingUp, 
-  Building2, 
+// frontend/src/pages/ProjectReportPage.jsx
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  FileText,
+  Download,
+  ChevronLeft,
   Calendar,
-  ChevronRight,
-  BarChart3,
-  PieChart,
-  Download
-} from 'lucide-react';
-import projectService from '../services/projectService';
+  FileSpreadsheet,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+import reportService from "../services/reportService";
+import projectService from "../services/projectService";
+import ReportGenerationModal from "../components/reports/ReportGenerationModal";
 
-const ReportsLandingPage = () => {
+const ProjectReportPage = () => {
+  const { projectId } = useParams();
   const navigate = useNavigate();
-  const [projects, setProjects] = useState([]);
+
+  const [project, setProject] = useState(null);
+  const [reportHistory, setReportHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  const location = useLocation();
+  const cameFromReportsTab = location.state?.fromReportsTab;
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    fetchProjectAndHistory();
+  }, [projectId]);
 
-  const fetchProjects = async () => {
+  const fetchProjectAndHistory = async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const data = await projectService.getProjects();
-      setProjects(data);
-    } catch (error) {
-      console.error('Error fetching projects:', error);
+      // Fetch project details
+      const projectData = await projectService.getProject(projectId);
+      setProject(projectData);
+
+      // Fetch report history
+      const history = await reportService.getReportHistory(projectId);
+      setReportHistory(history);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to load project data");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const reportCategories = [
-    {
-      id: 'project-reports',
-      title: 'Project Reports',
-      description: 'Generate comprehensive financial reports for individual projects',
-      icon: FileText,
-      color: 'blue',
-      bgColor: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-      borderColor: 'border-blue-200',
-      action: 'select-project',
-      projects: projects
-    },
-    {
-      id: 'financial-summary',
-      title: 'Institutional Financial Summary',
-      description: 'Overview of all projects and institutional finances',
-      icon: TrendingUp,
-      color: 'green',
-      bgColor: 'bg-green-50',
-      iconColor: 'text-green-600',
-      borderColor: 'border-green-200',
-      action: () => navigate('/financial-summary'),
-      available: true
-    },
-    {
-      id: 'department-reports',
-      title: 'Department-wise Reports',
-      description: 'Consolidated reports grouped by departments',
-      icon: Building2,
-      color: 'purple',
-      bgColor: 'bg-purple-50',
-      iconColor: 'text-purple-600',
-      borderColor: 'border-purple-200',
-      action: null,
-      available: false
-    },
-    {
-      id: 'yearly-reports',
-      title: 'Financial Year Reports',
-      description: 'Year-end reports and FY comparisons',
-      icon: Calendar,
-      color: 'orange',
-      bgColor: 'bg-orange-50',
-      iconColor: 'text-orange-600',
-      borderColor: 'border-orange-200',
-      action: null,
-      available: false
-    },
-    {
-      id: 'analytics-reports',
-      title: 'Analytics & Insights',
-      description: 'Data-driven insights and trend analysis',
-      icon: BarChart3,
-      color: 'indigo',
-      bgColor: 'bg-indigo-50',
-      iconColor: 'text-indigo-600',
-      borderColor: 'border-indigo-200',
-      action: () => navigate('/analytics'),
-      available: true
-    },
-    {
-      id: 'custom-reports',
-      title: 'Custom Reports',
-      description: 'Create custom reports with specific parameters',
-      icon: PieChart,
-      color: 'pink',
-      bgColor: 'bg-pink-50',
-      iconColor: 'text-pink-600',
-      borderColor: 'border-pink-200',
-      action: null,
-      available: false
-    }
-  ];
-
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showProjectSelection, setShowProjectSelection] = useState(false);
-
-  const handleCategoryClick = (category) => {
-    if (category.available === false) {
-      return; // Coming soon
-    }
-
-    if (category.action === 'select-project') {
-      setSelectedCategory(category);
-      setShowProjectSelection(true);
-    } else if (typeof category.action === 'function') {
-      category.action();
-    }
+  const handleReportGenerated = () => {
+    // Refresh report history after generating new report
+    fetchProjectAndHistory();
   };
 
-  const handleProjectSelect = (projectId) => {
-    navigate(`/projects/${projectId}/reports`);
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "N/A";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getFormatIcon = (format) => {
+    return format === "pdf" ? (
+      <FileText size={20} />
+    ) : (
+      <FileSpreadsheet size={20} />
+    );
+  };
+
+  const getReportTypeLabel = (type) => {
+    return type === "comprehensive" ? "Comprehensive" : "Summary";
+  };
+
+  const getReportTypeBadgeColor = (type) => {
+    return type === "comprehensive"
+      ? "bg-blue-100 text-blue-800"
+      : "bg-green-100 text-green-800";
+  };
+
+  const getFormatBadgeColor = (format) => {
+    return format === "pdf"
+      ? "bg-red-100 text-red-800"
+      : "bg-emerald-100 text-emerald-800";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reports Center</h1>
-          <p className="text-gray-600">
-            Generate and access various reports for your research projects
-          </p>
-        </div>
+        <div className="mb-6">
+          <button
+            onClick={() => {
+              if (cameFromReportsTab) {
+                navigate("/reports"); // <-- your reports tab route
+              } else {
+                navigate(`/projects/${projectId}`); // go back to details
+              }
+            }}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          >
+            <ChevronLeft size={20} />
+            <span>Back to Project Details</span>
+          </button>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Projects</p>
-                <p className="text-2xl font-bold text-gray-900">{projects.length}</p>
-              </div>
-              <FileText className="text-blue-600" size={32} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Project Reports
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {project?.title} ({project?.project_id})
+              </p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Projects</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {projects.filter(p => p.status === 'Active').length}
-                </p>
-              </div>
-              <TrendingUp className="text-green-600" size={32} />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Report Types</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {reportCategories.filter(c => c.available !== false).length}
-                </p>
-              </div>
-              <BarChart3 className="text-purple-600" size={32} />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Coming Soon</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {reportCategories.filter(c => c.available === false).length}
-                </p>
-              </div>
-              <Calendar className="text-orange-600" size={32} />
-            </div>
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <FileText size={20} />
+              <span>Generate New Report</span>
+            </button>
           </div>
         </div>
 
-        {/* Report Categories Grid */}
-        {!showProjectSelection ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reportCategories.map((category) => (
-              <div
-                key={category.id}
-                onClick={() => handleCategoryClick(category)}
-                className={`
-                  bg-white rounded-lg shadow-sm border-2 p-6 transition-all duration-200
-                  ${category.available === false 
-                    ? 'opacity-60 cursor-not-allowed' 
-                    : 'cursor-pointer hover:shadow-lg hover:-translate-y-1'
-                  }
-                  ${category.borderColor}
-                `}
+        {/* Quick Actions / Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <FileText className="text-blue-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Reports</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {reportHistory.length}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-green-100 p-3 rounded-lg">
+                <Calendar className="text-green-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Last Generated</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {reportHistory.length > 0
+                    ? new Date(
+                        reportHistory[0].generated_at
+                      ).toLocaleDateString("en-IN")
+                    : "Never"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-purple-100 p-3 rounded-lg">
+                <Download className="text-purple-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Available Formats</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  PDF & Excel
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Report History */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Report History
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Previously generated reports for this project
+            </p>
+          </div>
+
+          {reportHistory.length === 0 ? (
+            <div className="p-12 text-center">
+              <FileText size={48} className="text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No Reports Yet
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Generate your first report to see it here
+              </p>
+              <button
+                onClick={() => setIsReportModalOpen(true)}
+                className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                <div className={`${category.bgColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
-                  <category.icon className={category.iconColor} size={24} />
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {category.title}
-                  {category.available === false && (
-                    <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
-                      Coming Soon
-                    </span>
-                  )}
-                </h3>
-                
-                <p className="text-sm text-gray-600 mb-4">
-                  {category.description}
-                </p>
-
-                {category.available !== false && (
-                  <div className="flex items-center text-sm font-medium text-blue-600">
-                    <span>Generate Report</span>
-                    <ChevronRight size={16} className="ml-1" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* Project Selection View */
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Select a Project</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Choose a project to generate reports for
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowProjectSelection(false)}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  ← Back
-                </button>
-              </div>
+                <FileText size={20} />
+                <span>Generate Report</span>
+              </button>
             </div>
-
-            <div className="p-6">
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-600">Loading projects...</p>
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText size={48} className="text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600">No projects available</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {projects.map((project) => (
-                    <div
-                      key={project.id}
-                      onClick={() => handleProjectSelect(project.id)}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all"
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Report Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Format
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Filename
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Size
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Generated At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Generated By
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {reportHistory.map((report) => (
+                    <tr
+                      key={report.id}
+                      className="hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            {project.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {project.project_id}
-                          </p>
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              project.status === 'Active' 
-                                ? 'bg-green-100 text-green-800'
-                                : project.status === 'Completed'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {project.status}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getReportTypeBadgeColor(
+                            report.report_type
+                          )}`}
+                        >
+                          {getReportTypeLabel(report.report_type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getFormatBadgeColor(
+                              report.format
+                            )}`}
+                          >
+                            {getFormatIcon(report.format)}
+                            <span className="uppercase ml-1">
+                              {report.format}
                             </span>
-                            <span className="text-xs text-gray-500">
-                              {project.department}
-                            </span>
-                          </div>
+                          </span>
                         </div>
-                        <ChevronRight className="text-gray-400" size={20} />
-                      </div>
-                    </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {report.filename}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {formatFileSize(report.file_size)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {formatDate(report.generated_at)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {report.generated_by || "System"}
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Info Section */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">
-            About Reports
+            Report Information
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-            <div>
-              <p className="mb-2">
-                <strong>Project Reports:</strong> Detailed financial reports for individual projects including budget allocation, funds received, and expenditure tracking.
-              </p>
-              <p>
-                <strong>Financial Summary:</strong> Institutional-level overview of all active projects and consolidated financial data.
-              </p>
-            </div>
-            <div>
-              <p className="mb-2">
-                <strong>Analytics:</strong> Visual insights, trends, and comparative analysis across projects and time periods.
-              </p>
-              <p>
-                <strong>Custom Reports:</strong> More report types coming soon including department-wise analysis and FY reports.
-              </p>
-            </div>
+          <div className="space-y-2 text-sm text-blue-800">
+            <p>
+              • <strong>Comprehensive Reports:</strong> Include all project
+              details with customizable sections
+            </p>
+            <p>
+              • <strong>Summary Reports:</strong> Quick overview with key
+              financial numbers only
+            </p>
+            <p>
+              • <strong>PDF Format:</strong> Best for printing and formal
+              documentation
+            </p>
+            <p>
+              • <strong>Excel Format:</strong> Editable format for further
+              analysis and modifications
+            </p>
+            <p>
+              • <strong>Reports are generated on-demand</strong> and reflect the
+              current state of project data
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Report Generation Modal */}
+      <ReportGenerationModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          handleReportGenerated();
+        }}
+        projectId={projectId}
+        projectTitle={project?.title || "Project Report"}
+      />
     </div>
   );
 };
 
-export default ReportsLandingPage;
+export default ProjectReportPage;

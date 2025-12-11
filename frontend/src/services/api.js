@@ -38,7 +38,26 @@ const api = {
         const error = await response.json().catch(() => ({
           detail: `HTTP ${response.status}: ${response.statusText}`
         }));
-        throw new Error(error.detail || 'Request failed');
+        
+        // Better error message formatting
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : JSON.stringify(error.detail || error);
+        
+        throw new Error(errorMessage);
+      }
+
+      // Handle empty responses (common for DELETE requests)
+      // Check if response has content before parsing JSON
+      const contentType = response.headers.get('content-type');
+      const contentLength = response.headers.get('content-length');
+      
+      if (
+        response.status === 204 || 
+        contentLength === '0' || 
+        !contentType?.includes('application/json')
+      ) {
+        return { success: true };
       }
 
       return await response.json();
@@ -122,7 +141,13 @@ const api = {
         const error = await response.json().catch(() => ({
           detail: `HTTP ${response.status}: ${response.statusText}`
         }));
-        throw new Error(error.detail || 'Upload failed');
+        
+        // Better error message formatting
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : JSON.stringify(error.detail || error);
+        
+        throw new Error(errorMessage);
       }
 
       return await response.json();

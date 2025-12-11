@@ -80,17 +80,17 @@ const ProjectsPage = () => {
     return "Active";
   };
 
-  // ✅ FIXED: Use backend-provided total_budget instead of trying to sum non-existent fields
+  //  Use backend-provided total_budget instead of trying to sum non-existent fields
   const getTotalAllocation = (project) => {
     return project.total_allocation || 0;
   };
 
-  // ✅ FIXED: Use backend-provided total_expenditure
+  //  Use backend-provided total_expenditure
   const getTotalExpenditure = (project) => {
     return project.total_expenditure || 0;
   };
 
-  // ✅ FIXED: Use backend-provided total_funds_received
+  // Use backend-provided total_funds_received
   const getTotalFundsReceived = (project) => {
     return project.total_funds_received || 0;
   };
@@ -157,17 +157,18 @@ const ProjectsPage = () => {
 
   //  Use projectService instead of direct axios call
   const handleDelete = async (e, project) => {
-    e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
-      try {
-        await projectService.deleteProject(project.project_id);
-        refreshProjects();
-      } catch (error) {
-        alert("Failed to delete project");
-      }
+  e.stopPropagation();
+  if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
+    try {
+      await projectService.deleteProject(project.project_id);
+      refreshProjects();
+    } catch (error) {
+      console.error('Delete error:', error); // Add this to see actual error
+      alert("Failed to delete project");
     }
-    setOpenDropdown(null);
-  };
+  }
+  setOpenDropdown(null);
+};
 
   const handleAddFund = (project) => {
     setSelectedProject(project);

@@ -1,6 +1,7 @@
 // frontend/src/components/ReportGenerationModal.jsx
 import React, { useState } from 'react';
 import { X, FileText, FileSpreadsheet, Download, Loader2 } from 'lucide-react';
+import reportService from '../../services/reportService';
 
 const ReportGenerationModal = ({ isOpen, onClose, projectId, projectTitle }) => {
   const [reportType, setReportType] = useState('comprehensive');
@@ -25,33 +26,30 @@ const ReportGenerationModal = ({ isOpen, onClose, projectId, projectTitle }) => 
   };
 
   const handleGenerateReport = async () => {
-    setIsGenerating(true);
-    setError(null);
+  setIsGenerating(true);
+  setError(null);
 
-    try {
-      const reportService = (await import('../../services/reportService')).default;
-      
-      const { blob, filename } = await reportService.generateReport(projectId, {
-        reportType,
-        format,
-        includeSections
-      });
+  try {
+    // Remove the dynamic import, just use the service directly
+    const { blob, filename } = await reportService.generateReport(projectId, {
+      reportType,
+      format,
+      includeSections
+    });
 
-      // Download the file
-      reportService.downloadReport(blob, filename);
+    reportService.downloadReport(blob, filename);
 
-      // Close modal after successful generation
-      setTimeout(() => {
-        onClose();
-        setIsGenerating(false);
-      }, 500);
-
-    } catch (err) {
-      console.error('Report generation error:', err);
-      setError(err.response?.data?.detail || 'Failed to generate report. Please try again.');
+    setTimeout(() => {
+      onClose();
       setIsGenerating(false);
-    }
-  };
+    }, 500);
+
+  } catch (err) {
+    console.error('Report generation error:', err);
+    setError(err.response?.data?.detail || 'Failed to generate report. Please try again.');
+    setIsGenerating(false);
+  }
+};
 
   if (!isOpen) return null;
 

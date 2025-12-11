@@ -13,15 +13,26 @@ import api from './api';
 const projectService = {
   // ==================== PROJECTS ====================
   
-    getProjects: async () => {
+   getProjects: async () => {
     try {
-      const response = await api.get('/projects');
-      return response.data;
+      const response = await api.get('/api/projects');
+      return response; 
     } catch (error) {
       console.error('Error fetching projects:', error);
       throw error;
     }
   },
+
+  getProject: async (projectId) => {
+    try {
+      const response = await api.get(`/api/projects/${projectId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      throw error;
+    }
+  },
+
 
   /**
    * Get all projects with optional filters

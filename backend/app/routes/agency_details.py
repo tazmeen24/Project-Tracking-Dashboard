@@ -1,8 +1,9 @@
 # backend/app/routes/agency_details.py
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Body
 from typing import Optional
 from psycopg2.extras import RealDictCursor
+from pydantic import BaseModel
 import json
 
 from ..database import get_db_connection, validate_foreign_key
@@ -10,17 +11,49 @@ from ..utils.json_encoder import DecimalEncoder
 
 router = APIRouter(prefix="/funding-agencies", tags=["Funding Agencies"])
 
+# ==================== PYDANTIC MODELS ====================
+
+class FundingAgencyCreate(BaseModel):
+    name: str
+    address: Optional[str] = None
+
+class FundingAgencyUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+
+class AgencyDetailsCreate(BaseModel):
+    contact_person: str
+    designation: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    sanctioned_number: Optional[str] = None
+    scheme: Optional[str] = None
+    cna_sub_agency: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account_no: Optional[str] = None
+
+class AgencyDetailsUpdate(BaseModel):
+    contact_person: Optional[str] = None
+    designation: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    sanctioned_number: Optional[str] = None
+    scheme: Optional[str] = None
+    cna_sub_agency: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account_no: Optional[str] = None
+
 # ==================== CREATE ====================
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_funding_agency(name: str, address: Optional[str] = None):
+async def create_funding_agency(agency: FundingAgencyCreate):
     """Create a new funding agency"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 "INSERT INTO funding_agencies (name, address) VALUES (%s, %s) RETURNING *",
-                (name, address)
+                (agency.name, agency.address)
             )
             result = cur.fetchone()
             conn.commit()
@@ -111,8 +144,7 @@ async def get_funding_agency(agency_id: int):
 @router.put("/{agency_id}", status_code=status.HTTP_200_OK)
 async def update_funding_agency(
     agency_id: int,
-    name: Optional[str] = None,
-    address: Optional[str] = None
+    agency: FundingAgencyUpdate
 ):
     """Update funding agency"""
     conn = get_db_connection()
@@ -126,12 +158,12 @@ async def update_funding_agency(
             update_fields = []
             values = []
             
-            if name is not None:
+            if agency.name is not None:
                 update_fields.append("name = %s")
-                values.append(name)
-            if address is not None:
+                values.append(agency.name)
+            if agency.address is not None:
                 update_fields.append("address = %s")
-                values.append(address)
+                values.append(agency.address)
             
             if not update_fields:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
@@ -186,15 +218,7 @@ async def delete_funding_agency(agency_id: int):
 @router.post("/{agency_id}/details", status_code=status.HTTP_201_CREATED)
 async def create_funding_agency_details(
     agency_id: int,
-    contact_person: str,
-    designation: Optional[str] = None,
-    mobile: Optional[str] = None,
-    email: Optional[str] = None,
-    sanctioned_number: Optional[str] = None,
-    scheme: Optional[str] = None,
-    cna_sub_agency: Optional[str] = None,
-    bank_name: Optional[str] = None,
-    bank_account_no: Optional[str] = None
+    details: AgencyDetailsCreate
 ):
     """Create agency details"""
     conn = get_db_connection()
@@ -212,8 +236,9 @@ async def create_funding_agency_details(
                    (agency_id, contact_person, designation, mobile, email,
                     sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-                (agency_id, contact_person, designation, mobile, email,
-                 sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
+                (agency_id, details.contact_person, details.designation, details.mobile, details.email,
+                 details.sanctioned_number, details.scheme, details.cna_sub_agency, 
+                 details.bank_name, details.bank_account_no)
             )
             result = cur.fetchone()
             conn.commit()
@@ -253,15 +278,7 @@ async def get_funding_agency_details(agency_id: int):
 @router.put("/{agency_id}/details", status_code=status.HTTP_200_OK)
 async def update_funding_agency_details(
     agency_id: int,
-    contact_person: Optional[str] = None,
-    designation: Optional[str] = None,
-    mobile: Optional[str] = None,
-    email: Optional[str] = None,
-    sanctioned_number: Optional[str] = None,
-    scheme: Optional[str] = None,
-    cna_sub_agency: Optional[str] = None,
-    bank_name: Optional[str] = None,
-    bank_account_no: Optional[str] = None
+    details: AgencyDetailsUpdate
 ):
     """Update agency details"""
     conn = get_db_connection()
@@ -276,15 +293,15 @@ async def update_funding_agency_details(
             values = []
             
             for field, value in [
-                ("contact_person", contact_person),
-                ("designation", designation),
-                ("mobile", mobile),
-                ("email", email),
-                ("sanctioned_number", sanctioned_number),
-                ("scheme", scheme),
-                ("cna_sub_agency", cna_sub_agency),
-                ("bank_name", bank_name),
-                ("bank_account_no", bank_account_no)
+                ("contact_person", details.contact_person),
+                ("designation", details.designation),
+                ("mobile", details.mobile),
+                ("email", details.email),
+                ("sanctioned_number", details.sanctioned_number),
+                ("scheme", details.scheme),
+                ("cna_sub_agency", details.cna_sub_agency),
+                ("bank_name", details.bank_name),
+                ("bank_account_no", details.bank_account_no)
             ]:
                 if value is not None:
                     update_fields.append(f"{field} = %s")

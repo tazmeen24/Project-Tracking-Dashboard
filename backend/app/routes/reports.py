@@ -1,4 +1,3 @@
-# backend/app/routes/reports.py
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from datetime import datetime
@@ -11,7 +10,6 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# KEEP ONLY ONE - Delete the duplicate below
 @router.post("/projects/{project_id}/reports/generate")
 async def generate_project_report(
     project_id: int,
@@ -59,20 +57,33 @@ async def generate_project_report(
             include_sections['detailed_transactions'] = False
             include_sections['category_breakdown'] = False
         
-        # Generate filename
-        project_id_str = project_data['project']['project_id']
+        # Generate filename - use project_no (human-readable) instead of project_id
+        try:
+            project_no = project_data['project'].get('project_no', f"PROJECT_{project_id}")
+            # Clean project_no for filename (remove special characters)
+            project_no_clean = ''.join(c if c.isalnum() or c in ('-', '_') else '_' for c in str(project_no))
+        except (KeyError, TypeError):
+            project_no_clean = f"PROJECT_{project_id}"
+        
+        # Normalize format - accept both 'excel' and 'xlsx'
+        file_format = format.lower()
+        if file_format in ['excel', 'xlsx']:
+            file_format = 'xlsx'
+        
         date_str = datetime.now().strftime("%d%b%Y_%H%M")
-        filename = f"{project_id_str}_{report_type.capitalize()}_{date_str}.{format}"
+        filename = f"{project_no_clean}_{report_type.capitalize()}_{date_str}.{file_format}"
         logger.info(f"Generated filename: {filename}")
         
         # Generate report based on format
-        logger.info(f"Generating {format.upper()} report...")
-        if format == 'pdf':
+        logger.info(f"Generating {file_format.upper()} report...")
+        if file_format == 'pdf':
             temp_file_path = PDFReportGenerator.generate_pdf(project_data, include_sections)
-        elif format == 'excel':
+            media_type = "application/pdf"
+        elif file_format == 'xlsx':
             temp_file_path = ExcelReportGenerator.generate_excel(project_data, include_sections)
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         else:
-            raise HTTPException(status_code=400, detail="Invalid format")
+            raise HTTPException(status_code=400, detail=f"Invalid format: {format}. Must be 'pdf' or 'excel'")
         
         logger.info(f"Report generated at: {temp_file_path}")
         
@@ -84,7 +95,7 @@ async def generate_project_report(
         report_service.log_report_generation(
             project_id=project_id,
             report_type=report_type,
-            format=format,
+            format=file_format,
             filename=filename,
             file_size=file_size,
             user_id=None,
@@ -92,14 +103,12 @@ async def generate_project_report(
         )
         logger.info("Report logged successfully")
         
-        media_type = "application/pdf" if format == 'pdf' else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        
         logger.info("Returning file response...")
         return FileResponse(
             path=temp_file_path,
             media_type=media_type,
             filename=filename,
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
         
     except ValueError as e:

@@ -34,6 +34,10 @@ const ProjectDetailsFullPage = () => {
 
   // Use selectedProject directly from context
   const { selectedProject, fetchProjectById, loading, error } = useProject();
+  const [expanded, setExpanded] = useState({
+  manpower: false,
+  equipment: false,
+});
 
   // Add state for actual expenditures
   const [actualExpenditures, setActualExpenditures] = useState({
@@ -493,251 +497,221 @@ const ProjectDetailsFullPage = () => {
           </div>
         </CollapsibleSection>
 
-        {/* Budget Allocation Table View */}
-        <CollapsibleSection
-          title="Budget Allocation & Expenditure"
-          icon={DollarSign}
-          sectionKey="budget"
-        >
-          <div className="mt-4">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                    Head
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                    Allocated
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                    Spent
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                    Spent (%)
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                    Balance
-                  </th>
-                </tr>
-              </thead>
+{/* ============================================================
+   Combined Budget Allocation Table with Expandable Breakdown Rows
+   ============================================================ */}
 
-              <tbody className="divide-y divide-slate-200">
-                {[
-                  {
-                    label: "Manpower",
-                    allocated: project.manpower_allocation,
-                    head: "manpower",
-                  },
-                  {
-                    label: "Equipment",
-                    allocated: project.equipment_allocation,
-                    head: "equipment",
-                  },
-                  {
-                    label: "Travel & Training",
-                    allocated: project.travel_training_allocation,
-                    head: "travel & training",
-                  },
-                  {
-                    label: "Consumables",
-                    allocated: project.consumables_allocation,
-                    head: "consumables",
-                  },
-                  {
-                    label: "Contingency",
-                    allocated: project.contingency_allocation,
-                    head: "contingency",
-                  },
-                  {
-                    label: "Overhead",
-                    allocated: project.overhead_allocation,
-                    head: "overhead",
-                  },
-                ].map((item, index) => {
-                  const spent = getExpenditureByHead(item.head);
-                  const balance = item.allocated - spent;
-                  const percentSpent =
-                    item.allocated > 0 ? (spent / item.allocated) * 100 : 0;
+<CollapsibleSection
+  title="Budget Allocation & Expenditure"
+  icon={DollarSign}
+  sectionKey="budget"
+>
+  <div className="mt-4">
+    <table className="w-full">
+      <thead className="bg-slate-50">
+        <tr>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Head</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Allocated</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Spent</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Spent (%)</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Balance</th>
+        </tr>
+      </thead>
 
-                  return (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-slate-900">{item.label}</td>
+      <tbody className="divide-y divide-slate-200">
 
-                      <td className="px-4 py-3 text-right text-slate-900 font-semibold">
-                        {formatCurrency(item.allocated || 0)}
-                      </td>
+        {[
+          {
+            label: "Manpower",
+            allocated: project.manpower_allocation,
+            type: "manpower",
+            breakdown: project.manpower_breakdown,
+          },
+          {
+            label: "Equipment",
+            allocated: project.equipment_allocation,
+            type: "equipment",
+            breakdown: project.equipment_breakdown,
+          },
+          {
+            label: "Travel & Training",
+            allocated: project.travel_training_allocation,
+          },
+          {
+            label: "Consumables",
+            allocated: project.consumables_allocation,
+          },
+          {
+            label: "Contingency",
+            allocated: project.contingency_allocation,
+          },
+          {
+            label: "Overhead",
+            allocated: project.overhead_allocation,
+          },
+        ].map((item, index) => {
+          const spent = getExpenditureByHead(item.label.toLowerCase());
+          const balance = item.allocated - spent;
+          const percentSpent =
+            item.allocated > 0 ? (spent / item.allocated) * 100 : 0;
 
-                      <td className="px-4 py-3 text-right text-slate-900">
-                        {formatCurrency(spent)}
-                      </td>
+          const expandable =
+            item.type === "manpower" || item.type === "equipment";
 
-                      <td className="px-4 py-3 text-right text-slate-900">
-                        {percentSpent.toFixed(1)}%
-                      </td>
+          const isExpanded = expanded[item.type];
 
-                      <td
-                        className={`px-4 py-3 text-right font-semibold ${
-                          balance >= 0 ? "text-emerald-600" : "text-red-600"
-                        }`}
-                      >
-                        {formatCurrency(balance)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          return (
+            <>
+              {/* ---------------- Main Row ---------------- */}
+              <tr
+                key={index}
+                className={expandable ? "cursor-pointer hover:bg-slate-50" : ""}
+                onClick={() =>
+                  expandable &&
+                  setExpanded(prev => ({
+                    ...prev,
+                  [item.type]: !prev[item.type],
+                }))
+                }
+              >
+                <td className="px-4 py-3 text-slate-900 flex items-center gap-2">
+                  {expandable && (
+                    <span className="text-slate-500">
+                      {isExpanded ? "▼" : "▶"}
+                    </span>
+                  )}
+                  {item.label}
+                </td>
 
-            {/* Total Budget Row */}
-            <div className="bg-slate-900 rounded-xl p-6 flex items-center justify-between mt-6">
-              <div>
-                <span className="text-white text-lg font-bold">
-                  Total Budget
-                </span>
-                <div className="text-slate-300 text-sm mt-1">
-                  Spent: {formatCurrency(getTotalExpenditure())} • Balance:{" "}
-                  {formatCurrency(getTotalBudget() - getTotalExpenditure())}
-                </div>
-              </div>
-              <span className="text-white text-2xl font-bold">
-                {formatCurrency(getTotalBudget())}
-              </span>
-            </div>
-          </div>
-        </CollapsibleSection>
+                <td className="px-4 py-3 text-right text-slate-900 font-semibold">
+                  {formatCurrency(item.allocated || 0)}
+                </td>
 
-        {/* Manpower Breakdown */}
-        {project.manpower_breakdown &&
-          project.manpower_breakdown.length > 0 && (
-            <CollapsibleSection
-              title="Manpower Breakdown"
-              icon={Users}
-              sectionKey="manpower"
-            >
-              <div className="mt-4">
-                <table className="w-full">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Role
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Salary/Month
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Months
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Personnel
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Qualification
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {project.manpower_breakdown.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-4 py-3 text-slate-900">
-                          {item.role}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {formatCurrency(item.salary_per_month)}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {item.months}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {item.num_personnel || 1}
-                        </td>
-                        <td className="px-4 py-3 text-slate-700 text-sm">
-                          {item.qualification && (
-                            <div className="flex items-center gap-1">
-                              <GraduationCap className="w-3 h-3" />
-                              <span>{item.qualification}</span>
-                            </div>
-                          )}
-                          {item.experience_required && (
-                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                              <Award className="w-3 h-3" />
-                              <span>{item.experience_required}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                          {formatCurrency(
-                            (item.salary_per_month || 0) *
-                              (item.months || 0) *
-                              (item.num_personnel || 1)
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CollapsibleSection>
-          )}
+                <td className="px-4 py-3 text-right text-slate-900">
+                  {formatCurrency(spent)}
+                </td>
 
-        {/* Equipment Breakdown */}
-        {project.equipment_breakdown &&
-          project.equipment_breakdown.length > 0 && (
-            <CollapsibleSection
-              title="Equipment Breakdown"
-              icon={Briefcase}
-              sectionKey="equipment"
-            >
-              <div className="mt-4">
-                <table className="w-full">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Item
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Quantity
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Unit Cost
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">
-                        Description
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {project.equipment_breakdown.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-4 py-3 text-slate-900">
-                          {item.item_name}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {item.quantity}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {formatCurrency(item.unit_cost)}
-                        </td>
-                        <td className="px-4 py-3 text-slate-700 text-sm max-w-xs truncate">
-                          {item.description || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                          {formatCurrency(
-                            (item.quantity || 0) * (item.unit_cost || 0)
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CollapsibleSection>
-          )}
+                <td className="px-4 py-3 text-right text-slate-900">
+                  {percentSpent.toFixed(1)}%
+                </td>
+
+                <td
+                  className={`px-4 py-3 text-right font-semibold ${
+                    balance >= 0 ? "text-emerald-600" : "text-red-600"
+                  }`}
+                >
+                  {formatCurrency(balance)}
+                </td>
+              </tr>
+
+              {/* ---------------- Manpower Breakdown ---------------- */}
+              {isExpanded &&
+                item.type === "manpower" &&
+                item.breakdown &&
+                item.breakdown.length > 0 && (
+                  <tr>
+                    <td colSpan={5} className="bg-slate-50 px-6 py-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-slate-700">
+                            <th className="text-left py-2">Role</th>
+                            <th className="text-left py-2">Salary/Month</th>
+                            <th className="text-left py-2">Months</th>
+                            <th className="text-left py-2">Personnel</th>
+                            <th className="text-right py-2">Total</th>
+                          </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-200">
+                          {item.breakdown.map((row, i) => (
+                            <tr key={i}>
+                              <td className="py-2">{row.role}</td>
+                              <td className="py-2">
+                                {formatCurrency(row.salary_per_month)}
+                              </td>
+                              <td className="py-2">{row.months}</td>
+                              <td className="py-2">
+                                {row.num_personnel || 1}
+                              </td>
+                              <td className="py-2 text-right font-semibold">
+                                {formatCurrency(
+                                  (row.salary_per_month || 0) *
+                                    (row.months || 0) *
+                                    (row.num_personnel || 1)
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+
+              {/* ---------------- Equipment Breakdown ---------------- */}
+              {isExpanded &&
+                item.type === "equipment" &&
+                item.breakdown &&
+                item.breakdown.length > 0 && (
+                  <tr>
+                    <td colSpan={5} className="bg-slate-50 px-6 py-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-slate-700">
+                            <th className="text-left py-2">Item</th>
+                            <th className="text-left py-2">Qty</th>
+                            <th className="text-left py-2">Unit Cost</th>
+                            <th className="text-left py-2">Description</th>
+                            <th className="text-right py-2">Total</th>
+                          </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-200">
+                          {item.breakdown.map((row, i) => (
+                            <tr key={i}>
+                              <td className="py-2">{row.item_name}</td>
+                              <td className="py-2">{row.quantity}</td>
+                              <td className="py-2">
+                                {formatCurrency(row.unit_cost)}
+                              </td>
+                              <td className="py-2">
+                                {row.description || "-"}
+                              </td>
+                              <td className="py-2 text-right font-semibold">
+                                {formatCurrency(
+                                  row.quantity * row.unit_cost
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+            </>
+          );
+        })}
+      </tbody>
+    </table>
+
+    {/* ---------------- Total Budget Row ---------------- */}
+    <div className="bg-slate-900 rounded-xl p-6 flex items-center justify-between mt-6">
+      <div>
+        <span className="text-white text-lg font-bold">Total Budget</span>
+        <div className="text-slate-300 text-sm mt-1">
+          Spent: {formatCurrency(getTotalExpenditure())} • Balance:
+          {formatCurrency(getTotalBudget() - getTotalExpenditure())}
+        </div>
+      </div>
+
+      <span className="text-white text-2xl font-bold">
+        {formatCurrency(getTotalBudget())}
+      </span>
+    </div>
+  </div>
+</CollapsibleSection>
+
 
         {/* ======================== FUNDS RECEIVED ======================== */}
         {project.funds && project.funds.length > 0 && (

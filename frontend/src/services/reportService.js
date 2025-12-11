@@ -1,17 +1,13 @@
 // frontend/src/services/reportService.js
-import api from './api';
+import authService from './authService';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const reportService = {
-  /**
-   * Generate a project report
-   * @param {number} projectId - Project ID
-   * @param {object} options - Report generation options
-   * @returns {Promise<Blob>} - PDF or Excel file blob
-   */
   generateReport: async (projectId, options = {}) => {
     const {
-      reportType = 'comprehensive', // 'comprehensive' or 'summary'
-      format = 'pdf', // 'pdf' or 'excel'
+      reportType = 'comprehensive',
+      format = 'pdf',
       includeSections = {
         financial_summary: true,
         budget_allocation: true,
@@ -26,7 +22,6 @@ const reportService = {
     console.log('Project ID:', projectId);
     console.log('Report Type:', reportType);
     console.log('Format:', format);
-    console.log('Include Sections:', includeSections);
 
     try {
       const queryParams = new URLSearchParams({
@@ -40,20 +35,32 @@ const reportService = {
         include_charts: includeSections.charts
       });
 
-      const response = await api.post(
-        `/projects/${projectId}/reports/generate?${queryParams.toString()}`,
-        {},
+      const token = authService.getToken();
+      
+      // Use fetch directly for blob response
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${projectId}/reports/generate?${queryParams.toString()}`,
         {
-          responseType: 'blob',
-          timeout: 60000 // 60 seconds timeout for large reports
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
       );
 
-      console.log('Response received:', response);
-      console.log('Response headers:', response.headers);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          detail: `HTTP ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(error.detail || 'Failed to generate report');
+      }
 
-      // Extract filename from Content-Disposition header if available
-      const contentDisposition = response.headers['content-disposition'];
+      // Get blob from response
+      const blob = await response.blob();
+
+      // Extract filename from headers
+      const contentDisposition = response.headers.get('content-disposition');
       let filename = `Project_${projectId}_Report.${format}`;
       
       if (contentDisposition) {
@@ -63,25 +70,21 @@ const reportService = {
         }
       }
 
-      console.log('Filename:', filename);
-      console.log('Blob size:', response.data.size);
+      console.log('Report generated successfully:', filename);
+      console.log('Blob size:', blob.size);
 
       return {
-        blob: response.data,
+        blob: blob,
         filename: filename
       };
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('Report generation error:', error);
       throw error;
     }
   },
 
-  /**
-   * Download the generated report
-   * @param {Blob} blob - File blob
-   * @param {string} filename - Filename
-   */
   downloadReport: (blob, filename) => {
+    console.log('Downloading report:', filename);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -92,18 +95,27 @@ const reportService = {
     window.URL.revokeObjectURL(url);
   },
 
-  /**
-   * Get report generation history for a project
-   * @param {number} projectId - Project ID
-   * @param {number} limit - Number of reports to fetch
-   * @returns {Promise<Array>} - List of generated reports
-   */
   getReportHistory: async (projectId, limit = 10) => {
     try {
-      const response = await api.get(`/projects/${projectId}/reports/history`, {
-        params: { limit }
-      });
-      return response.data.reports;
+      const token = authService.getToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${projectId}/reports/history?limit=${limit}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch report history');
+      }
+
+      const data = await response.json();
+      return data.reports;
     } catch (error) {
       console.error('Error fetching report history:', error);
       throw error;
