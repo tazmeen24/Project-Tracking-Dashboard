@@ -22,20 +22,20 @@ const CashFlowChart = ({ data }) => {
     }).format(value);
   };
 
-  // Custom tooltip
+  // Custom tooltip - DARK MODE COMPATIBLE
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-          <p className="font-semibold text-gray-900 mb-2">{label}</p>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700">
+          <p className="font-semibold text-slate-900 dark:text-white mb-2">{label}</p>
           {payload.map((entry, index) => (
             <div key={index} className="flex items-center gap-2 mb-1">
               <div
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-sm text-gray-600">{entry.name}:</span>
-              <span className="text-sm font-semibold">
+              <span className="text-sm text-slate-600 dark:text-slate-400">{entry.name}:</span>
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
                 {formatCurrency(entry.value)}
               </span>
             </div>
@@ -61,45 +61,53 @@ const CashFlowChart = ({ data }) => {
 
   return (
     <div>
-      {/* Summary Cards */}
+      {/* Summary Cards - DARK MODE COMPATIBLE */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-green-50 rounded-lg p-3">
-          <div className="text-xs text-gray-600 mb-1">Total Received</div>
-          <div className="text-lg font-bold text-green-700">
+        <div className="bg-green-50/80 dark:bg-green-950/30 backdrop-blur-sm rounded-lg p-3 border border-green-200/50 dark:border-green-900/50">
+          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Received</div>
+          <div className="text-lg font-bold text-green-700 dark:text-green-400">
             {formatCurrency(totalFundsReceived)}
           </div>
         </div>
-        <div className="bg-red-50 rounded-lg p-3">
-          <div className="text-xs text-gray-600 mb-1">Total Spent</div>
-          <div className="text-lg font-bold text-red-700">
+        <div className="bg-red-50/80 dark:bg-red-950/30 backdrop-blur-sm rounded-lg p-3 border border-red-200/50 dark:border-red-900/50">
+          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Spent</div>
+          <div className="text-lg font-bold text-red-700 dark:text-red-400">
             {formatCurrency(totalExpenditure)}
           </div>
         </div>
-        <div className={`${netCashFlow >= 0 ? 'bg-blue-50' : 'bg-orange-50'} rounded-lg p-3`}>
-          <div className="text-xs text-gray-600 mb-1">Net Flow</div>
-          <div className={`text-lg font-bold ${netCashFlow >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+        <div className={`${netCashFlow >= 0 ? 'bg-blue-50/80 dark:bg-blue-950/30' : 'bg-orange-50/80 dark:bg-orange-950/30'} backdrop-blur-sm rounded-lg p-3 border ${netCashFlow >= 0 ? 'border-blue-200/50 dark:border-blue-900/50' : 'border-orange-200/50 dark:border-orange-900/50'}`}>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Net Flow</div>
+          <div className={`text-lg font-bold ${netCashFlow >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>
             {formatCurrency(netCashFlow)}
           </div>
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Chart - DARK MODE COMPATIBLE */}
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}
             margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              stroke="currentColor" 
+              className="text-slate-200 dark:text-slate-700" 
+            />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: 'currentColor' }}
+              className="text-slate-600 dark:text-slate-400"
               angle={-45}
               textAnchor="end"
               height={80}
+              stroke="currentColor"
             />
             <YAxis
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: 'currentColor' }}
+              className="text-slate-600 dark:text-slate-400"
+              stroke="currentColor"
               tickFormatter={(value) => {
                 if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
                 if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
@@ -152,11 +160,11 @@ const CashFlowChart = ({ data }) => {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend Description */}
-      <div className="mt-4 text-xs text-gray-500 space-y-1">
-        <p>• <span className="text-green-600 font-semibold">Funds Received</span>: Total funds received from funding agencies</p>
-        <p>• <span className="text-red-600 font-semibold">Expenditure</span>: Total expenditure across all budget heads</p>
-        <p>• <span className="text-blue-600 font-semibold">Net Cash Flow</span>: Difference between funds received and expenditure</p>
+      {/* Legend Description - DARK MODE COMPATIBLE */}
+      <div className="mt-4 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+        <p>• <span className="text-green-600 dark:text-green-400 font-semibold">Funds Received</span>: Total funds received from funding agencies</p>
+        <p>• <span className="text-red-600 dark:text-red-400 font-semibold">Expenditure</span>: Total expenditure across all budget heads</p>
+        <p>• <span className="text-blue-600 dark:text-blue-400 font-semibold">Net Cash Flow</span>: Difference between funds received and expenditure</p>
       </div>
     </div>
   );

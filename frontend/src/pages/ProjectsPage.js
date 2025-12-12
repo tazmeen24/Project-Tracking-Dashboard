@@ -81,22 +81,20 @@ const ProjectsPage = () => {
     return "Active";
   };
 
-  //  Use backend-provided total_budget instead of trying to sum non-existent fields
   const getTotalAllocation = (project) => {
     return project.total_allocation || 0;
   };
 
-  //  Use backend-provided total_expenditure
   const getTotalExpenditure = (project) => {
     return project.total_expenditure || 0;
   };
 
-  // Use backend-provided total_funds_received
   const getTotalFundsReceived = (project) => {
     return project.total_funds_received || 0;
   };
 
   const projectList = Array.isArray(projects) ? projects : [];
+  
   // Filter logic
   const filteredProjects = projectList.filter((project) => {
     const matchesSearch =
@@ -156,20 +154,19 @@ const ProjectsPage = () => {
     dateRangeStart && dateRangeEnd,
   ].filter(Boolean).length;
 
-  //  Use projectService instead of direct axios call
   const handleDelete = async (e, project) => {
-  e.stopPropagation();
-  if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
-    try {
-      await projectService.deleteProject(project.project_id);
-      refreshProjects();
-    } catch (error) {
-      console.error('Delete error:', error); // Add this to see actual error
-      alert("Failed to delete project");
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete "${project.title}"?`)) {
+      try {
+        await projectService.deleteProject(project.project_id);
+        refreshProjects();
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert("Failed to delete project");
+      }
     }
-  }
-  setOpenDropdown(null);
-};
+    setOpenDropdown(null);
+  };
 
   const handleAddFund = (project) => {
     setSelectedProject(project);
@@ -195,7 +192,7 @@ const ProjectsPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading projects...</div>
+        <div className="text-slate-600 dark:text-slate-400">Loading projects...</div>
       </div>
     );
   }
@@ -205,8 +202,8 @@ const ProjectsPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
-          <p className="text-slate-600 mt-1">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Projects</h1>
+          <p className="text-slate-600 dark:text-slate-300 mt-1">
             Manage and track all research projects
           </p>
         </div>
@@ -216,16 +213,16 @@ const ProjectsPage = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 p-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Search by project title or number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
           <div className="flex gap-3">
@@ -233,14 +230,14 @@ const ProjectsPage = () => {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors ${
                 showFilters
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "bg-slate-900 dark:bg-slate-700 text-white"
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
               }`}
             >
               <Filter className="w-5 h-5" />
               <span className="font-medium">Filters</span>
               {activeFilterCount > 0 && (
-                <span className="ml-1 px-2 py-0.5 bg-slate-700 text-white text-xs rounded-full">
+                <span className="ml-1 px-2 py-0.5 bg-slate-700 dark:bg-slate-500 text-white text-xs rounded-full">
                   {activeFilterCount}
                 </span>
               )}
@@ -248,7 +245,7 @@ const ProjectsPage = () => {
             {activeFilterCount > 0 && (
               <button
                 onClick={resetFilters}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 rounded-xl transition-colors"
               >
                 <X className="w-5 h-5" />
                 <span className="font-medium">Clear</span>
@@ -259,15 +256,15 @@ const ProjectsPage = () => {
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Category
               </label>
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Categories</option>
                 <option value="sponsored">Sponsored</option>
@@ -276,13 +273,13 @@ const ProjectsPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Type
               </label>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Types</option>
                 <option value="PFMS">PFMS</option>
@@ -292,13 +289,13 @@ const ProjectsPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Funding Agency
               </label>
               <select
                 value={filterAgency}
                 onChange={(e) => setFilterAgency(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Agencies</option>
                 {fundingAgencies.map((agency) => (
@@ -310,13 +307,13 @@ const ProjectsPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Technical Group
               </label>
               <select
                 value={filterGroup}
                 onChange={(e) => setFilterGroup(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Groups</option>
                 {technicalGroups.map((group) => (
@@ -328,13 +325,13 @@ const ProjectsPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Year
               </label>
               <select
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Years</option>
                 {getAvailableYears().map((year) => (
@@ -346,13 +343,13 @@ const ProjectsPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Month
               </label>
               <select
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
                 <option value="all">All Months</option>
                 {[
@@ -377,7 +374,7 @@ const ProjectsPage = () => {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Date Range
               </label>
               <div className="flex gap-2 items-center">
@@ -385,14 +382,14 @@ const ProjectsPage = () => {
                   type="date"
                   value={dateRangeStart}
                   onChange={(e) => setDateRangeStart(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                 />
-                <span className="text-slate-500">to</span>
+                <span className="text-slate-500 dark:text-slate-400">to</span>
                 <input
                   type="date"
                   value={dateRangeEnd}
                   onChange={(e) => setDateRangeEnd(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -401,35 +398,35 @@ const ProjectsPage = () => {
       </div>
 
       {/* Projects Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50/80 dark:bg-slate-900/30 border-b border-slate-200/50 dark:border-slate-700/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Project Details
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Category & Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Organization
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Investigators
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Timeline
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Financials
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
               {filteredProjects.length > 0 ? (
                 filteredProjects.map((project) => {
                   const totalAllocation = getTotalAllocation(project);
@@ -443,26 +440,26 @@ const ProjectsPage = () => {
                       onClick={() =>
                         navigate(`/projects/${project.project_id}`)
                       }
-                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
                     >
                       {/* Project Details */}
                       <td className="px-6 py-4">
                         <div className="flex items-start gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-slate-900 mb-1 truncate">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white mb-1 truncate">
                               {project.title}
                             </div>
-                            <div className="text-xs text-slate-600 font-mono">
+                            <div className="text-xs text-slate-600 dark:text-slate-400 font-mono">
                               {project.project_no}
                             </div>
                             <div className="mt-2">
                               <span
                                 className={`inline-block px-2 py-1 text-xs font-medium rounded ${
                                   status === "Active"
-                                    ? "bg-emerald-100 text-emerald-800"
+                                    ? "bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-900/50"
                                     : status === "Upcoming"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-slate-100 text-slate-800"
+                                    ? "bg-blue-100/80 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900/50"
+                                    : "bg-slate-100/80 dark:bg-slate-800/50 text-slate-800 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50"
                                 }`}
                               >
                                 {status}
@@ -476,12 +473,12 @@ const ProjectsPage = () => {
                       <td className="px-6 py-4">
                         <div className="space-y-1.5">
                           {project.project_category && (
-                            <div className="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                            <div className="inline-block px-2.5 py-1 bg-blue-100/80 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 text-xs font-medium rounded border border-blue-200/50 dark:border-blue-900/50">
                               {project.project_category}
                             </div>
                           )}
                           {project.project_type && (
-                            <div className="inline-block px-2.5 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded ml-1">
+                            <div className="inline-block px-2.5 py-1 bg-purple-100/80 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 text-xs font-medium rounded ml-1 border border-purple-200/50 dark:border-purple-900/50">
                               {project.project_type}
                             </div>
                           )}
@@ -490,10 +487,10 @@ const ProjectsPage = () => {
 
                       {/* Organization */}
                       <td className="px-6 py-4">
-                        <div className="text-sm text-slate-900 font-medium mb-1">
+                        <div className="text-sm text-slate-900 dark:text-white font-medium mb-1">
                           {project.funding_agency_name || "N/A"}
                         </div>
-                        <div className="text-xs text-slate-600">
+                        <div className="text-xs text-slate-600 dark:text-slate-400">
                           {project.technical_group_name || "N/A"}
                         </div>
                       </td>
@@ -501,11 +498,11 @@ const ProjectsPage = () => {
                       {/* Investigators */}
                       <td className="px-6 py-4">
                         <div className="text-sm">
-                          <div className="font-medium text-slate-900 mb-0.5">
+                          <div className="font-medium text-slate-900 dark:text-white mb-0.5">
                             {project.principal_investigator || "N/A"}
                           </div>
                           {project.co_investigator && (
-                            <div className="text-xs text-slate-600">
+                            <div className="text-xs text-slate-600 dark:text-slate-400">
                               Co-PI: {project.co_investigator}
                             </div>
                           )}
@@ -515,7 +512,7 @@ const ProjectsPage = () => {
                       {/* Timeline */}
                       <td className="px-6 py-4">
                         <div className="text-sm space-y-1">
-                          <div className="text-slate-900">
+                          <div className="text-slate-900 dark:text-white">
                             {new Date(project.start_date).toLocaleDateString(
                               "en-GB",
                               {
@@ -525,8 +522,8 @@ const ProjectsPage = () => {
                               }
                             )}
                           </div>
-                          <div className="text-slate-600">to</div>
-                          <div className="text-slate-900">
+                          <div className="text-slate-600 dark:text-slate-400">to</div>
+                          <div className="text-slate-900 dark:text-white">
                             {project.end_date
                               ? new Date(project.end_date).toLocaleDateString(
                                   "en-GB",
@@ -545,26 +542,26 @@ const ProjectsPage = () => {
                       <td className="px-6 py-4">
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">
+                            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                               Budget:
                             </span>
-                            <span className="font-semibold text-blue-600">
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">
                               {formatCurrency(totalAllocation)}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">
+                            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                               Funds:
                             </span>
-                            <span className="font-semibold text-emerald-600">
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                               {formatCurrency(totalFunds)}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600 font-medium">
+                            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                               Spent:
                             </span>
-                            <span className="font-semibold text-red-600">
+                            <span className="font-semibold text-red-600 dark:text-red-400">
                               {formatCurrency(totalExpenditure)}
                             </span>
                           </div>
@@ -579,7 +576,7 @@ const ProjectsPage = () => {
                               e.stopPropagation();
                               handleAddFund(project);
                             }}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-medium rounded transition-colors"
                           >
                             + Fund
                           </button>
@@ -588,7 +585,7 @@ const ProjectsPage = () => {
                               e.stopPropagation();
                               handleAddExpenditure(project);
                             }}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white text-xs font-medium rounded transition-colors"
                           >
                             + Exp
                           </button>
@@ -603,21 +600,21 @@ const ProjectsPage = () => {
                                     : project.project_id
                                 );
                               }}
-                              className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                             >
-                              <MoreVertical className="w-4 h-4 text-slate-600" />
+                              <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                             </button>
 
                             {openDropdown === project.project_id && (
-                              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
+                              <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     navigate(`/projects/${project.project_id}`);
                                   }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"
                                 >
-                                  <Eye className="w-4 h-4 text-blue-600" />
+                                  <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                   <span>View</span>
                                 </button>
                                 <button
@@ -627,9 +624,9 @@ const ProjectsPage = () => {
                                       `/projects/${project.project_id}/edit`
                                     );
                                   }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"
                                 >
-                                  <Edit className="w-4 h-4 text-blue-600" />
+                                  <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                   <span>Edit</span>
                                 </button>
                                 <button
@@ -639,15 +636,15 @@ const ProjectsPage = () => {
                                       `/projects/${project.project_id}/finances`
                                     );
                                   }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"
                                 >
-                                  <Wallet className="w-4 h-4 text-green-600" />
+                                  <Wallet className="w-4 h-4 text-green-600 dark:text-green-400" />
                                   <span>Manage Finances</span>
                                 </button>
-                                <div className="border-t border-slate-200 my-1"></div>
+                                <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div>
                                 <button
                                   onClick={(e) => handleDelete(e, project)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                   <span>Delete</span>
@@ -664,7 +661,7 @@ const ProjectsPage = () => {
                 <tr>
                   <td
                     colSpan="7"
-                    className="px-6 py-12 text-center text-slate-600"
+                    className="px-6 py-12 text-center text-slate-600 dark:text-slate-400"
                   >
                     {searchTerm || activeFilterCount > 0
                       ? "No projects match your filters"
@@ -849,56 +846,62 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
   };
 
   const validateForm = () => {
-    const newErrors = [];
+  const newErrors = [];
 
-    if (!formData.head) newErrors.push("Budget head is required");
-    if (!formData.date_received) newErrors.push("Date received is required");
+  // ✅ Basic required fields
+  if (!formData.head) newErrors.push("Budget head is required");
+  if (!formData.date_received) newErrors.push("Date received is required");
 
-    const totalAmount = calculateTotalAmount();
+  const totalAmount = calculateTotalAmount();
 
-    if (formData.head === "manpower") {
-      if (manpowerBreakdown.length === 0) {
-        newErrors.push("At least one manpower entry is required");
-      }
-      manpowerBreakdown.forEach((item, idx) => {
-        if (!item.role) newErrors.push(`Row ${idx + 1}: Role is required`);
-        if (!item.salary_per_month || item.salary_per_month <= 0)
-          newErrors.push(`Row ${idx + 1}: Valid salary is required`);
-        if (!item.months || item.months <= 0)
-          newErrors.push(`Row ${idx + 1}: Valid months is required`);
-        if (!item.num_personnel || item.num_personnel <= 0)
-          newErrors.push(`Row ${idx + 1}: Valid personnel count is required`);
-      });
-    } else if (formData.head === "equipment") {
-      if (equipmentBreakdown.length === 0) {
-        newErrors.push("At least one equipment entry is required");
-      }
-      equipmentBreakdown.forEach((item, idx) => {
-        if (!item.item_name)
-          newErrors.push(`Row ${idx + 1}: Item name is required`);
-        if (!item.quantity || item.quantity <= 0)
-          newErrors.push(`Row ${idx + 1}: Valid quantity is required`);
-        if (!item.unit_cost || item.unit_cost <= 0)
-          newErrors.push(`Row ${idx + 1}: Valid unit cost is required`);
-      });
-    } else {
-      if (!totalAmount || totalAmount <= 0)
-        newErrors.push("Valid amount is required");
+  // ✅ Manpower breakdown validation
+  if (formData.head === "manpower") {
+    if (manpowerBreakdown.length === 0) {
+      newErrors.push("At least one manpower entry is required");
     }
-
-    // Check budget allocation
-    const budget = getBudgetForHead(formData.head);
-    if (budget && totalAmount > budget.allocated_amount) {
-      newErrors.push(
-        `Amount (₹${totalAmount.toFixed(2)}) exceeds allocated budget (₹${
-          budget.allocated_amount
-        })`
-      );
+    manpowerBreakdown.forEach((item, idx) => {
+      if (!item.role) newErrors.push(`Row ${idx + 1}: Role is required`);
+      if (!item.salary_per_month || item.salary_per_month <= 0)
+        newErrors.push(`Row ${idx + 1}: Valid salary is required`);
+      if (!item.months || item.months <= 0)
+        newErrors.push(`Row ${idx + 1}: Valid months is required`);
+      if (!item.num_personnel || item.num_personnel <= 0)
+        newErrors.push(`Row ${idx + 1}: Valid personnel count is required`);
+    });
+  }
+  
+  // ✅ Equipment breakdown validation
+  else if (formData.head === "equipment") {
+    if (equipmentBreakdown.length === 0) {
+      newErrors.push("At least one equipment entry is required");
     }
+    equipmentBreakdown.forEach((item, idx) => {
+      if (!item.item_name)
+        newErrors.push(`Row ${idx + 1}: Item name is required`);
+      if (!item.quantity || item.quantity <= 0)
+        newErrors.push(`Row ${idx + 1}: Valid quantity is required`);
+      if (!item.unit_cost || item.unit_cost <= 0)
+        newErrors.push(`Row ${idx + 1}: Valid unit cost is required`);
+    });
+  }
+  
+  // ✅ Other heads validation
+  else {
+    if (!totalAmount || totalAmount <= 0)
+      newErrors.push("Valid amount is required");
+  }
 
-    setErrors(newErrors);
-    return newErrors.length === 0;
-  };
+  // Check budget allocation (basic check)
+  const budget = getBudgetForHead(formData.head);
+  if (budget && totalAmount > budget.allocated_amount) {
+    newErrors.push(
+      `Amount (₹${totalAmount.toFixed(2)}) exceeds allocated budget (₹${budget.allocated_amount})`
+    );
+  }
+
+  setErrors(newErrors);
+  return newErrors.length === 0;
+};
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -922,7 +925,7 @@ const handleSubmit = async (e) => {
       remarks: formData.remarks,
     };
 
-    // ✅ FIXED: Use correct method name
+    // FIXED: Use correct method name
     const fundResponse = await fundsService.createFund(fundData);
 
     if (fundResponse.warnings) {
@@ -965,7 +968,7 @@ const handleSubmit = async (e) => {
       for (let i = 0; i < equipmentBreakdown.length; i++) {
         const item = equipmentBreakdown[i];
         try {
-          // ✅ FIXED: Use correct method name
+          // FIXED: Use correct method name
           await fundsService.createEquipmentFundsBreakdown({
             fund_id: fundId,
             project_id: project.project_id,

@@ -1,8 +1,9 @@
-// pages/Dashboard.js
+// pages/Dashboard.js - IMPROVED DARK MODE
 /**
  * FIXED:
- * - Uses project.total_allocation from enhanced backend
- * - Safely handles array from ProjectContext
+ * - Enhanced dark mode compatibility
+ * - Consistent color scheme across light and dark modes
+ * - Improved text visibility in both modes
  */
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +26,6 @@ const Dashboard = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-  // SAFETY FIRST – always guarantee an array
   const projectList = Array.isArray(projects) ? projects : [];
   const recentProjects = projectList.slice(0, 5);
 
@@ -75,19 +75,19 @@ const Dashboard = () => {
   ];
 
   const colorClasses = {
-    blue: 'from-blue-500 to-blue-600',
-    emerald: 'from-emerald-500 to-emerald-600',
-    indigo: 'from-indigo-500 to-indigo-600',
-    purple: 'from-purple-500 to-purple-600',
-    amber: 'from-amber-500 to-amber-600',
+    blue: 'from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700',
+    emerald: 'from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700',
+    indigo: 'from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700',
+    purple: 'from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700',
+    amber: 'from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700',
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
-          <span className="text-slate-700 font-medium text-lg">Loading dashboard...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 dark:border-slate-100"></div>
+          <span className="text-slate-700 dark:text-slate-300 font-medium text-lg">Loading dashboard...</span>
         </div>
       </div>
     );
@@ -97,8 +97,8 @@ const Dashboard = () => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-slate-900 mb-2">Dashboard</h1>
-        <p className="text-slate-600 text-lg">
+        <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">Dashboard</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-lg">
           Welcome back! Here's an overview of your projects and finances.
         </p>
       </div>
@@ -109,7 +109,7 @@ const Dashboard = () => {
           <Card
             key={index}
             hover
-            className="relative overflow-hidden"
+            className="relative overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
             style={{
               animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
             }}
@@ -117,7 +117,7 @@ const Dashboard = () => {
             <div
               className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${
                 colorClasses[stat.color]
-              } rounded-full -mr-16 -mt-16 opacity-10`}
+              } rounded-full -mr-16 -mt-16 opacity-10 dark:opacity-20`}
             ></div>
 
             <div className="relative">
@@ -129,15 +129,15 @@ const Dashboard = () => {
                 >
                   <stat.icon className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   {stat.label}
                 </span>
               </div>
-              <div className="text-3xl font-bold text-slate-900 mb-2">
+              <div className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
                 {stat.value}
               </div>
-              <div className="text-sm flex items-center gap-1 text-slate-600">
-                {stat.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-600" />}
+              <div className="text-sm flex items-center gap-1 text-slate-600 dark:text-slate-400">
+                {stat.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                 {stat.change}
               </div>
             </div>
@@ -148,10 +148,10 @@ const Dashboard = () => {
       {/* Recent Projects */}
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">Recent Projects</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Recent Projects</h2>
           <button
             onClick={() => navigate('/projects')}
-            className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+            className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
           >
             View all →
           </button>
@@ -164,7 +164,7 @@ const Dashboard = () => {
                 key={project.project_id}
                 hover
                 onClick={() => navigate(`/projects/${project.project_id}`)}
-                className="cursor-pointer"
+                className="cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 style={{
                   animation: `slideInRight 0.6s ease-out ${index * 0.1}s both`,
                 }}
@@ -172,20 +172,20 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                         {project.title || 'Untitled Project'}
                       </h3>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
                           getProjectStatus(project) === 'Active'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-100 text-slate-800'
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300'
                         }`}
                       >
                         {getProjectStatus(project)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                    <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {project.start_date
@@ -196,8 +196,8 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-slate-500 mb-1">Total Allocation</div>
-                    <div className="text-xl font-bold text-slate-900">
+                    <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Total Allocation</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-white">
                       {formatCurrency(project.total_allocation || 0)}
                     </div>
                   </div>
@@ -205,9 +205,9 @@ const Dashboard = () => {
               </Card>
             ))
           ) : (
-            <Card className="text-center py-12">
-              <FolderOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-600">No projects yet. Create your first project!</p>
+            <Card className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <FolderOpen className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-600 dark:text-slate-400">No projects yet. Create your first project!</p>
             </Card>
           )}
         </div>
