@@ -17,6 +17,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useProject } from "../contexts/ProjectContext";
 import projectService from "../services/projectService";
+import fundsService from "../services/fundsService";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
 import Input from "../components/common/Input";
@@ -899,41 +900,54 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors([]);
-    setWarnings([]);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setErrors([]);
+  setWarnings([]);
 
-    if (!validateForm()) {
-      return;
+  if (!validateForm()) {
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const totalAmount = calculateTotalAmount();
+
+    const fundData = {
+      project_id: project.project_id,
+      head: formData.head,
+      amount: totalAmount,
+      date_received: formData.date_received,
+      remarks: formData.remarks,
+    };
+
+    // ✅ FIXED: Use correct method name
+    const fundResponse = await fundsService.createFund(fundData);
+
+    if (fundResponse.warnings) {
+      setWarnings(fundResponse.warnings);
     }
 
-    setLoading(true);
+    const fundId = fundResponse.fund_id;
 
-    try {
-      const totalAmount = calculateTotalAmount();
+    const breakdownErrors = [];
 
-      // ✅ FIXED: Use projectService instead of direct axios
-      const fundData = {
-        project_id: project.project_id,
-        head: formData.head,
-        amount: totalAmount,
-        date_received: formData.date_received,
-        remarks: formData.remarks,
-      };
+    // Debug logs
+    console.log("💰 Fund Data:", fundData);
+    console.log("👥 Manpower Breakdown:", manpowerBreakdown);
+    console.log("🆔 Fund ID:", fundId);
 
-      const fundResponse = await projectService.addFundsReceived(fundData);
-
-      if (fundResponse.warnings) {
-        setWarnings(fundResponse.warnings);
-      }
-
-      const fundId = fundResponse.fund_id;
-
-      // Create breakdown entries if applicable
-      if (formData.head === "manpower") {
-        for (const item of manpowerBreakdown) {
-          await projectService.addManpowerFundsBreakdown({
+    if (formData.head === "manpower") {
+      console.log(`📝 About to save ${manpowerBreakdown.length} breakdown entries`);
+      
+      for (let i = 0; i < manpowerBreakdown.length; i++) {
+        const item = manpowerBreakdown[i];
+        console.log("📤 Sending breakdown:", item);
+        
+        try {
+          // ✅ FIXED: Use correct method name
+          await fundsService.createManpowerFundsBreakdown({
             fund_id: fundId,
             project_id: project.project_id,
             role: item.role,
@@ -941,34 +955,58 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
             months: parseInt(item.months),
             num_personnel: parseInt(item.num_personnel),
           });
+          console.log("✅ Breakdown saved:", item.role);
+        } catch (error) {
+          console.error("❌ Breakdown failed:", item.role, error);
+          breakdownErrors.push(`Manpower entry ${i + 1} (${item.role}): ${error.message || error}`);
         }
-      } else if (formData.head === "equipment") {
-        for (const item of equipmentBreakdown) {
-          await projectService.addEquipmentFundsBreakdown({
+      }
+    } else if (formData.head === "equipment") {
+      for (let i = 0; i < equipmentBreakdown.length; i++) {
+        const item = equipmentBreakdown[i];
+        try {
+          // ✅ FIXED: Use correct method name
+          await fundsService.createEquipmentFundsBreakdown({
             fund_id: fundId,
             project_id: project.project_id,
             item_name: item.item_name,
             quantity: parseInt(item.quantity),
             unit_cost: parseFloat(item.unit_cost),
           });
+        } catch (error) {
+          console.error("❌ Equipment breakdown failed:", item.item_name, error);
+          breakdownErrors.push(`Equipment entry ${i + 1} (${item.item_name}): ${error.message || error}`);
         }
       }
-
-      // Show warnings if any, but still proceed
-      if (fundResponse.warnings && fundResponse.warnings.length > 0) {
-        setTimeout(() => {
-          onSuccess();
-        }, 2000);
-      } else {
-        onSuccess();
-      }
-    } catch (error) {
-      const errorMsg = error.response?.data?.detail || "Failed to record fund";
-      setErrors([errorMsg]);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // Show errors if any
+    if (breakdownErrors.length > 0) {
+      setErrors([
+        `Fund created but ${breakdownErrors.length} breakdown entries failed:`,
+        ...breakdownErrors
+      ]);
+      // Still refresh to show partial success
+      setTimeout(() => {
+        onSuccess();
+      }, 3000);
+    } else if (fundResponse.warnings && fundResponse.warnings.length > 0) {
+      setTimeout(() => {
+        onSuccess();
+      }, 2000);
+    } else {
+      onSuccess();
+    }
+
+  } catch (error) {
+    console.error("💥 Fund creation failed:", error);
+    console.error("💥 Error response:", error.response?.data);
+    const errorMsg = error.response?.data?.detail || "Failed to record fund";
+    setErrors([errorMsg]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const resetForm = () => {
     setFormData({
@@ -1377,7 +1415,7 @@ const AddFundModal = ({ isOpen, onClose, project, onSuccess }) => {
       </form>
     </Modal>
   );
-};
+}
 
 // ✅ FIXED: Add Expenditure Modal Component with proper routing to correct endpoints
 const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {

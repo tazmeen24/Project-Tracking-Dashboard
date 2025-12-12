@@ -2,7 +2,9 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import fundsService from '../../services/fundsService';
 
 const FundsTable = ({
   funds,
@@ -18,6 +20,9 @@ const FundsTable = ({
   const [expandedBreakdowns, setExpandedBreakdowns] = useState({});
   const [deleteModal, setDeleteModal] = useState({ show: false, fund: null });
   const [deleting, setDeleting] = useState(false);
+
+  // Only manpower and equipment should have breakdown dropdowns
+  const hasBreakdown = head === "manpower" || head === "equipment";
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
@@ -45,72 +50,76 @@ const FundsTable = ({
       head === "equipment" || breakdown[0]?.item_name !== undefined;
 
     return (
-      <div className="mt-4 space-y-6">
+      <div className="px-4 py-3 bg-gray-50">
         {/* Manpower Table */}
         {isManpower && (
-          <div className="border rounded-lg">
-            <div className="bg-gray-100 px-4 py-2 font-semibold">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">
               Manpower Breakdown
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="px-3 py-2 text-left">Role</th>
-                  <th className="px-3 py-2 text-left">Salary/Month</th>
-                  <th className="px-3 py-2 text-left">Months</th>
-                  <th className="px-3 py-2 text-left">Personnel</th>
-                  <th className="px-3 py-2 text-left">Total Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakdown.map((m, idx) => (
-                  <tr key={idx} className="border-t">
-                    <td className="px-3 py-2">{m.role}</td>
-                    <td className="px-3 py-2">
-                      ₹{m.salary_per_month?.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2">{m.months}</td>
-                    <td className="px-3 py-2">{m.num_personnel}</td>
-                    <td className="px-3 py-2">
-                      ₹{m.total_amount?.toLocaleString()}
-                    </td>
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Role</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Salary/Month</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Months</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Personnel</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {breakdown.map((m, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{m.role}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700">
+                        {formatCurrency(m.salary_per_month)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700">{m.months}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700">{m.num_personnel}</td>
+                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">
+                        {formatCurrency(m.total_amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* Equipment Table */}
         {isEquipment && (
-          <div className="border rounded-lg">
-            <div className="bg-gray-100 px-4 py-2 font-semibold">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">
               Equipment Breakdown
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="px-3 py-2 text-left">Item</th>
-                  <th className="px-3 py-2 text-left">Qty</th>
-                  <th className="px-3 py-2 text-left">Unit Cost</th>
-                  <th className="px-3 py-2 text-left">Total Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakdown.map((e, idx) => (
-                  <tr key={idx} className="border-t">
-                    <td className="px-3 py-2">{e.item_name}</td>
-                    <td className="px-3 py-2">{e.quantity}</td>
-                    <td className="px-3 py-2">
-                      ₹{e.unit_cost?.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2">
-                      ₹{e.total_amount?.toLocaleString()}
-                    </td>
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Item</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Qty</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Unit Cost</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {breakdown.map((e, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{e.item_name}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700">{e.quantity}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700">
+                        {formatCurrency(e.unit_cost)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">
+                        {formatCurrency(e.total_amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -118,6 +127,9 @@ const FundsTable = ({
   };
 
   const handleBreakdownToggle = async (fundId) => {
+    // Only toggle if this budget head has breakdowns
+    if (!hasBreakdown) return;
+
     if (!expandedBreakdowns[fundId]) {
       // Expanding - fetch breakdown if not cached
       if (!breakdownCache[fundId]) {
@@ -144,33 +156,48 @@ const FundsTable = ({
 
     setDeleting(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        `http://localhost:8000/funds/received/${deleteModal.fund.fund_id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // Use service method
+      await fundsService.deleteFund(deleteModal.fund.fund_id);
 
-      if (!res.ok) {
-        throw new Error("Failed to delete fund");
-      }
-
-      // Success - close modal and refresh
       setDeleteModal({ show: false, fund: null });
       onRefresh();
     } catch (err) {
       console.error("Error deleting fund:", err);
-      alert("Failed to delete fund. Please try again.");
+      alert(err.message || "Failed to delete fund. Please try again.");
     } finally {
       setDeleting(false);
     }
   };
 
-  const hasBreakdown = (head) => {
-    return head === "manpower" || head === "equipment";
+  const getFundRowSummary = (fund) => {
+    // Show breakdown count inline for manpower/equipment
+    if (hasBreakdown) {
+      const breakdownCount = breakdownCache[fund.fund_id]?.length || 0;
+      return (
+        <div>
+          <div className="font-medium text-gray-900">{formatCurrency(fund.amount)}</div>
+          {breakdownCount > 0 && (
+            <div className="text-xs text-blue-600 mt-1">
+              {breakdownCount} item{breakdownCount !== 1 ? 's' : ''} breakdown
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // For other budget heads, just show amount
+    return (
+      <div className="font-medium text-gray-900">{formatCurrency(fund.amount)}</div>
+    );
   };
+
+  if (!funds || funds.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        No funds received yet
+      </div>
+    );
+  }
 
   return (
     <>
@@ -178,18 +205,18 @@ const FundsTable = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-2 py-3 w-6"></th>
+              {/* Only show expand column if budget head has breakdowns */}
+              {hasBreakdown && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
+                  {/* Expand icon column */}
+                </th>
+              )}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Date Received
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Amount
               </th>
-              {hasBreakdown(head) && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Breakdown
-                </th>
-              )}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Remarks
               </th>
@@ -201,100 +228,77 @@ const FundsTable = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {funds.map((fund) => (
-              <React.Fragment key={fund.fund_id}>
-                <tr
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleBreakdownToggle(fund.fund_id)}
-                >
-                  {/* ARROW COLUMN */}
-                  <td
-                    className="px-2 py-3 w-6 text-lg select-none"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleBreakdownToggle(fund.fund_id);
-                    }}
+            {funds.map((fund) => {
+              const isExpanded = expandedBreakdowns[fund.fund_id];
+              
+              return (
+                <React.Fragment key={fund.fund_id}>
+                  <tr
+                    className={hasBreakdown ? "hover:bg-gray-50 cursor-pointer" : "hover:bg-gray-50"}
+                    onClick={() => hasBreakdown && handleBreakdownToggle(fund.fund_id)}
                   >
-                    {hasBreakdown(head)
-                      ? expandedBreakdowns[fund.fund_id]
-                        ? "▼"
-                        : "▶"
-                      : null}
-                  </td>
+                    {/* Only show expand icon for manpower/equipment */}
+                    {hasBreakdown && (
+                      <td className="px-4 py-3 text-sm">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-gray-600" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        )}
+                      </td>
+                    )}
 
-                  {/* DATE */}
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {formatDate(fund.date_received)}
-                  </td>
-
-                  {/* AMOUNT */}
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                    {formatCurrency(fund.amount)}
-                  </td>
-
-                  {/* BREAKDOWN COUNT */}
-                  {hasBreakdown(head) && (
-                    <td
-                      className="px-4 py-3 text-sm cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBreakdownToggle(fund.fund_id);
-                      }}
-                    >
-                      {breakdownCache[fund.fund_id] &&
-                      breakdownCache[fund.fund_id].length > 0 ? (
-                        <span className="text-blue-600 font-medium">
-                          {breakdownCache[fund.fund_id].length} items
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 italic">—</span>
-                      )}
+                    {/* DATE */}
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {formatDate(fund.date_received)}
                     </td>
-                  )}
 
-                  {/* REMARKS */}
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {fund.remarks || "-"}
-                  </td>
-
-                  {/* ACTIONS */}
-                  {canEdit && (
-                    <td className="px-4 py-3 text-right text-sm">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditFund({ ...fund, head });
-                        }}
-                        className="text-blue-600 hover:text-blue-800 mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteClick(fund);
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
+                    {/* AMOUNT */}
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {getFundRowSummary(fund)}
                     </td>
-                  )}
-                </tr>
 
-                {/* Breakdown Row */}
-                {expandedBreakdowns[fund.fund_id] && (
-                  <tr>
-                    <td colSpan="100%" className="bg-gray-50 px-6 py-4">
-                      {renderBreakdownTables(
-                        breakdownCache[fund.fund_id],
-                        head
-                      )}
+                    {/* REMARKS */}
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {fund.remarks || "-"}
                     </td>
+
+                    {/* ACTIONS */}
+                    {canEdit && (
+                      <td className="px-4 py-3 text-right text-sm">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditFund({ ...fund, head });
+                          }}
+                          className="text-blue-600 hover:text-blue-800 mr-3"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(fund);
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                )}
-              </React.Fragment>
-            ))}
+
+                  {/* FIXED: Only render breakdown row for manpower/equipment */}
+                  {hasBreakdown && isExpanded && (
+                    <tr>
+                      <td colSpan={canEdit ? 5 : 4} className="p-0">
+                        {renderBreakdownTables(breakdownCache[fund.fund_id], head)}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

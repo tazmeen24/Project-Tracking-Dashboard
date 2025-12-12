@@ -166,17 +166,18 @@ class AnalyticsService:
             traceback.print_exc()
             funds_utilization_rate = 0.0
         
-        # Average Time to First Funds
+        # Average Time to First Funds - FIXED: Use AGE function instead of direct subtraction
         time_to_funds_query = """
         SELECT 
-            AVG(EXTRACT(DAY FROM (fr.date_received - p.start_date))) as avg_days
+            AVG(EXTRACT(DAY FROM AGE(fr.date_received, p.start_date))) as avg_days
         FROM projects p
         INNER JOIN (
             SELECT project_id, MIN(date_received) as date_received
             FROM funds_received
             GROUP BY project_id
         ) fr ON p.project_id = fr.project_id
-        WHERE p.start_date IS NOT NULL;
+        WHERE p.start_date IS NOT NULL 
+            AND fr.date_received IS NOT NULL;
         """
         
         try:
@@ -305,6 +306,7 @@ class AnalyticsService:
         """Get projects with low funds balance"""
         cursor = self.conn.cursor()
         
+        # FIXED: Changed to use principal_investigator column from investigators table
         query = """
         WITH project_budgets AS (
             SELECT 
@@ -335,19 +337,12 @@ class AnalyticsService:
                 SELECT project_id, amount FROM budget_expenditure
             ) all_exp
             GROUP BY project_id
-        ),
-        project_pi AS (
-            SELECT DISTINCT ON (project_id)
-                project_id,
-                name as pi_name
-            FROM investigators
-            WHERE role = 'PI'
         )
         SELECT 
             pb.project_id,
             pb.project_no,
             pb.title,
-            COALESCE(ppi.pi_name, 'N/A') as pi_name,
+            COALESCE(i.principal_investigator, 'N/A') as pi_name,
             pb.total_budget,
             COALESCE(pf.total_funds, 0) as total_funds,
             COALESCE(pe.total_exp, 0) as total_exp,
@@ -361,7 +356,7 @@ class AnalyticsService:
         FROM project_budgets pb
         LEFT JOIN project_funds pf ON pb.project_id = pf.project_id
         LEFT JOIN project_expenditure pe ON pb.project_id = pe.project_id
-        LEFT JOIN project_pi ppi ON pb.project_id = ppi.project_id
+        LEFT JOIN investigators i ON pb.project_id = i.project_id
         WHERE pb.total_budget > 0 
             AND ((COALESCE(pf.total_funds, 0) - COALESCE(pe.total_exp, 0)) * 100.0 / pb.total_budget) < %s
         ORDER BY funds_balance_pct ASC;

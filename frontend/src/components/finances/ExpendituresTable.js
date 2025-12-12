@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import projectService from '../../services/projectService';
 
 const ExpendituresTable = ({
   expenditures,
@@ -17,6 +18,9 @@ const ExpendituresTable = ({
   const [deleteModal, setDeleteModal] = useState({ show: false, expenditure: null });
   const [deleting, setDeleting] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+
+  // FIXED: Only manpower and equipment should have breakdown dropdowns
+  const hasBreakdown = head === 'manpower' || head === 'equipment';
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -36,6 +40,9 @@ const ExpendituresTable = ({
   };
 
   const toggleRowExpansion = (key) => {
+    // Only toggle if this budget head has breakdowns
+    if (!hasBreakdown) return;
+    
     setExpandedRows(prev => ({
       ...prev,
       [key]: !prev[key]
@@ -83,20 +90,11 @@ const ExpendituresTable = ({
       let url;
       
       if (head === 'manpower') {
-        url = `http://localhost:8000/manpower/${deleteModal.expenditure.manpower_id}`;
+        await projectService.deleteManpower(deleteModal.expenditure.manpower_id);
       } else if (head === 'equipment') {
-        url = `http://localhost:8000/equipment/${deleteModal.expenditure.equipment_id}`;
+        await projectService.deleteEquipment(deleteModal.expenditure.equipment_id);
       } else {
-        url = `http://localhost:8000/expenditure/${deleteModal.expenditure.expenditure_id}`;
-      }
-
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete expenditure');
+        await projectService.deleteExpenditure(deleteModal.expenditure.expenditure_id);
       }
 
       setDeleteModal({ show: false, expenditure: null });
@@ -215,49 +213,13 @@ const ExpendituresTable = ({
     );
   };
 
-  // Render breakdown for other expenditures
-  const renderOtherBreakdown = (exp) => {
-    return (
-      <div className="px-4 py-3 bg-gray-50">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Description</p>
-            <p className="text-sm text-gray-900 mt-1">{exp.description || '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Amount</p>
-            <p className="text-sm font-semibold text-gray-900 mt-1">{formatCurrency(exp.amount)}</p>
-          </div>
-          {exp.vendor && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase">Vendor</p>
-              <p className="text-sm text-gray-900 mt-1">{exp.vendor}</p>
-            </div>
-          )}
-          {exp.invoice_number && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase">Invoice Number</p>
-              <p className="text-sm text-gray-900 mt-1">{exp.invoice_number}</p>
-            </div>
-          )}
-        </div>
-        {exp.justification && (
-          <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-gray-700">
-            <strong>Justification:</strong> {exp.justification}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderBreakdown = (exp) => {
     if (head === 'equipment') {
       return renderEquipmentBreakdown(exp);
     } else if (head === 'manpower') {
       return renderManpowerBreakdown(exp);
-    } else {
-      return renderOtherBreakdown(exp);
     }
+    return null;
   };
 
   const getRowSummary = (exp) => {
@@ -280,12 +242,15 @@ const ExpendituresTable = ({
         </div>
       );
     } else {
+      // For other budget heads, show all details inline
       return (
         <div>
           <div className="font-medium text-gray-900">{exp.description || 'Expenditure'}</div>
-          {exp.vendor && (
-            <div className="text-xs text-gray-500">Vendor: {exp.vendor}</div>
-          )}
+          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+            {exp.vendor && <div>Vendor: {exp.vendor}</div>}
+            {exp.invoice_number && <div>Invoice: {exp.invoice_number}</div>}
+            {exp.justification && <div>Justification: {exp.justification}</div>}
+          </div>
         </div>
       );
     }
@@ -305,9 +270,12 @@ const ExpendituresTable = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
-                {/* Expand icon column */}
-              </th>
+              {/* Only show expand column if budget head has breakdowns */}
+              {hasBreakdown && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
+                  {/* Expand icon column */}
+                </th>
+              )}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Date
               </th>
@@ -332,16 +300,19 @@ const ExpendituresTable = ({
               return (
                 <React.Fragment key={uniqueKey}>
                   <tr 
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => toggleRowExpansion(uniqueKey)}
+                    className={hasBreakdown ? "hover:bg-gray-50 cursor-pointer" : "hover:bg-gray-50"}
+                    onClick={() => hasBreakdown && toggleRowExpansion(uniqueKey)}
                   >
-                    <td className="px-4 py-3 text-sm">
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-gray-600" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-600" />
-                      )}
-                    </td>
+                    {/* FIXED: Only show expand icon for manpower/equipment */}
+                    {hasBreakdown && (
+                      <td className="px-4 py-3 text-sm">
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-gray-600" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {getExpenditureDate(exp)}
                     </td>
@@ -371,7 +342,8 @@ const ExpendituresTable = ({
                       </td>
                     )}
                   </tr>
-                  {isExpanded && (
+                  {/* FIXED: Only render breakdown row for manpower/equipment */}
+                  {hasBreakdown && isExpanded && (
                     <tr>
                       <td colSpan={canEdit ? 5 : 4} className="p-0">
                         {renderBreakdown(exp)}

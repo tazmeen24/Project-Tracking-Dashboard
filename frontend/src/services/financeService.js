@@ -1,25 +1,19 @@
 // frontend/src/services/financeService.js
 
 import api from './api';
-import fundsService from './fundsService';
-import expenditureService from './expenditureService';
 
 /**
- * Finance Service
- * Unified service for all finance operations
- * Combines funds and expenditure services with convenience methods
+ * Finance Service - Standalone
+ * Handles all finance-related API calls with proper URL encoding
+ * FIXED: Added encodeURIComponent() for head parameter to handle "travel & training"
  */
 
 const financeService = {
-  // Re-export individual services for direct access
-  funds: fundsService,
-  expenditure: expenditureService,
-
-  // ==================== COMBINED OPERATIONS ====================
+  // ==================== SUMMARY & ORGANIZED DATA ====================
 
   /**
    * Get complete financial summary for a project
-   * Fetches all 4 summary endpoints in parallel
+   * Fetches all summary endpoints in parallel
    * @param {number} projectId - Project ID
    * @returns {Promise<Object>} Complete financial summary
    */
@@ -31,10 +25,10 @@ const financeService = {
         equipmentSummary,
         manpowerSummary
       ] = await Promise.all([
-        fundsService.getFundsSummary(projectId),
-        expenditureService.getExpenditureSummary(projectId),
-        expenditureService.getEquipmentSummary(projectId),
-        expenditureService.getManpowerSummary(projectId)
+        api.get(`/funds/received/project/${projectId}/summary`),
+        api.get(`/expenditure/project/${projectId}/summary`),
+        api.get(`/equipment/project/${projectId}/summary`),
+        api.get(`/manpower/project/${projectId}/summary`)
       ]);
 
       return {
@@ -47,56 +41,6 @@ const financeService = {
       console.error('Error fetching complete financial summary:', error);
       throw error;
     }
-  },
-
-  /**
-   * Get financial details for a specific budget head
-   * Fetches both funds and expenditures for the head
-   * @param {number} projectId - Project ID
-   * @param {string} head - Budget head name
-   * @returns {Promise<Object>} Funds and expenditures for the head
-   */
-  getFinancialDetailsByHead: async (projectId, head) => {
-    try {
-      let funds, expenditures;
-
-      if (head === 'manpower') {
-        [funds, expenditures] = await Promise.all([
-          fundsService.getFundsByProject(projectId, 'manpower'),
-          expenditureService.getManpowerByProject(projectId)
-        ]);
-      } else if (head === 'equipment') {
-        [funds, expenditures] = await Promise.all([
-          fundsService.getFundsByProject(projectId, 'equipment'),
-          expenditureService.getEquipmentByProject(projectId)
-        ]);
-      } else {
-        // consumables, contingency, travel & training, overhead
-        [funds, expenditures] = await Promise.all([
-          fundsService.getFundsByProject(projectId, head),
-          expenditureService.getExpendituresByProject(projectId, head)
-        ]);
-      }
-
-      return { funds, expenditures };
-    } catch (error) {
-      console.error(`Error fetching financial details for ${head}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Calculate balance for a budget head
-   * @param {Array} funds - Funds array
-   * @param {Array} expenditures - Expenditures array
-   * @returns {number} Balance (funds - expenditures)
-   */
-  calculateBalance: (funds, expenditures) => {
-    const totalFunds = funds.reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
-    const totalExp = expenditures.reduce((sum, e) => 
-      sum + parseFloat(e.total_cost || e.amount || 0), 0
-    );
-    return totalFunds - totalExp;
   },
 
   /**
@@ -155,16 +99,182 @@ const financeService = {
   },
 
   /**
+   * Get financial details for a specific budget head
+   * Fetches both funds and expenditures for the head
+   * CRITICAL FIX: Uses encodeURIComponent for head parameter
+   * @param {number} projectId - Project ID
+   * @param {string} head - Budget head name (e.g., "travel & training")
+   * @returns {Promise<Object>} Funds and expenditures for the head
+   */
+  getFinancialDetailsByHead: async (projectId, head) => {
+    try {
+      let funds, expenditures;
+
+      // CRITICAL: URL-encode the head parameter to handle "travel & training"
+      const encodedHead = encodeURIComponent(head);
+
+      if (head === 'manpower') {
+        [funds, expenditures] = await Promise.all([
+          api.get(`/funds/received/project/${projectId}?head=${encodedHead}`),
+          api.get(`/manpower/project/${projectId}`)
+        ]);
+      } else if (head === 'equipment') {
+        [funds, expenditures] = await Promise.all([
+          api.get(`/funds/received/project/${projectId}?head=${encodedHead}`),
+          api.get(`/equipment/project/${projectId}`)
+        ]);
+      } else {
+        // consumables, contingency, travel & training, overhead
+        [funds, expenditures] = await Promise.all([
+          api.get(`/funds/received/project/${projectId}?head=${encodedHead}`),
+          api.get(`/expenditure/project/${projectId}?head=${encodedHead}`)
+        ]);
+      }
+
+      return { funds, expenditures };
+    } catch (error) {
+      console.error(`Error fetching financial details for "${head}":`, error);
+      throw error;
+    }
+  },
+
+  // ==================== FUNDS OPERATIONS ====================
+
+  /**
    * Get fund with breakdown
    * Fetches fund details including breakdown items
    * @param {number} fundId - Fund ID
    * @returns {Promise<Object>} Fund with breakdown
    */
   getFundWithBreakdown: async (fundId) => {
-    return fundsService.getFundById(fundId);
+    return api.get(`/funds/received/${fundId}`);
+  },
+
+  /**
+   * Create new fund received record
+   * @param {Object} fundData - Fund data
+   * @returns {Promise<Object>} Created fund
+   */
+  createFund: async (fundData) => {
+    return api.post('/funds/received', fundData);
+  },
+
+  /**
+   * Update fund received record
+   * @param {number} fundId - Fund ID
+   * @param {Object} updateData - Fields to update
+   * @returns {Promise<Object>} Updated fund
+   */
+  updateFund: async (fundId, updateData) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`http://localhost:8000/funds/received/${fundId}`, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateData)
+    });
+    if (!response.ok) throw new Error('Failed to update fund');
+    return response.json();
+  },
+
+  /**
+   * Delete fund received record
+   * @param {number} fundId - Fund ID
+   * @returns {Promise<void>}
+   */
+  deleteFund: async (fundId) => {
+    return api.delete(`/funds/received/${fundId}`);
+  },
+
+  /**
+   * Delete fund breakdown by fund_id (deletes ALL breakdown items for a fund)
+   */
+  deleteFundBreakdown: async (fundId) => {
+    const token = localStorage.getItem('token');
+    
+    // Fetch the fund first to get breakdown IDs
+    const fund = await financeService.getFundWithBreakdown(fundId);
+    
+    if (fund.breakdown && fund.breakdown.length > 0) {
+      // Delete each breakdown item
+      for (const item of fund.breakdown) {
+        const endpoint = fund.head === 'manpower' 
+          ? `/funds/breakdown/manpower/${item.breakdown_id}`
+          : `/funds/breakdown/equipment/${item.breakdown_id}`;
+        
+        await fetch(`http://localhost:8000${endpoint}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+    }
+  },
+
+  // ==================== EXPENDITURE OPERATIONS ====================
+
+  /**
+   * Create new expenditure (manpower, equipment, or other)
+   * @param {Object} expenditureData - Expenditure data
+   * @param {string} type - 'manpower', 'equipment', or 'other'
+   * @returns {Promise<Object>} Created expenditure
+   */
+  createExpenditure: async (expenditureData, type = 'other') => {
+    const endpoint = type === 'manpower' 
+      ? '/manpower' 
+      : type === 'equipment' 
+        ? '/equipment' 
+        : '/expenditure';
+    return api.post(endpoint, expenditureData);
+  },
+
+  /**
+   * Update expenditure
+   * @param {number} expenditureId - Expenditure ID
+   * @param {Object} updateData - Fields to update
+   * @param {string} type - 'manpower', 'equipment', or 'other'
+   * @returns {Promise<Object>} Updated expenditure
+   */
+  updateExpenditure: async (expenditureId, updateData, type = 'other') => {
+    const endpoint = type === 'manpower' 
+      ? `/manpower/${expenditureId}` 
+      : type === 'equipment' 
+        ? `/equipment/${expenditureId}` 
+        : `/expenditure/${expenditureId}`;
+    return api.put(endpoint, updateData);
+  },
+
+  /**
+   * Delete expenditure
+   * @param {number} expenditureId - Expenditure ID
+   * @param {string} type - 'manpower', 'equipment', or 'other'
+   * @returns {Promise<void>}
+   */
+  deleteExpenditure: async (expenditureId, type = 'other') => {
+    const endpoint = type === 'manpower' 
+      ? `/manpower/${expenditureId}` 
+      : type === 'equipment' 
+        ? `/equipment/${expenditureId}` 
+        : `/expenditure/${expenditureId}`;
+    return api.delete(endpoint);
   },
 
   // ==================== HELPER METHODS ====================
+
+  /**
+   * Calculate balance for a budget head
+   * @param {Array} funds - Funds array
+   * @param {Array} expenditures - Expenditures array
+   * @returns {number} Balance (funds - expenditures)
+   */
+  calculateBalance: (funds, expenditures) => {
+    const totalFunds = funds.reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
+    const totalExp = expenditures.reduce((sum, e) => 
+      sum + parseFloat(e.total_cost || e.amount || 0), 0
+    );
+    return totalFunds - totalExp;
+  },
 
   /**
    * Validate if user can edit finances
@@ -201,50 +311,6 @@ const financeService = {
     if (balance < totalFunds * 0.1) return 'warning';
     return 'healthy';
   },
-
-  // Add to financeService object:
-
-/**
- * Update fund
- */
-  updateFund: async (fundId, data) => {
-  const token = localStorage.getItem('token');
-  const response = await fetch(`http://localhost:8000/funds/received/${fundId}`, {
-    method: 'PUT',
-    headers: { 
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-  if (!response.ok) throw new Error('Failed to update fund');
-  return response.json();
-},
-
-/**
- * Delete fund breakdown by fund_id (deletes ALL breakdown items for a fund)
- */
-deleteFundBreakdown: async (fundId) => {
-  const token = localStorage.getItem('token');
-  
-  // We need to fetch the fund first to get breakdown IDs
-  const fund = await financeService.getFundWithBreakdown(fundId);
-  
-  if (fund.breakdown && fund.breakdown.length > 0) {
-    // Delete each breakdown item
-    for (const item of fund.breakdown) {
-      const endpoint = fund.head === 'manpower' 
-        ? `/funds/breakdown/manpower/${item.breakdown_id}`
-        : `/funds/breakdown/equipment/${item.breakdown_id}`;
-      
-      await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    }
-  }
-},
-
 };
 
 export default financeService;

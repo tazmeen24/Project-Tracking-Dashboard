@@ -17,19 +17,19 @@ import json
 
 from ..database import get_db_connection, validate_foreign_key
 from ..utils.json_encoder import DecimalEncoder
+from ..models.budget import (
+    FundsReceivedCreate,
+    FundsReceivedUpdate,
+    ManpowerFundsBreakdownCreate,
+    EquipmentFundsBreakdownCreate
+)
 
 router = APIRouter(prefix="/funds", tags=["Funds"])
 
 # ==================== FUNDS RECEIVED CRUD ====================
 
 @router.post("/received", status_code=status.HTTP_201_CREATED)
-async def create_funds_received(
-    project_id: int,
-    head: str,
-    amount: float,
-    date_received: date,
-    remarks: Optional[str] = None
-):
+async def create_funds_received(data: FundsReceivedCreate):
     """
     Create funds received record
     
@@ -38,12 +38,12 @@ async def create_funds_received(
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            validate_foreign_key("projects", "project_id", project_id, conn)
+            validate_foreign_key("projects", "project_id", data.project_id, conn)
             
-            # Validate head
+            # Validate head (already done in Pydantic model, but keep for safety)
             valid_heads = ['manpower', 'equipment', 'consumables', 'contingency', 
                           'travel & training', 'overhead']
-            if head not in valid_heads:
+            if data.head not in valid_heads:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid head. Must be one of: {', '.join(valid_heads)}"
@@ -52,17 +52,22 @@ async def create_funds_received(
             # Optional: Validate against project dates
             cur.execute(
                 "SELECT start_date, end_date FROM projects WHERE project_id = %s",
-                (project_id,)
+                (data.project_id,)
             )
             project = cur.fetchone()
-            if project and project['start_date'] and date_received < project['start_date']:
+            
+            # Convert date_received string to date object
+            from datetime import datetime
+            date_received_obj = datetime.strptime(data.date_received, '%Y-%m-%d').date()
+            
+            if project and project['start_date'] and date_received_obj < project['start_date']:
                 # Just a warning, don't block
                 pass
             
             cur.execute(
                 """INSERT INTO funds_received (project_id, head, amount, date_received, remarks)
                    VALUES (%s, %s, %s, %s, %s) RETURNING *""",
-                (project_id, head, amount, date_received, remarks)
+                (data.project_id, data.head, data.amount, date_received_obj, data.remarks)
             )
             result = cur.fetchone()
             conn.commit()
@@ -157,13 +162,7 @@ async def get_project_funds_received(
 
 
 @router.put("/received/{fund_id}", status_code=status.HTTP_200_OK)
-async def update_funds_received(
-    fund_id: int,
-    head: Optional[str] = None,
-    amount: Optional[float] = None,
-    date_received: Optional[date] = None,
-    remarks: Optional[str] = None
-):
+async def update_funds_received(fund_id: int, data: FundsReceivedUpdate):
     """Update funds received record"""
     conn = get_db_connection()
     try:
@@ -183,28 +182,30 @@ async def update_funds_received(
             update_fields = []
             values = []
             
-            if head is not None:
+            if data.head is not None:
                 valid_heads = ['manpower', 'equipment', 'consumables', 'contingency', 
                               'travel & training', 'overhead']
-                if head not in valid_heads:
+                if data.head not in valid_heads:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid head. Must be one of: {', '.join(valid_heads)}"
                     )
                 update_fields.append("head = %s")
-                values.append(head)
+                values.append(data.head)
             
-            if amount is not None:
+            if data.amount is not None:
                 update_fields.append("amount = %s")
-                values.append(amount)
+                values.append(data.amount)
             
-            if date_received is not None:
+            if data.date_received is not None:
+                from datetime import datetime
+                date_received_obj = datetime.strptime(data.date_received, '%Y-%m-%d').date()
                 update_fields.append("date_received = %s")
-                values.append(date_received)
+                values.append(date_received_obj)
             
-            if remarks is not None:
+            if data.remarks is not None:
                 update_fields.append("remarks = %s")
-                values.append(remarks)
+                values.append(data.remarks)
             
             if not update_fields:
                 raise HTTPException(
@@ -213,10 +214,7 @@ async def update_funds_received(
                 )
             
             values.append(fund_id)
-            query = f"""UPDATE funds_received 
-                       SET {', '.join(update_fields)} 
-                       WHERE fund_id = %s 
-                       RETURNING *"""
+            query = f"UPDATE funds_received SET {', '.join(update_fields)} WHERE fund_id = %s RETURNING *"
             
             cur.execute(query, values)
             result = cur.fetchone()
@@ -236,7 +234,7 @@ async def update_funds_received(
 
 @router.delete("/received/{fund_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_funds_received(fund_id: int):
-    """Delete funds received record (will cascade delete breakdowns)"""
+    """Delete funds received record"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -244,14 +242,11 @@ async def delete_funds_received(fund_id: int):
                 "DELETE FROM funds_received WHERE fund_id = %s RETURNING *",
                 (fund_id,)
             )
-            result = cur.fetchone()
-            
-            if not result:
+            if not cur.fetchone():
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Funds record not found"
                 )
-            
             conn.commit()
             return None
             
@@ -268,26 +263,20 @@ async def delete_funds_received(fund_id: int):
 # ==================== MANPOWER FUNDS BREAKDOWN ====================
 
 @router.post("/breakdown/manpower", status_code=status.HTTP_201_CREATED)
-async def create_manpower_funds_breakdown(
-    fund_id: int,
-    project_id: int,
-    role: str,
-    salary_per_month: float,
-    months: int,
-    num_personnel: int = 1
-):
+async def create_manpower_funds_breakdown(data: ManpowerFundsBreakdownCreate):
     """Create manpower funds breakdown"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            validate_foreign_key("funds_received", "fund_id", fund_id, conn)
-            validate_foreign_key("projects", "project_id", project_id, conn)
+            validate_foreign_key("funds_received", "fund_id", data.fund_id, conn)
+            validate_foreign_key("projects", "project_id", data.project_id, conn)
             
             cur.execute(
                 """INSERT INTO manpower_funds_breakdown 
                    (fund_id, project_id, role, salary_per_month, months, num_personnel)
                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
-                (fund_id, project_id, role, salary_per_month, months, num_personnel)
+                (data.fund_id, data.project_id, data.role, data.salary_per_month, 
+                 data.months, data.num_personnel)
             )
             result = cur.fetchone()
             conn.commit()
@@ -354,25 +343,19 @@ async def delete_manpower_funds_breakdown(breakdown_id: int):
 # ==================== EQUIPMENT FUNDS BREAKDOWN ====================
 
 @router.post("/breakdown/equipment", status_code=status.HTTP_201_CREATED)
-async def create_equipment_funds_breakdown(
-    fund_id: int,
-    project_id: int,
-    item_name: str,
-    quantity: int,
-    unit_cost: float
-):
+async def create_equipment_funds_breakdown(data: EquipmentFundsBreakdownCreate):
     """Create equipment funds breakdown"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            validate_foreign_key("funds_received", "fund_id", fund_id, conn)
-            validate_foreign_key("projects", "project_id", project_id, conn)
+            validate_foreign_key("funds_received", "fund_id", data.fund_id, conn)
+            validate_foreign_key("projects", "project_id", data.project_id, conn)
             
             cur.execute(
                 """INSERT INTO equipment_funds_breakdown 
                    (fund_id, project_id, item_name, quantity, unit_cost)
                    VALUES (%s, %s, %s, %s, %s) RETURNING *""",
-                (fund_id, project_id, item_name, quantity, unit_cost)
+                (data.fund_id, data.project_id, data.item_name, data.quantity, data.unit_cost)
             )
             result = cur.fetchone()
             conn.commit()
