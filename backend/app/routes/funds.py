@@ -1,8 +1,8 @@
-# backend/app/routes/funds_validation.py
+# backend/app/routes/funds.py
 
 """
-FUNDS VALIDATION ENDPOINTS
-Provides validation data for frontend to check before creating funds/expenditures
+FUNDS AND VALIDATION ENDPOINTS
+Handles funds received, validation data, and summary endpoints
 """
 
 from fastapi import APIRouter, HTTPException, status
@@ -13,12 +13,13 @@ import json
 from ..database import get_db_connection
 from ..utils.json_encoder import DecimalEncoder
 
-router = APIRouter(prefix="/funds/validation", tags=["Funds Validation"])
+# Changed prefix from "/funds/validation" to "/funds" to match frontend calls
+router = APIRouter(prefix="/funds", tags=["Funds"])
 
 
 # ==================== BUDGET HEAD STATUS ====================
 
-@router.get("/budget-status/{project_id}/{head}", status_code=status.HTTP_200_OK)
+@router.get("/validation/budget-status/{project_id}/{head}", status_code=status.HTTP_200_OK)
 async def get_budget_head_status(project_id: int, head: str):
     """
     Get budget head status for validation
@@ -47,7 +48,7 @@ async def get_budget_head_status(project_id: int, head: str):
                     "head": head,
                     "allocated_budget": 0,
                     "total_funds_received": 0,
-                    "total_expenditure": 0,
+                   "total_expenditure": 0,
                     "available_to_fund": 0,
                     "available_to_spend": 0,
                     "message": "No budget allocated for this head"
@@ -96,7 +97,7 @@ async def get_budget_head_status(project_id: int, head: str):
 
 # ==================== MANPOWER USAGE ====================
 
-@router.get("/manpower-usage/{project_id}/{role}", status_code=status.HTTP_200_OK)
+@router.get("/validation/manpower-usage/{project_id}/{role}", status_code=status.HTTP_200_OK)
 async def get_manpower_usage(project_id: int, role: str):
     """
     Get manpower usage for a specific role
@@ -187,7 +188,7 @@ async def get_manpower_usage(project_id: int, role: str):
 
 # ==================== EQUIPMENT USAGE ====================
 
-@router.get("/equipment-usage/{project_id}/{item_name}", status_code=status.HTTP_200_OK)
+@router.get("/validation/equipment-usage/{project_id}/{item_name}", status_code=status.HTTP_200_OK)
 async def get_equipment_usage(project_id: int, item_name: str):
     """
     Get equipment usage for a specific item
@@ -275,7 +276,7 @@ async def get_equipment_usage(project_id: int, item_name: str):
 
 # ==================== PROJECT FINANCIAL SUMMARY ====================
 
-@router.get("/project-summary/{project_id}", status_code=status.HTTP_200_OK)
+@router.get("/validation/project-summary/{project_id}", status_code=status.HTTP_200_OK)
 async def get_project_financial_summary(project_id: int):
     """
     Get complete project financial summary
@@ -374,7 +375,7 @@ async def get_project_financial_summary(project_id: int):
 
 # ==================== VALIDATION HELPERS ====================
 
-@router.post("/validate-fund/{project_id}", status_code=status.HTTP_200_OK)
+@router.post("/validation/validate-fund/{project_id}", status_code=status.HTTP_200_OK)
 async def validate_fund_creation(project_id: int, fund_data: dict):
     """
     Validate fund creation request
@@ -447,7 +448,7 @@ async def validate_fund_creation(project_id: int, fund_data: dict):
         conn.close()
 
 
-@router.post("/validate-expenditure/{project_id}", status_code=status.HTTP_200_OK)
+@router.post("/validation/validate-expenditure/{project_id}", status_code=status.HTTP_200_OK)
 async def validate_expenditure_creation(project_id: int, expenditure_data: dict):
     """
     Validate expenditure creation request
@@ -514,6 +515,454 @@ async def validate_expenditure_creation(project_id: int, expenditure_data: dict)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Validation failed: {str(e)}"
+        )
+    finally:
+        conn.close()
+
+# ==================== CREATE, UPDATE, DELETE FUNDS ====================
+
+@router.post("/received", status_code=status.HTTP_201_CREATED)
+async def create_fund(fund_data: dict):
+    """Create a new fund received record with optional breakdown"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO funds_received (project_id, head, amount, date_received, remarks)
+                   VALUES (%s, %s, %s, %s, %s)
+                   RETURNING *""",
+                (fund_data['project_id'], fund_data['head'], fund_data['amount'],
+                 fund_data['date_received'], fund_data.get('remarks'))
+            )
+            fund = dict(cur.fetchone())
+            fund_id = fund['fund_id']
+            
+            breakdown = fund_data.get('breakdown', [])
+            fund['breakdown'] = []
+            
+            if fund_data['head'] == 'manpower' and breakdown:
+                for item in breakdown:
+                    cur.execute(
+                        """INSERT INTO manpower_funds_breakdown 
+                           (fund_id, project_id, role, salary_per_month, months, num_personnel)
+                           VALUES (%s, %s, %s, %s, %s, %s)
+                           RETURNING *""",
+                        (fund_id, fund_data['project_id'], item['role'], 
+                         item['salary_per_month'], item['months'], item['num_personnel'])
+                    )
+                    fund['breakdown'].append(dict(cur.fetchone()))
+                    
+            elif fund_data['head'] == 'equipment' and breakdown:
+                for item in breakdown:
+                    cur.execute(
+                        """INSERT INTO equipment_funds_breakdown 
+                           (fund_id, project_id, item_name, quantity, unit_cost)
+                           VALUES (%s, %s, %s, %s, %s)
+                           RETURNING *""",
+                        (fund_id, fund_data['project_id'], item['item_name'], 
+                         item['quantity'], item['unit_cost'])
+                    )
+                    fund['breakdown'].append(dict(cur.fetchone()))
+            
+            conn.commit()
+            return json.loads(json.dumps(fund, cls=DecimalEncoder))
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to create fund: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.put("/received/{fund_id}", status_code=status.HTTP_200_OK)
+async def update_fund(fund_id: int, update_data: dict):
+    """Update fund received record"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            update_fields = []
+            values = []
+            
+            for field in ['head', 'amount', 'date_received', 'remarks']:
+                if field in update_data:
+                    update_fields.append(f"{field} = %s")
+                    values.append(update_data[field])
+            
+            if not update_fields:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                  detail="No fields to update")
+            
+            values.append(fund_id)
+            query = f"UPDATE funds_received SET {', '.join(update_fields)} WHERE fund_id = %s RETURNING *"
+            
+            cur.execute(query, values)
+            result = cur.fetchone()
+            
+            if not result:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                  detail=f"Fund {fund_id} not found")
+            
+            conn.commit()
+            return json.loads(json.dumps(dict(result), cls=DecimalEncoder))
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to update fund: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.delete("/received/{fund_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_fund(fund_id: int):
+    """Delete fund received record"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM funds_received WHERE fund_id = %s", (fund_id,))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                  detail=f"Fund {fund_id} not found")
+            conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to delete fund: {str(e)}")
+    finally:
+        conn.close()
+
+
+# ==================== MANPOWER FUNDS BREAKDOWN ====================
+
+@router.get("/breakdown/manpower/project/{project_id}", status_code=status.HTTP_200_OK)
+async def get_manpower_funds_breakdown(project_id: int):
+    """Get all manpower funds breakdown for a project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM manpower_funds_breakdown 
+                   WHERE project_id = %s 
+                   ORDER BY fund_id, role""",
+                (project_id,)
+            )
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to fetch manpower breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.post("/breakdown/manpower", status_code=status.HTTP_201_CREATED)
+async def create_manpower_funds_breakdown(breakdown_data: dict):
+    """Create manpower funds breakdown"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO manpower_funds_breakdown 
+                   (fund_id, project_id, role, salary_per_month, months, num_personnel)
+                   VALUES (%s, %s, %s, %s, %s, %s)
+                   RETURNING *""",
+                (breakdown_data['fund_id'], breakdown_data['project_id'],
+                 breakdown_data['role'], breakdown_data['salary_per_month'],
+                 breakdown_data['months'], breakdown_data['num_personnel'])
+            )
+            result = dict(cur.fetchone())
+            conn.commit()
+            return json.loads(json.dumps(result, cls=DecimalEncoder))
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to create breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.delete("/breakdown/manpower/{breakdown_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_manpower_funds_breakdown(breakdown_id: int):
+    """Delete manpower funds breakdown"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM manpower_funds_breakdown WHERE breakdown_id = %s",
+                       (breakdown_id,))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                  detail=f"Breakdown {breakdown_id} not found")
+            conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to delete breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+# ==================== EQUIPMENT FUNDS BREAKDOWN ====================
+
+@router.get("/breakdown/equipment/project/{project_id}", status_code=status.HTTP_200_OK)
+async def get_equipment_funds_breakdown(project_id: int):
+    """Get all equipment funds breakdown for a project"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM equipment_funds_breakdown 
+                   WHERE project_id = %s 
+                   ORDER BY fund_id, item_name""",
+                (project_id,)
+            )
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to fetch equipment breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.post("/breakdown/equipment", status_code=status.HTTP_201_CREATED)
+async def create_equipment_funds_breakdown(breakdown_data: dict):
+    """Create equipment funds breakdown"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO equipment_funds_breakdown 
+                   (fund_id, project_id, item_name, quantity, unit_cost)
+                   VALUES (%s, %s, %s, %s, %s)
+                   RETURNING *""",
+                (breakdown_data['fund_id'], breakdown_data['project_id'],
+                 breakdown_data['item_name'], breakdown_data['quantity'],
+                 breakdown_data['unit_cost'])
+            )
+            result = dict(cur.fetchone())
+            conn.commit()
+            return json.loads(json.dumps(result, cls=DecimalEncoder))
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to create breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.delete("/breakdown/equipment/{breakdown_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_equipment_funds_breakdown(breakdown_id: int):
+    """Delete equipment funds breakdown"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM equipment_funds_breakdown WHERE breakdown_id = %s",
+                       (breakdown_id,))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                  detail=f"Breakdown {breakdown_id} not found")
+            conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                          detail=f"Failed to delete breakdown: {str(e)}")
+    finally:
+        conn.close()
+
+
+# ==================== GET FUNDS BY PROJECT ====================
+
+@router.get("/received/{fund_id}", status_code=status.HTTP_200_OK)
+async def get_fund_by_id(fund_id: int):
+    """
+    Get a single fund by fund_id, including breakdown if manpower/equipment
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Get the fund
+            cur.execute(
+                """SELECT *
+                   FROM funds_received
+                   WHERE fund_id = %s""",
+                (fund_id,)
+            )
+            fund = cur.fetchone()
+            
+            if not fund:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Fund {fund_id} not found"
+                )
+            
+            fund = dict(fund)
+            
+            # Get breakdown if manpower or equipment
+            if fund['head'] == 'manpower':
+                cur.execute(
+                    """SELECT *
+                       FROM manpower_funds_breakdown
+                       WHERE fund_id = %s
+                       ORDER BY role""",
+                    (fund_id,)
+                )
+                fund['breakdown'] = [dict(row) for row in cur.fetchall()]
+                
+            elif fund['head'] == 'equipment':
+                cur.execute(
+                    """SELECT *
+                       FROM equipment_funds_breakdown
+                       WHERE fund_id = %s
+                       ORDER BY item_name""",
+                    (fund_id,)
+                )
+                fund['breakdown'] = [dict(row) for row in cur.fetchall()]
+            else:
+                fund['breakdown'] = []
+            
+            return json.loads(json.dumps(fund, cls=DecimalEncoder))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch fund: {str(e)}"
+        )
+    finally:
+        conn.close()
+
+@router.get("/received/project/{project_id}", status_code=status.HTTP_200_OK)
+async def get_funds_by_project(project_id: int, head: str = None):
+    """
+    Get all funds received for a project, optionally filtered by budget head
+    
+    For manpower and equipment, includes breakdown details from respective breakdown tables
+    
+    Query params:
+    - head: Optional budget head filter
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if head:
+                # Get funds for specific head
+                cur.execute(
+                    """SELECT *
+                       FROM funds_received
+                       WHERE project_id = %s AND head = %s
+                       ORDER BY date_received DESC""",
+                    (project_id, head)
+                )
+                funds = [dict(row) for row in cur.fetchall()]
+                
+                # If manpower or equipment, fetch breakdown details for each fund
+                if head == 'manpower':
+                    for fund in funds:
+                        cur.execute(
+                            """SELECT *
+                               FROM manpower_funds_breakdown
+                               WHERE fund_id = %s
+                               ORDER BY role""",
+                            (fund['fund_id'],)
+                        )
+                        fund['breakdown'] = [dict(row) for row in cur.fetchall()]
+                        
+                elif head == 'equipment':
+                    for fund in funds:
+                        cur.execute(
+                            """SELECT *
+                               FROM equipment_funds_breakdown
+                               WHERE fund_id = %s
+                               ORDER BY item_name""",
+                            (fund['fund_id'],)
+                        )
+                        fund['breakdown'] = [dict(row) for row in cur.fetchall()]
+                
+                return json.loads(json.dumps(funds, cls=DecimalEncoder))
+            else:
+                # Get all funds for project (no head filter)
+                cur.execute(
+                    """SELECT *
+                       FROM funds_received
+                       WHERE project_id = %s
+                       ORDER BY date_received DESC""",
+                    (project_id,)
+                )
+                results = [dict(row) for row in cur.fetchall()]
+                return json.loads(json.dumps(results, cls=DecimalEncoder))
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch funds: {str(e)}"
+        )
+    finally:
+        conn.close()
+
+
+# ==================== SUMMARY ENDPOINTS ====================
+
+@router.get("/received/project/{project_id}/summary", status_code=status.HTTP_200_OK)
+async def get_project_funds_summary(project_id: int):
+    """
+    Get funds received summary by head for a project
+    
+    Returns total funds for each head
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT 
+                       head,
+                       COUNT(*) as transaction_count,
+                       SUM(amount) as total_amount,
+                       MIN(date_received) as earliest_date,
+                       MAX(date_received) as latest_date
+                   FROM funds_received 
+                   WHERE project_id = %s 
+                   GROUP BY head
+                   ORDER BY head""",
+                (project_id,)
+            )
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+            
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/validation/breakdown/summary/project/{project_id}", status_code=status.HTTP_200_OK)
+async def get_funds_breakdown_summary(project_id: int):
+    """
+    Get funds breakdown summary using the database view
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM funds_breakdown_summary 
+                   WHERE project_id = %s 
+                   ORDER BY head, breakdown_type""",
+                (project_id,)
+            )
+            results = [dict(row) for row in cur.fetchall()]
+            return json.loads(json.dumps(results, cls=DecimalEncoder))
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=str(e)
         )
     finally:
         conn.close()

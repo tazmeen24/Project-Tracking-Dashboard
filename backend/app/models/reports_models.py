@@ -2,6 +2,8 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
+from pydantic import BaseModel
+from typing import Dict
 
 class ReportLog(Base):
     __tablename__ = "report_logs"
@@ -15,3 +17,15 @@ class ReportLog(Base):
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
     file_size = Column(Integer, nullable=True)  # in bytes
     included_sections = Column(String(500), nullable=True)  # JSON string
+
+class ReportGenerationRequest(BaseModel):
+    reportType: str = "comprehensive"
+    format: str = "pdf"
+    includeSections: Dict[str, bool] = {
+        'financial_summary': True,
+        'budget_allocation': True,
+        'funds_expenditure': True,
+        'category_breakdown': True,
+        'detailed_transactions': False,
+        'charts': False
+    }

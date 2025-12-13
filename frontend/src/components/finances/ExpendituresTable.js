@@ -19,7 +19,6 @@ const ExpendituresTable = ({
   const [deleting, setDeleting] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
 
-  // FIXED: Only manpower and equipment should have breakdown dropdowns
   const hasBreakdown = head === 'manpower' || head === 'equipment';
 
   const formatCurrency = (amount) => {
@@ -40,7 +39,6 @@ const ExpendituresTable = ({
   };
 
   const toggleRowExpansion = (key) => {
-    // Only toggle if this budget head has breakdowns
     if (!hasBreakdown) return;
     
     setExpandedRows(prev => ({
@@ -86,9 +84,6 @@ const ExpendituresTable = ({
 
     setDeleting(true);
     try {
-      const token = localStorage.getItem('token');
-      let url;
-      
       if (head === 'manpower') {
         await projectService.deleteManpower(deleteModal.expenditure.manpower_id);
       } else if (head === 'equipment') {
@@ -115,30 +110,30 @@ const ExpendituresTable = ({
     return (
       <>
         Are you sure you want to delete this expenditure?
-        <div className="mt-2 p-3 bg-gray-100 rounded">
+        <div className="mt-2 p-3 bg-gray-100 dark:bg-slate-700 rounded">
           {head === 'manpower' && (
             <>
-              <p><strong>Role:</strong> {exp.role}</p>
-              <p><strong>Salary:</strong> {formatCurrency(exp.salary_per_month)}/month</p>
-              <p><strong>Duration:</strong> {exp.months} month{exp.months !== 1 ? 's' : ''}</p>
-              <p><strong>Personnel:</strong> {exp.num_personnel}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Role:</strong> {exp.role}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Salary:</strong> {formatCurrency(exp.salary_per_month)}/month</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Duration:</strong> {exp.months} month{exp.months !== 1 ? 's' : ''}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Personnel:</strong> {exp.num_personnel}</p>
             </>
           )}
           {head === 'equipment' && (
             <>
-              <p><strong>Item:</strong> {exp.name}</p>
-              <p><strong>Quantity:</strong> {exp.quantity}</p>
-              <p><strong>Unit Cost:</strong> {formatCurrency(exp.unit_cost)}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Item:</strong> {exp.name}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Quantity:</strong> {exp.quantity}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Unit Cost:</strong> {formatCurrency(exp.unit_cost)}</p>
             </>
           )}
           {head !== 'manpower' && head !== 'equipment' && (
             <>
-              <p><strong>Description:</strong> {exp.description || '-'}</p>
+              <p className="text-gray-900 dark:text-gray-100"><strong>Description:</strong> {exp.description || '-'}</p>
             </>
           )}
-          <p className="mt-2"><strong>Total Amount:</strong> {formatCurrency(getExpenditureAmount(exp))}</p>
+          <p className="mt-2 text-gray-900 dark:text-gray-100"><strong>Total Amount:</strong> {formatCurrency(getExpenditureAmount(exp))}</p>
         </div>
-        <p className="mt-2 text-red-600 font-semibold">This action cannot be undone.</p>
+        <p className="mt-2 text-red-600 dark:text-red-400 font-semibold">This action cannot be undone.</p>
       </>
     );
   };
@@ -146,30 +141,30 @@ const ExpendituresTable = ({
   // Render breakdown table for Equipment
   const renderEquipmentBreakdown = (exp) => {
     return (
-      <div className="px-4 py-3 bg-gray-50">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Equipment Breakdown</h4>
+      <div className="px-4 py-3 bg-gray-50 dark:bg-slate-900/50">
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Equipment Breakdown</h4>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+            <thead className="bg-gray-100 dark:bg-slate-700">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Item</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Qty</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Unit Cost</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Item</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Qty</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Unit Cost</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Total Cost</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
               <tr>
-                <td className="px-4 py-2 text-sm text-gray-900">{exp.name}</td>
-                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.quantity}</td>
-                <td className="px-4 py-2 text-sm text-right text-gray-700">{formatCurrency(exp.unit_cost)}</td>
-                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(exp.total_cost)}</td>
+                <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{exp.name}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{exp.quantity}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{formatCurrency(exp.unit_cost)}</td>
+                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(exp.total_cost)}</td>
               </tr>
             </tbody>
           </table>
         </div>
         {exp.justification && (
-          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-gray-700 dark:text-gray-300">
             <strong>Justification:</strong> {exp.justification}
           </div>
         )}
@@ -180,32 +175,32 @@ const ExpendituresTable = ({
   // Render breakdown table for Manpower
   const renderManpowerBreakdown = (exp) => {
     return (
-      <div className="px-4 py-3 bg-gray-50">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Manpower Breakdown</h4>
+      <div className="px-4 py-3 bg-gray-50 dark:bg-slate-900/50">
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Manpower Breakdown</h4>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+            <thead className="bg-gray-100 dark:bg-slate-700">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Role</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Salary/Month</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Months</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Personnel</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Role</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Salary/Month</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Months</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Personnel</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Total Cost</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
               <tr>
-                <td className="px-4 py-2 text-sm text-gray-900">{exp.role}</td>
-                <td className="px-4 py-2 text-sm text-right text-gray-700">{formatCurrency(exp.salary_per_month)}</td>
-                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.months}</td>
-                <td className="px-4 py-2 text-sm text-right text-gray-700">{exp.num_personnel}</td>
-                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(exp.total_cost)}</td>
+                <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{exp.role}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{formatCurrency(exp.salary_per_month)}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{exp.months}</td>
+                <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{exp.num_personnel}</td>
+                <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(exp.total_cost)}</td>
               </tr>
             </tbody>
           </table>
         </div>
         {exp.justification && (
-          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-gray-700 dark:text-gray-300">
             <strong>Justification:</strong> {exp.justification}
           </div>
         )}
@@ -226,8 +221,8 @@ const ExpendituresTable = ({
     if (head === 'manpower') {
       return (
         <div>
-          <div className="font-medium text-gray-900">{exp.role}</div>
-          <div className="text-xs text-gray-500">
+          <div className="font-medium text-gray-900 dark:text-gray-100">{exp.role}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {exp.num_personnel} personnel × {exp.months} months
           </div>
         </div>
@@ -235,18 +230,17 @@ const ExpendituresTable = ({
     } else if (head === 'equipment') {
       return (
         <div>
-          <div className="font-medium text-gray-900">{exp.name}</div>
-          <div className="text-xs text-gray-500">
+          <div className="font-medium text-gray-900 dark:text-gray-100">{exp.name}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             Qty: {exp.quantity} × {formatCurrency(exp.unit_cost)}
           </div>
         </div>
       );
     } else {
-      // For other budget heads, show all details inline
       return (
         <div>
-          <div className="font-medium text-gray-900">{exp.description || 'Expenditure'}</div>
-          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+          <div className="font-medium text-gray-900 dark:text-gray-100">{exp.description || 'Expenditure'}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-0.5">
             {exp.vendor && <div>Vendor: {exp.vendor}</div>}
             {exp.invoice_number && <div>Invoice: {exp.invoice_number}</div>}
             {exp.justification && <div>Justification: {exp.justification}</div>}
@@ -258,7 +252,7 @@ const ExpendituresTable = ({
 
   if (!expenditures || expenditures.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         No expenditures recorded yet
       </div>
     );
@@ -267,32 +261,31 @@ const ExpendituresTable = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+          <thead className="bg-gray-100 dark:bg-slate-700">
             <tr>
-              {/* Only show expand column if budget head has breakdowns */}
               {hasBreakdown && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider w-10">
                   {/* Expand icon column */}
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Date
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Details
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Amount
               </th>
               {canEdit && (
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
             {expenditures.map((exp, idx) => {
               const uniqueKey = getExpenditureKey(exp);
               const isExpanded = expandedRows[uniqueKey];
@@ -300,26 +293,25 @@ const ExpendituresTable = ({
               return (
                 <React.Fragment key={uniqueKey}>
                   <tr 
-                    className={hasBreakdown ? "hover:bg-gray-50 cursor-pointer" : "hover:bg-gray-50"}
+                    className={hasBreakdown ? "hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer" : "hover:bg-gray-50 dark:hover:bg-slate-700/50"}
                     onClick={() => hasBreakdown && toggleRowExpansion(uniqueKey)}
                   >
-                    {/* FIXED: Only show expand icon for manpower/equipment */}
                     {hasBreakdown && (
                       <td className="px-4 py-3 text-sm">
                         {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-gray-600" />
+                          <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                          <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         )}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                       {getExpenditureDate(exp)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       {getRowSummary(exp)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900 dark:text-gray-100">
                       {formatCurrency(getExpenditureAmount(exp))}
                     </td>
                     {canEdit && (
@@ -329,20 +321,19 @@ const ExpendituresTable = ({
                             e.stopPropagation();
                             onEditExpenditure({ ...exp, head });
                           }}
-                          className="text-blue-600 hover:text-blue-800 mr-3"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mr-3 transition-colors"
                         >
                           Edit
                         </button>
                         <button
                           onClick={(e) => handleDeleteClick(exp, e)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
                         >
                           Delete
                         </button>
                       </td>
                     )}
                   </tr>
-                  {/* FIXED: Only render breakdown row for manpower/equipment */}
                   {hasBreakdown && isExpanded && (
                     <tr>
                       <td colSpan={canEdit ? 5 : 4} className="p-0">

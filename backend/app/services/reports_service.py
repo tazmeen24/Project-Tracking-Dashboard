@@ -593,7 +593,7 @@ class PDFReportGenerator:
     
     @staticmethod
     def _build_html(data: Dict[str, Any], sections: Dict[str, bool]) -> str:
-        """Build complete HTML for report"""
+        """Build complete HTML for report - respects section selections"""
         
         project = data.get('project', {})
         financial_summary = data.get('financial_summary', {})
@@ -698,25 +698,41 @@ class PDFReportGenerator:
                     </tr>
                 </table>
             </div>
-            
-            <pdf:nextpage />
-            
-            <!-- Budget Allocation Section -->
-            {PDFReportGenerator._build_budget_table_simple(budget_allocation, funds_expenditure)}
-            
-            <!-- Manpower & Equipment Breakdown -->
-            {PDFReportGenerator._build_allocation_breakdowns_from_db(project)}
-            
-            <pdf:nextpage />
-            
-            <!-- Funds Received Section -->
-            {PDFReportGenerator._build_funds_received_breakdown(data.get('funds_received', {}))}
-            
-            <pdf:nextpage />
-            
-            <!-- Expenditure Section -->
-            {PDFReportGenerator._build_expenditure_breakdown(data.get('expenditures', {}))}
         """
+        
+        # CONDITIONAL SECTIONS BASED ON USER SELECTION
+        
+        # Financial Summary Section
+        if sections.get('financial_summary', False):
+            html += PDFReportGenerator._build_financial_summary(financial_summary)
+        
+        # Page break before budget sections
+        needs_page_break = sections.get('budget_allocation', False) or sections.get('funds_expenditure', False)
+        if needs_page_break:
+            html += '<pdf:nextpage />'
+        
+        # Budget Allocation Section
+        if sections.get('budget_allocation', False):
+            html += PDFReportGenerator._build_budget_table_simple(budget_allocation, funds_expenditure)
+            html += PDFReportGenerator._build_allocation_breakdowns_from_db(project)
+        
+        # Funds & Expenditure Section
+        if sections.get('funds_expenditure', False):
+            if sections.get('budget_allocation', False):  # Add page break only if previous section was included
+                html += '<pdf:nextpage />'
+            html += PDFReportGenerator._build_funds_received_breakdown(data.get('funds_received', {}))
+            html += '<pdf:nextpage />'
+            html += PDFReportGenerator._build_expenditure_breakdown(data.get('expenditures', {}))
+        
+        # Category Breakdown Section
+        if sections.get('category_breakdown', False):
+            html += '<pdf:nextpage />'
+            html += PDFReportGenerator._build_category_breakdown(budget_allocation, funds_expenditure)
+        
+        # Detailed Transactions Section
+        if sections.get('detailed_transactions', False):
+            html += '<pdf:nextpage />'
+            html += PDFReportGenerator._build_detailed_transactions(categories)
         
         html += """
         </body>

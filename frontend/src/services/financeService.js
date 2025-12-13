@@ -18,30 +18,30 @@ const financeService = {
    * @returns {Promise<Object>} Complete financial summary
    */
   getCompleteFinancialSummary: async (projectId) => {
-    try {
-      const [
-        fundsSummary,
-        expenditureSummary,
-        equipmentSummary,
-        manpowerSummary
-      ] = await Promise.all([
-        api.get(`/funds/received/project/${projectId}/summary`),
-        api.get(`/expenditure/project/${projectId}/summary`),
-        api.get(`/equipment/project/${projectId}/summary`),
-        api.get(`/manpower/project/${projectId}/summary`)
-      ]);
+  try {
+    const [
+      fundsSummary,
+      expenditureSummary,
+      equipmentSummary,
+      manpowerSummary
+    ] = await Promise.all([
+      api.get(`/funds/received/project/${projectId}/summary`),
+      api.get(`/expenditure/project/${projectId}/summary`),  
+      api.get(`/equipment/project/${projectId}/summary`),    
+      api.get(`/manpower/project/${projectId}/summary`)       
+    ]);
 
-      return {
-        funds: fundsSummary,
-        expenditure: expenditureSummary,
-        equipment: equipmentSummary,
-        manpower: manpowerSummary
-      };
-    } catch (error) {
-      console.error('Error fetching complete financial summary:', error);
-      throw error;
-    }
-  },
+    return {
+      funds: fundsSummary,
+      expenditure: expenditureSummary,
+      equipment: equipmentSummary,
+      manpower: manpowerSummary
+    };
+  } catch (error) {
+    console.error('Error fetching complete financial summary:', error);
+    throw error;
+  }
+},
 
   /**
    * Get organized summary by budget head

@@ -35,9 +35,9 @@ const ProjectDetailsFullPage = () => {
   // Use selectedProject directly from context
   const { selectedProject, fetchProjectById, loading, error } = useProject();
   const [expanded, setExpanded] = useState({
-  manpower: false,
-  equipment: false,
-});
+    manpower: false,
+    equipment: false,
+  });
 
   // Add state for actual expenditures
   const [actualExpenditures, setActualExpenditures] = useState({
@@ -187,8 +187,8 @@ const ProjectDetailsFullPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading project details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-300">Loading project details...</p>
         </div>
       </div>
     );
@@ -197,14 +197,14 @@ const ProjectDetailsFullPage = () => {
   if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-red-600" />
+            <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
             <div>
-              <h3 className="font-semibold text-red-900">
+              <h3 className="font-semibold text-red-900 dark:text-red-300">
                 Error Loading Project
               </h3>
-              <p className="text-red-700 mt-1">{error}</p>
+              <p className="text-red-700 dark:text-red-400 mt-1">{error}</p>
             </div>
           </div>
           <Button
@@ -224,16 +224,20 @@ const ProjectDetailsFullPage = () => {
   const status = getProjectStatus(project);
   const statusColors = {
     Active: {
-      bg: "bg-emerald-100",
-      text: "text-emerald-800",
+      bg: "bg-emerald-100 dark:bg-emerald-900/30",
+      text: "text-emerald-800 dark:text-emerald-300",
       icon: CheckCircle,
     },
     Completed: {
-      bg: "bg-slate-100",
-      text: "text-slate-800",
+      bg: "bg-slate-100 dark:bg-slate-700",
+      text: "text-slate-800 dark:text-slate-200",
       icon: CheckCircle,
     },
-    Upcoming: { bg: "bg-blue-100", text: "text-blue-800", icon: Calendar },
+    Upcoming: { 
+      bg: "bg-blue-100 dark:bg-blue-900/30", 
+      text: "text-blue-800 dark:text-blue-300", 
+      icon: Calendar 
+    },
   };
   const StatusIcon = statusColors[status]?.icon || CheckCircle;
 
@@ -241,26 +245,26 @@ const ProjectDetailsFullPage = () => {
     const isExpanded = expandedSections[sectionKey];
 
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <button
           onClick={() => toggleSection(sectionKey)}
-          className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
+          className="w-full flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-xl">
-              <Icon className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+              <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
           </div>
           {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
+            <ChevronUp className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
+            <ChevronDown className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           )}
         </button>
 
         {isExpanded && (
-          <div className="px-6 pb-6 border-t border-slate-100">{children}</div>
+          <div className="px-6 pb-6 border-t border-slate-100 dark:border-slate-700">{children}</div>
         )}
       </div>
     );
@@ -269,13 +273,13 @@ const ProjectDetailsFullPage = () => {
   const InfoRow = ({ label, value, icon: Icon }) => (
     <div className="flex items-start gap-3 py-3">
       {Icon && (
-        <div className="p-2 bg-slate-100 rounded-lg flex-shrink-0">
-          <Icon className="w-4 h-4 text-slate-600" />
+        <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg flex-shrink-0">
+          <Icon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
         </div>
       )}
       <div className="flex-1">
-        <div className="text-sm font-medium text-slate-500">{label}</div>
-        <div className="text-base text-slate-900 mt-1">{value || "N/A"}</div>
+        <div className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="text-base text-slate-900 dark:text-slate-100 mt-1">{value || "N/A"}</div>
       </div>
     </div>
   );
@@ -288,17 +292,17 @@ const ProjectDetailsFullPage = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate("/projects")}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Projects</span>
         </button>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-slate-900">
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
                   {project.title}
                 </h1>
                 <span
@@ -308,13 +312,13 @@ const ProjectDetailsFullPage = () => {
                   {status}
                 </span>
               </div>
-              <p className="text-slate-600 font-medium">{project.project_no}</p>
+              <p className="text-slate-600 dark:text-slate-400 font-medium">{project.project_no}</p>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(`/projects/${projectId}/reports`)}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
               >
                 <FileText size={18} />
                 <span>View Reports</span>
@@ -330,41 +334,42 @@ const ProjectDetailsFullPage = () => {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-6">
-            <div className="bg-blue-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-blue-600 mb-1">
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl p-4">
+              <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">
                 Total Budget
               </div>
-              <div className="text-2xl font-bold text-blue-900">
+              <div className="text-2xl font-bold text-blue-900 dark:text-blue-300">
                 {formatCurrency(getTotalBudget())}
               </div>
             </div>
-            <div className="bg-emerald-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-emerald-600 mb-1">
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl p-4">
+              <div className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">
                 Funds Received
               </div>
-              <div className="text-2xl font-bold text-emerald-900">
+              <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300">
                 {formatCurrency(getTotalFunds())}
               </div>
             </div>
-            <div className="bg-orange-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-orange-600 mb-1">
+            <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800 rounded-xl p-4">
+              <div className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">
                 Expenditure
               </div>
-              <div className="text-2xl font-bold text-orange-900">
+              <div className="text-2xl font-bold text-orange-900 dark:text-orange-300">
                 {formatCurrency(getTotalExpenditure())}
               </div>
             </div>
-            <div className="bg-purple-50 rounded-xl p-4">
-              <div className="text-sm font-medium text-purple-600 mb-1">
+            <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-xl p-4">
+              <div className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">
                 Balance
               </div>
-              <div className="text-2xl font-bold text-purple-900">
+              <div className="text-2xl font-bold text-purple-900 dark:text-purple-300">
                 {formatCurrency(getBalance())}
               </div>
             </div>
           </div>
         </div>
       </div>
+
       {/* Content Sections */}
       <div className="space-y-6">
         {/* Project Metadata */}
@@ -453,11 +458,11 @@ const ProjectDetailsFullPage = () => {
           <div className="mt-4 space-y-6">
             {/* Principal Investigator */}
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Principal Investigator
               </h3>
-              <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 grid grid-cols-2 gap-4">
                 <InfoRow
                   label="Name"
                   value={project.principal_investigator}
@@ -475,11 +480,11 @@ const ProjectDetailsFullPage = () => {
             {/* Co-Investigator */}
             {project.co_investigator && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-600" />
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   Co-Investigator
                 </h3>
-                <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 rounded-xl p-4 grid grid-cols-2 gap-4">
                   <InfoRow
                     label="Name"
                     value={project.co_investigator}
@@ -497,10 +502,7 @@ const ProjectDetailsFullPage = () => {
           </div>
         </CollapsibleSection>
 
-{/* ============================================================
-   Combined Budget Allocation Table with Expandable Breakdown Rows
-   ============================================================ */}
-
+{/* Budget Allocation & Expenditure */}
 <CollapsibleSection
   title="Budget Allocation & Expenditure"
   icon={DollarSign}
@@ -508,18 +510,17 @@ const ProjectDetailsFullPage = () => {
 >
   <div className="mt-4">
     <table className="w-full">
-      <thead className="bg-slate-50">
+      <thead className="bg-slate-50 dark:bg-slate-700/50">
         <tr>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Head</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Allocated</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Spent</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Spent (%)</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900">Balance</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-slate-100">Head</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Allocated</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Spent</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Spent (%)</th>
+          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Balance</th>
         </tr>
       </thead>
 
-      <tbody className="divide-y divide-slate-200">
-
+      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
         {[
           {
             label: "Manpower",
@@ -562,58 +563,58 @@ const ProjectDetailsFullPage = () => {
 
           return (
             <>
-              {/* ---------------- Main Row ---------------- */}
+              {/* Main Row */}
               <tr
                 key={index}
-                className={expandable ? "cursor-pointer hover:bg-slate-50" : ""}
+                className={expandable ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50" : ""}
                 onClick={() =>
                   expandable &&
                   setExpanded(prev => ({
                     ...prev,
-                  [item.type]: !prev[item.type],
-                }))
+                    [item.type]: !prev[item.type],
+                  }))
                 }
               >
-                <td className="px-4 py-3 text-slate-900 flex items-center gap-2">
+                <td className="px-4 py-3 text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   {expandable && (
-                    <span className="text-slate-500">
+                    <span className="text-slate-500 dark:text-slate-400">
                       {isExpanded ? "▼" : "▶"}
                     </span>
                   )}
                   {item.label}
                 </td>
 
-                <td className="px-4 py-3 text-right text-slate-900 font-semibold">
+                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100 font-semibold">
                   {formatCurrency(item.allocated || 0)}
                 </td>
 
-                <td className="px-4 py-3 text-right text-slate-900">
+                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
                   {formatCurrency(spent)}
                 </td>
 
-                <td className="px-4 py-3 text-right text-slate-900">
+                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
                   {percentSpent.toFixed(1)}%
                 </td>
 
                 <td
                   className={`px-4 py-3 text-right font-semibold ${
-                    balance >= 0 ? "text-emerald-600" : "text-red-600"
+                    balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {formatCurrency(balance)}
                 </td>
               </tr>
 
-              {/* ---------------- Manpower Breakdown ---------------- */}
+              {/* Manpower Breakdown */}
               {isExpanded &&
                 item.type === "manpower" &&
                 item.breakdown &&
                 item.breakdown.length > 0 && (
                   <tr>
-                    <td colSpan={5} className="bg-slate-50 px-6 py-4">
+                    <td colSpan={5} className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-slate-700">
+                          <tr className="text-slate-700 dark:text-slate-300">
                             <th className="text-left py-2">Role</th>
                             <th className="text-left py-2">Salary/Month</th>
                             <th className="text-left py-2">Months</th>
@@ -622,9 +623,9 @@ const ProjectDetailsFullPage = () => {
                           </tr>
                         </thead>
 
-                        <tbody className="divide-y divide-slate-200">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
                           {item.breakdown.map((row, i) => (
-                            <tr key={i}>
+                            <tr key={i} className="text-slate-900 dark:text-slate-100">
                               <td className="py-2">{row.role}</td>
                               <td className="py-2">
                                 {formatCurrency(row.salary_per_month)}
@@ -648,16 +649,16 @@ const ProjectDetailsFullPage = () => {
                   </tr>
                 )}
 
-              {/* ---------------- Equipment Breakdown ---------------- */}
+              {/* Equipment Breakdown */}
               {isExpanded &&
                 item.type === "equipment" &&
                 item.breakdown &&
                 item.breakdown.length > 0 && (
                   <tr>
-                    <td colSpan={5} className="bg-slate-50 px-6 py-4">
+                    <td colSpan={5} className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-slate-700">
+                          <tr className="text-slate-700 dark:text-slate-300">
                             <th className="text-left py-2">Item</th>
                             <th className="text-left py-2">Qty</th>
                             <th className="text-left py-2">Unit Cost</th>
@@ -666,9 +667,9 @@ const ProjectDetailsFullPage = () => {
                           </tr>
                         </thead>
 
-                        <tbody className="divide-y divide-slate-200">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
                           {item.breakdown.map((row, i) => (
-                            <tr key={i}>
+                            <tr key={i} className="text-slate-900 dark:text-slate-100">
                               <td className="py-2">{row.item_name}</td>
                               <td className="py-2">{row.quantity}</td>
                               <td className="py-2">
@@ -695,11 +696,11 @@ const ProjectDetailsFullPage = () => {
       </tbody>
     </table>
 
-    {/* ---------------- Total Budget Row ---------------- */}
-    <div className="bg-slate-900 rounded-xl p-6 flex items-center justify-between mt-6">
+    {/* Total Budget Row */}
+    <div className="bg-slate-900 dark:bg-slate-700 rounded-xl p-6 flex items-center justify-between mt-6">
       <div>
         <span className="text-white text-lg font-bold">Total Budget</span>
-        <div className="text-slate-300 text-sm mt-1">
+        <div className="text-slate-300 dark:text-slate-400 text-sm mt-1">
           Spent: {formatCurrency(getTotalExpenditure())} • Balance:
           {formatCurrency(getTotalBudget() - getTotalExpenditure())}
         </div>
@@ -712,8 +713,7 @@ const ProjectDetailsFullPage = () => {
   </div>
 </CollapsibleSection>
 
-
-        {/* ======================== FUNDS RECEIVED ======================== */}
+        {/* FUNDS RECEIVED */}
         {project.funds && project.funds.length > 0 && (
           <CollapsibleSection
             title="Funds Received"
@@ -723,38 +723,38 @@ const ProjectDetailsFullPage = () => {
             <div className="mt-6 space-y-8">
               {/* FUNDS MANPOWER BREAKDOWN */}
               {project.funds.some((f) => f.head === "manpower") && (
-                <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
                     Manpower
                   </div>
                   <table className="w-full">
-                    <thead className="bg-slate-100">
+                    <thead className="bg-slate-100 dark:bg-slate-700/50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                           Date
                         </th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                           Role
                         </th>
-                        <th className="px-4 py-3 text-center text-sm font-medium">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                           Salary/Month
                         </th>
-                        <th className="px-4 py-3 text-center text-sm font-medium">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                           Months
                         </th>
-                        <th className="px-4 py-3 text-center text-sm font-medium">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                           Personnel
                         </th>
-                        <th className="px-4 py-3 text-right text-sm font-medium">
+                        <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                           Total
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                       {project.funds
                         .filter((f) => f.head === "manpower")
                         .map((fund) => (
-                          <tr key={fund.fund_id}>
+                          <tr key={fund.fund_id} className="text-slate-900 dark:text-slate-100">
                             <td className="px-4 py-3 text-sm">
                               {new Date(fund.received_date).toLocaleDateString(
                                 "en-IN"
@@ -772,22 +772,22 @@ const ProjectDetailsFullPage = () => {
                             <td className="px-4 py-3 text-center">
                               {fund.breakdown.months}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-3text-center">
                               {fund.breakdown.num_personnel}
                             </td>
-                            <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
                               ₹{fund.amount.toLocaleString("en-IN")}
                             </td>
                           </tr>
                         ))}
-                      <tr className="bg-purple-50 font-bold">
+                      <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
                         <td
                           colSpan={5}
-                          className="px-4 py-3 text-purple-900 text-right"
+                          className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
                         >
                           Subtotal (Manpower)
                         </td>
-                        <td className="px-4 py-3 text-right text-purple-900">
+                        <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
                           ₹
                           {project.funds
                             .filter((f) => f.head === "manpower")
@@ -802,35 +802,35 @@ const ProjectDetailsFullPage = () => {
 
               {/* FUNDS EQUIPMENT BREAKDOWN */}
               {project.funds.some((f) => f.head === "equipment") && (
-                <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
                     Equipment
                   </div>
                   <table className="w-full">
-                    <thead className="bg-slate-100">
+                    <thead className="bg-slate-100 dark:bg-slate-700/50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                           Date
                         </th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                           Item
                         </th>
-                        <th className="px-4 py-3 text-center text-sm font-medium">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                           Qty
                         </th>
-                        <th className="px-4 py-3 text-center text-sm font-medium">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                           Unit Cost
                         </th>
-                        <th className="px-4 py-3 text-right text-sm font-medium">
+                        <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                           Total
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                       {project.funds
                         .filter((f) => f.head === "equipment")
                         .map((fund) => (
-                          <tr key={fund.fund_id}>
+                          <tr key={fund.fund_id} className="text-slate-900 dark:text-slate-100">
                             <td className="px-4 py-3 text-sm">
                               {new Date(fund.received_date).toLocaleDateString(
                                 "en-IN"
@@ -846,19 +846,19 @@ const ProjectDetailsFullPage = () => {
                               ₹
                               {fund.breakdown.unit_cost.toLocaleString("en-IN")}
                             </td>
-                            <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
                               ₹{fund.amount.toLocaleString("en-IN")}
                             </td>
                           </tr>
                         ))}
-                      <tr className="bg-purple-50 font-bold">
+                      <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
                         <td
                           colSpan={4}
-                          className="px-4 py-3 text-purple-900 text-right"
+                          className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
                         >
                           Subtotal (Equipment)
                         </td>
-                        <td className="px-4 py-3 text-right text-purple-900">
+                        <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
                           ₹
                           {project.funds
                             .filter((f) => f.head === "equipment")
@@ -871,7 +871,7 @@ const ProjectDetailsFullPage = () => {
                 </div>
               )}
 
-              {/* ============== OTHER HEADS ==== */}
+              {/* OTHER HEADS */}
               {[
                 "travel & training",
                 "consumables",
@@ -890,30 +890,30 @@ const ProjectDetailsFullPage = () => {
                 return (
                   <div
                     key={head}
-                    className="flex justify-between items-center py-3 border-b border-slate-200"
+                    className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700"
                   >
-                    <div className="text-slate-800 font-medium">
+                    <div className="text-slate-800 dark:text-slate-200 font-medium">
                       {displayName}
                     </div>
-                    <div className="font-semibold text-emerald-600">
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">
                       ₹{total.toLocaleString("en-IN")}
                     </div>
                   </div>
                 );
               })}
 
-              {/* ============== TOTAL FUNDS RECEIVED – BEAUTIFUL BOX ============== */}
-              <div className="bg-orange-50 rounded-xl p-6 border border-orange-200 mt-10">
+              {/* TOTAL FUNDS RECEIVED */}
+              <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-6 border border-orange-200 dark:border-orange-800 mt-10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="font-bold text-orange-900 text-lg">
-                      Total Funds Recieved
+                    <span className="font-bold text-orange-900 dark:text-orange-300 text-lg">
+                      Total Funds Received
                     </span>
-                    <div className="text-orange-700 text-sm mt-1">
+                    <div className="text-orange-700 dark:text-orange-400 text-sm mt-1">
                       Across all budget heads
                     </div>
                   </div>
-                  <span className="text-3xl font-bold text-orange-900">
+                  <span className="text-3xl font-bold text-orange-900 dark:text-orange-300">
                     ₹
                     {project.funds
                       .reduce((sum, f) => sum + f.amount, 0)
@@ -925,46 +925,46 @@ const ProjectDetailsFullPage = () => {
           </CollapsibleSection>
         )}
 
-        {/* ======================== EXPENDITURE ======================== */}
+        {/* EXPENDITURE */}
         <CollapsibleSection
           title="Expenditure"
           icon={TrendingDown}
           sectionKey="expenditure"
         >
           <div className="mt-6 space-y-8">
-            {/* ============== MANPOWER EXPENDITURE (Detailed Box) ============== */}
+            {/* MANPOWER EXPENDITURE */}
             {actualExpenditures.manpower_expenditures?.length > 0 && (
-              <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
                   Manpower Expenditure
                 </div>
                 <table className="w-full">
-                  <thead className="bg-slate-100">
+                  <thead className="bg-slate-100 dark:bg-slate-700/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         Date
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         Role
                       </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium">
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                         Salary/Month
                       </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium">
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                         Months
                       </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium">
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                         Personnel
                       </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium">
+                      <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                         Amount Spent
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {actualExpenditures.manpower_expenditures.map(
                       (exp, idx) => (
-                        <tr key={idx}>
+                        <tr key={idx} className="text-slate-900 dark:text-slate-100">
                           <td className="px-4 py-3 text-sm">
                             {exp.date_incurred
                               ? new Date(exp.date_incurred).toLocaleDateString(
@@ -985,20 +985,20 @@ const ProjectDetailsFullPage = () => {
                           <td className="px-4 py-3 text-center">
                             {exp.num_personnel || 1}
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                          <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
                             {formatCurrency(exp.total_cost)}
                           </td>
                         </tr>
                       )
                     )}
-                    <tr className="bg-purple-50 font-bold">
+                    <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
                       <td
                         colSpan={5}
-                        className="px-4 py-3 text-purple-900 text-right"
+                        className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
                       >
                         Subtotal (Manpower)
                       </td>
-                      <td className="px-4 py-3 text-right text-purple-900">
+                      <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
                         {formatCurrency(getExpenditureByHead("manpower"))}
                       </td>
                     </tr>
@@ -1007,36 +1007,36 @@ const ProjectDetailsFullPage = () => {
               </div>
             )}
 
-            {/* ============== EQUIPMENT EXPENDITURE (Detailed Box) ============== */}
+            {/* EQUIPMENT EXPENDITURE */}
             {actualExpenditures.equipment_expenditures?.length > 0 && (
-              <div className="border rounded-xl bg-white shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 font-semibold text-slate-900">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
                   Equipment Expenditure
                 </div>
                 <table className="w-full">
-                  <thead className="bg-slate-100">
+                  <thead className="bg-slate-100 dark:bg-slate-700/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         Purchase Date
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         Item
                       </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium">
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                         Qty
                       </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium">
+                      <th className="px-4 py-3 text-center text-sm font-medium text-slate-900 dark:text-slate-100">
                         Unit Cost
                       </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium">
+                      <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                         Amount Spent
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {actualExpenditures.equipment_expenditures.map(
                       (exp, idx) => (
-                        <tr key={idx}>
+                        <tr key={idx} className="text-slate-900 dark:text-slate-100">
                           <td className="px-4 py-3 text-sm">
                             {exp.purchase_date
                               ? new Date(exp.purchase_date).toLocaleDateString(
@@ -1051,20 +1051,20 @@ const ProjectDetailsFullPage = () => {
                           <td className="px-4 py-3 text-center">
                             ₹{(exp.unit_cost || 0).toLocaleString("en-IN")}
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                          <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
                             {formatCurrency(exp.total_cost)}
                           </td>
                         </tr>
                       )
                     )}
-                    <tr className="bg-purple-50 font-bold">
+                    <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
                       <td
                         colSpan={4}
-                        className="px-4 py-3 text-purple-900 text-right"
+                        className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
                       >
                         Subtotal (Equipment)
                       </td>
-                      <td className="px-4 py-3 text-right text-purple-900">
+                      <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
                         {formatCurrency(getExpenditureByHead("equipment"))}
                       </td>
                     </tr>
@@ -1073,7 +1073,7 @@ const ProjectDetailsFullPage = () => {
               </div>
             )}
 
-            {/* ============== OTHER HEADS – Simple One-Line Summaries ============== */}
+            {/* OTHER HEADS */}
             {(() => {
               const heads = {};
               actualExpenditures.budget_expenditures?.forEach((exp) => {
@@ -1096,12 +1096,12 @@ const ProjectDetailsFullPage = () => {
                 return (
                   <div
                     key={head}
-                    className="flex justify-between items-center py-3 border-b border-slate-200"
+                    className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700"
                   >
-                    <div className="text-slate-800 font-medium">
+                    <div className="text-slate-800 dark:text-slate-200 font-medium">
                       {displayName}
                     </div>
-                    <div className="font-semibold text-orange-600">
+                    <div className="font-semibold text-orange-600 dark:text-orange-400">
                       {formatCurrency(amount)}
                     </div>
                   </div>
@@ -1109,36 +1109,36 @@ const ProjectDetailsFullPage = () => {
               });
             })()}
 
-            {/* ============== NO EXPENDITURE MESSAGE ============== */}
+            {/* NO EXPENDITURE MESSAGE */}
             {!actualExpenditures.manpower_expenditures?.length &&
               !actualExpenditures.equipment_expenditures?.length &&
               !actualExpenditures.budget_expenditures?.length && (
-                <div className="text-center py-12 bg-slate-50 rounded-xl">
-                  <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium text-lg">
+                <div className="text-center py-12 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                  <AlertCircle className="w-16 h-16 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-600 dark:text-slate-300 font-medium text-lg">
                     No expenditures recorded yet
                   </p>
-                  <p className="text-slate-500 text-sm mt-2">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
                     Start adding expenses to track project spending
                   </p>
                 </div>
               )}
 
-            {/* ============== TOTAL EXPENDITURE – BEAUTIFUL ORANGE BOX ============== */}
+            {/* TOTAL EXPENDITURE */}
             {(actualExpenditures.manpower_expenditures?.length > 0 ||
               actualExpenditures.equipment_expenditures?.length > 0 ||
               actualExpenditures.budget_expenditures?.length > 0) && (
-              <div className="bg-orange-50 rounded-xl p-6 border border-orange-200 mt-10">
+              <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-6 border border-orange-200 dark:border-orange-800 mt-10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="font-bold text-orange-900 text-lg">
+                    <span className="font-bold text-orange-900 dark:text-orange-300 text-lg">
                       Total Expenditure
                     </span>
-                    <div className="text-orange-700 text-sm mt-1">
+                    <div className="text-orange-700 dark:text-orange-400 text-sm mt-1">
                       Across all budget heads
                     </div>
                   </div>
-                  <span className="text-3xl font-bold text-orange-900">
+                  <span className="text-3xl font-bold text-orange-900 dark:text-orange-300">
                     {formatCurrency(getTotalExpenditure())}
                   </span>
                 </div>

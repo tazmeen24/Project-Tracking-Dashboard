@@ -132,7 +132,6 @@ const AddEditProjectPage = () => {
         project_category: project.project_category || "sponsored",
         project_type: project.project_type || "PFMS",
         pfms_id: project.pfms_id || "",
-        // Convert to string to match select element value type
         technical_group_id: techGroupIdString,
         funding_agency_id: fundingAgencyIdString,
         funding_scheme: project.funding_scheme || "",
@@ -262,55 +261,68 @@ const AddEditProjectPage = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateStep(5)) return;
+  e.preventDefault();
+  
+  // Safety check: only submit if on the final review step
+  if (currentStep !== STEPS.length) {
+    console.warn('Form submission attempted from non-final step');
+    return;
+  }
+  
+  if (!validateStep(5)) return;
 
-    setLoading(true);
-    try {
-      const projectData = {
-        project_no: formData.project_no,
-        title: formData.title,
-        alias: formData.alias || null,
-        project_category: formData.project_category,
-        project_type: formData.project_type,
-        pfms_id: formData.pfms_id || null,
-        funding_agency_id: parseInt(formData.funding_agency_id),
-        technical_group_id: parseInt(formData.technical_group_id),
-        principal_investigator: formData.principal_investigator,
-        pi_email: formData.pi_email,
-        pi_mobile: formData.pi_mobile,
-        co_investigator: formData.co_investigator || null,
-        co_email: formData.co_email || null,
-        co_mobile: formData.co_mobile || null,
-        start_date: formData.start_date,
-        end_date: formData.end_date || null,
-        manpower_allocation: getTotalManpowerAllocation(),
-        equipment_allocation: getTotalEquipmentAllocation(),
-        travel_training_allocation: parseFloat(formData.travel_training_allocation) || 0,
-        consumables_allocation: parseFloat(formData.consumables_allocation) || 0,
-        contingency_allocation: parseFloat(formData.contingency_allocation) || 0,
-        overhead_allocation: parseFloat(formData.overhead_allocation) || 0,
-        manpower_breakdown: formData.manpower_breakdown.map((item) => ({
-          role: item.role,
-          salary_per_month: item.salary_per_month,
-          months: item.months,
-          num_personnel: item.num_personnel,
-          qualification: item.qualification || null,
-          experience_required: item.experience_required || null,
-        })),
-        equipment_breakdown: formData.equipment_breakdown.map((item) => ({
-          item_name: item.item_name,
-          quantity: item.quantity,
-          unit_cost: item.unit_cost,
-          description: item.description || null,
-          product_website: item.product_website || null,
-        })),
-      };
+  setLoading(true);
+  try {
+    const projectData = {
+      project_no: formData.project_no,
+      title: formData.title,
+      alias: formData.alias || null,
+      project_category: formData.project_category,
+      project_type: formData.project_type,
+      pfms_id: formData.pfms_id || null,
+      funding_agency_id: parseInt(formData.funding_agency_id),
+      technical_group_id: parseInt(formData.technical_group_id),
+      principal_investigator: formData.principal_investigator,
+      pi_email: formData.pi_email,
+      pi_mobile: formData.pi_mobile,
+      co_investigator: formData.co_investigator || null,
+      co_email: formData.co_email || null,
+      co_mobile: formData.co_mobile || null,
+      start_date: formData.start_date,
+      end_date: formData.end_date || null,
+      manpower_allocation: getTotalManpowerAllocation(),
+      equipment_allocation: getTotalEquipmentAllocation(),
+      travel_training_allocation: parseFloat(formData.travel_training_allocation) || 0,
+      consumables_allocation: parseFloat(formData.consumables_allocation) || 0,
+      contingency_allocation: parseFloat(formData.contingency_allocation) || 0,
+      overhead_allocation: parseFloat(formData.overhead_allocation) || 0,
+      manpower_breakdown: formData.manpower_breakdown.map((item) => ({
+        role: item.role,
+        salary_per_month: item.salary_per_month,
+        months: item.months,
+        num_personnel: item.num_personnel,
+        qualification: item.qualification || null,
+        experience_required: item.experience_required || null,
+      })),
+      equipment_breakdown: formData.equipment_breakdown.map((item) => ({
+        item_name: item.item_name,
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+        description: item.description || null,
+        product_website: item.product_website || null,
+      })),
+    };
 
-      if (isEditMode) {
-        await projectService.updateProject(projectId, projectData);
-        // FIXED: Update funding agency details in edit mode (assuming service has update method)
+    let createdProjectId;
+
+    if (isEditMode) {
+      await projectService.updateProject(projectId, projectData);
+      createdProjectId = projectId;
+      
+      // Update funding agency details for this project
+      if (formData.contact_person) {
         await projectService.updateFundingAgencyDetails({
+          project_id: createdProjectId, // Link to project, not just agency
           agency_id: parseInt(formData.funding_agency_id),
           contact_person: formData.contact_person,
           designation: formData.contact_designation || null,
@@ -322,35 +334,39 @@ const AddEditProjectPage = () => {
           bank_name: formData.bank_name || null,
           bank_account_no: formData.bank_account_no || null,
         });
-      } else {
-        await projectService.createProject(projectData);
-
-        // Create funding agency details only for new projects
-        if (formData.contact_person) {
-          await projectService.createFundingAgencyDetails({
-            agency_id: parseInt(formData.funding_agency_id),
-            contact_person: formData.contact_person,
-            designation: formData.contact_designation || null,
-            mobile: formData.contact_mobile || null,
-            email: formData.contact_email || null,
-            sanctioned_number: formData.sanctioned_number || null,
-            scheme: formData.funding_scheme || null,
-            cna_sub_agency: formData.cna_sub_agency || null,
-            bank_name: formData.bank_name || null,
-            bank_account_no: formData.bank_account_no || null,
-          });
-        }
       }
+    } else {
+      // Create project and get the new project ID
+      const result = await projectService.createProject(projectData);
+      createdProjectId = result.project_id; // Assuming API returns the created project ID
 
-      await refreshProjects();
-      navigate("/projects");
-    } catch (error) {
-      console.error("Error saving project:", error);
-      setErrors({ submit: error.message || "Failed to save project" });
-    } finally {
-      setLoading(false);
+      // Create funding agency details linked to this specific project
+      if (formData.contact_person) {
+        await projectService.createFundingAgencyDetails({
+          project_id: createdProjectId, // Link to the newly created project
+          agency_id: parseInt(formData.funding_agency_id),
+          contact_person: formData.contact_person,
+          designation: formData.contact_designation || null,
+          mobile: formData.contact_mobile || null,
+          email: formData.contact_email || null,
+          sanctioned_number: formData.sanctioned_number || null,
+          scheme: formData.funding_scheme || null,
+          cna_sub_agency: formData.cna_sub_agency || null,
+          bank_name: formData.bank_name || null,
+          bank_account_no: formData.bank_account_no || null,
+        });
+      }
     }
-  };
+
+    await refreshProjects();
+    navigate("/projects");
+  } catch (error) {
+    console.error("Error saving project:", error);
+    setErrors({ submit: error.message || "Failed to save project" });
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Manpower breakdown functions
   const addManpowerRow = () => {
@@ -453,22 +469,22 @@ const AddEditProjectPage = () => {
 
   if (loadingProjectData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading project data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-300">Loading project data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <button
           onClick={() => navigate("/projects")}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
+          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Projects</span>
@@ -476,10 +492,10 @@ const AddEditProjectPage = () => {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
               {isEditMode ? "Edit Project" : "Add New Project"}
             </h1>
-            <p className="text-slate-600 mt-1">
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
               {isEditMode
                 ? "Update project information"
                 : "Fill in the details to create a new project"}
@@ -489,54 +505,55 @@ const AddEditProjectPage = () => {
       </div>
 
       {/* Progress Steps */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          {STEPS.map((step, index) => (
-            <React.Fragment key={step.id}>
-              <button
-                onClick={() => handleStepClick(step.id)}
-                disabled={step.id > currentStep}
-                className={`flex items-center gap-3 transition-all ${
-                  step.id <= currentStep ? "cursor-pointer hover:scale-105" : "cursor-not-allowed opacity-50"
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
-                    currentStep === step.id
-                      ? "bg-blue-600 text-white shadow-lg scale-110"
-                      : currentStep > step.id
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-slate-100 text-slate-400"
-                  }`}
-                >
-                  {currentStep > step.id ? <Check className="w-5 h-5" /> : step.icon}
-                </div>
-                <div className="hidden md:block text-left">
-                  <div
-                    className={`text-sm font-semibold ${
-                      currentStep >= step.id ? "text-slate-900" : "text-slate-400"
-                    }`}
-                  >
-                    {step.title}
-                  </div>
-                  <div className="text-xs text-slate-500">Step {step.id}</div>
-                </div>
-              </button>
-              {index < STEPS.length - 1 && (
-                <div
-                  className={`flex-1 h-1 mx-4 rounded ${
-                    currentStep > step.id ? "bg-emerald-200" : "bg-slate-200"
-                  }`}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
+<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+  <div className="flex items-center justify-between">
+    {STEPS.map((step, index) => (
+      <React.Fragment key={step.id}>
+        <button
+          type="button"  // ← ADD THIS!
+          onClick={() => handleStepClick(step.id)}
+          disabled={step.id > currentStep}
+          className={`flex items-center gap-3 transition-all ${
+            step.id <= currentStep ? "cursor-pointer hover:scale-105" : "cursor-not-allowed opacity-50"
+          }`}
+        >
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
+              currentStep === step.id
+                ? "bg-blue-600 dark:bg-blue-500 text-white shadow-lg scale-110"
+                : currentStep > step.id
+                ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
+            }`}
+          >
+            {currentStep > step.id ? <Check className="w-5 h-5" /> : step.icon}
+          </div>
+          <div className="hidden md:block text-left">
+            <div
+              className={`text-sm font-semibold ${
+                currentStep >= step.id ? "text-slate-900 dark:text-slate-100" : "text-slate-400 dark:text-slate-500"
+              }`}
+            >
+              {step.title}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Step {step.id}</div>
+          </div>
+        </button>
+        {index < STEPS.length - 1 && (
+          <div
+            className={`flex-1 h-1 mx-4 rounded ${
+              currentStep > step.id ? "bg-emerald-200 dark:bg-emerald-800" : "bg-slate-200 dark:bg-slate-700"
+            }`}
+          />
+        )}
+      </React.Fragment>
+    ))}
+  </div>
+</div>
 
       {/* Form Content */}
       <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mb-6">
           {/* Step 1: Project Metadata */}
           {currentStep === 1 && (
             <Step1ProjectMetadata
@@ -617,15 +634,15 @@ const AddEditProjectPage = () => {
           )}
 
           {errors.submit && (
-            <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <p className="text-red-800">{errors.submit}</p>
+            <div className="mt-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <p className="text-red-800 dark:text-red-300">{errors.submit}</p>
             </div>
           )}
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <Button
             type="button"
             variant="outline"
@@ -636,7 +653,7 @@ const AddEditProjectPage = () => {
             Previous
           </Button>
 
-          <div className="text-sm text-slate-600">
+          <div className="text-sm text-slate-600 dark:text-slate-400">
             Step {currentStep} of {STEPS.length}
           </div>
 
@@ -664,7 +681,7 @@ const Step1ProjectMetadata = ({
   technicalGroups,
 }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 mb-6">Project Metadata</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Project Metadata</h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -694,13 +711,13 @@ const Step1ProjectMetadata = ({
 
     <div className="grid grid-cols-2 gap-6">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Project Category <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
+          Project Category <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={formData.project_category}
           onChange={(e) => handleChange("project_category", e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
         >
           <option value="sponsored">Sponsored</option>
           <option value="non-sponsored">Non-Sponsored</option>
@@ -708,13 +725,13 @@ const Step1ProjectMetadata = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Project Type <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
+          Project Type <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={formData.project_type}
           onChange={(e) => handleChange("project_type", e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
         >
           {formData.project_category === "sponsored" ? (
             <>
@@ -742,15 +759,15 @@ const Step1ProjectMetadata = ({
 
     <div className="grid grid-cols-2 gap-6">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Technical Group / Department <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
+          Technical Group / Department <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={formData.technical_group_id}
           onChange={(e) => {
             handleChange("technical_group_id", e.target.value);
           }}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
         >
           <option value="">Select a group...</option>
           {technicalGroups.map((group) => {
@@ -762,18 +779,18 @@ const Step1ProjectMetadata = ({
           })}
         </select>
         {errors.technical_group_id && (
-          <p className="mt-1 text-sm text-red-600">{errors.technical_group_id}</p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.technical_group_id}</p>
         )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Funding Agency <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
+          Funding Agency <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={formData.funding_agency_id}
           onChange={(e) => handleChange("funding_agency_id", e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
         >
           <option value="">Select an agency...</option>
           {fundingAgencies.map((agency) => (
@@ -783,7 +800,7 @@ const Step1ProjectMetadata = ({
           ))}
         </select>
         {errors.funding_agency_id && (
-          <p className="mt-1 text-sm text-red-600">{errors.funding_agency_id}</p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.funding_agency_id}</p>
         )}
       </div>
     </div>
@@ -796,7 +813,7 @@ const Step2FundingAgency = ({
   handleChange,
 }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 mb-6">Funding Agency Details</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Funding Agency Details</h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -878,10 +895,10 @@ const Step3Investigators = ({
   handleChange,
 }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 mb-6">Investigators</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Investigators</h2>
 
-    <div className="bg-slate-50 rounded-xl p-6 mb-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4">Principal Investigator</h3>
+    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 mb-6 border border-slate-200 dark:border-slate-600">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Principal Investigator</h3>
       <div className="grid grid-cols-3 gap-4">
         <Input
           label="Name"
@@ -911,8 +928,8 @@ const Step3Investigators = ({
       </div>
     </div>
 
-    <div className="bg-slate-50 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4">Co-Investigator (Optional)</h3>
+    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Co-Investigator (Optional)</h3>
       <div className="grid grid-cols-3 gap-4">
         <Input
           label="Name"
@@ -946,7 +963,7 @@ const Step4Timeline = ({
   handleChange,
 }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 mb-6">Timeline</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Timeline</h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -966,8 +983,8 @@ const Step4Timeline = ({
     </div>
 
     {formData.start_date && formData.end_date && (
-      <div className="bg-blue-50 p-4 rounded-xl">
-        <p className="text-sm text-blue-800">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl">
+        <p className="text-sm text-blue-800 dark:text-blue-300">
           Project Duration: {Math.ceil(
             (new Date(formData.end_date) - new Date(formData.start_date)) /
               (1000 * 60 * 60 * 24 * 30)
@@ -987,14 +1004,14 @@ const Step5BudgetSetup = ({
   totalBudget,
 }) => (
   <div className="space-y-8">
-    <h2 className="text-2xl font-bold text-slate-900 mb-6">Budget Setup</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Budget Setup</h2>
 
     {/* Manpower */}
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">1. Manpower</h3>
-          <p className="text-sm text-slate-600">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">1. Manpower</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Personnel breakdown with qualifications & experience
           </p>
         </div>
@@ -1008,16 +1025,16 @@ const Step5BudgetSetup = ({
           {manpower.rows.map((row, index) => (
             <div
               key={index}
-              className="bg-slate-50 rounded-xl p-4 border-2 border-slate-200"
+              className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border-2 border-slate-200 dark:border-slate-600"
             >
               <div className="flex justify-between items-start mb-3">
-                <h4 className="font-semibold text-slate-900">
+                <h4 className="font-semibold text-slate-900 dark:text-white">
                   Position #{index + 1}
                 </h4>
                 <button
                   type="button"
                   onClick={() => manpower.remove(index)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1026,7 +1043,7 @@ const Step5BudgetSetup = ({
               {/* Basic Fields */}
               <div className="grid grid-cols-4 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Role *
                   </label>
                   <input
@@ -1036,11 +1053,11 @@ const Step5BudgetSetup = ({
                       manpower.update(index, "role", e.target.value)
                     }
                     placeholder="e.g., Junior Research Fellow"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Salary/Month *
                   </label>
                   <input
@@ -1053,11 +1070,11 @@ const Step5BudgetSetup = ({
                         parseFloat(e.target.value) || 0
                       )
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg text-right focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Months *
                   </label>
                   <input
@@ -1066,11 +1083,11 @@ const Step5BudgetSetup = ({
                     onChange={(e) =>
                       manpower.update(index, "months", parseInt(e.target.value) || 1)
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg text-right focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Personnel *
                   </label>
                   <input
@@ -1083,7 +1100,7 @@ const Step5BudgetSetup = ({
                         parseInt(e.target.value) || 1
                       )
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg text-right focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -1091,7 +1108,7 @@ const Step5BudgetSetup = ({
               {/* Additional Fields */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Qualification
                   </label>
                   <textarea
@@ -1101,11 +1118,11 @@ const Step5BudgetSetup = ({
                     }
                     placeholder="e.g., B.Tech/M.Tech in CS, PMP Certified..."
                     rows="2"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none resize-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Experience Required
                   </label>
                   <textarea
@@ -1115,14 +1132,14 @@ const Step5BudgetSetup = ({
                     }
                     placeholder="e.g., 5+ years in full-stack development..."
                     rows="2"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none resize-none transition-colors"
                   />
                 </div>
               </div>
 
               {/* Total */}
-              <div className="bg-blue-100 px-3 py-2 rounded-lg">
-                <p className="text-sm font-semibold text-blue-900">
+              <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-3 py-2 rounded-lg">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
                   Total: ₹{manpower.calculateTotal(row).toLocaleString("en-IN")}
                 </p>
               </div>
@@ -1131,8 +1148,8 @@ const Step5BudgetSetup = ({
         </div>
       )}
 
-      <div className="bg-blue-50 p-3 rounded-lg mt-4">
-        <p className="text-sm font-semibold text-blue-900">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg mt-4">
+        <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
           Total Manpower Allocation: ₹
           {manpower.totalAllocation.toLocaleString("en-IN")}
         </p>
@@ -1143,8 +1160,8 @@ const Step5BudgetSetup = ({
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">2. Equipment</h3>
-          <p className="text-sm text-slate-600">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">2. Equipment</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Equipment and instruments (with description & product links)
           </p>
         </div>
@@ -1158,16 +1175,16 @@ const Step5BudgetSetup = ({
           {equipment.rows.map((row, index) => (
             <div
               key={index}
-              className="bg-slate-50 rounded-xl p-4 border-2 border-slate-200"
+              className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border-2 border-slate-200 dark:border-slate-600"
             >
               <div className="flex justify-between items-start mb-3">
-                <h4 className="font-semibold text-slate-900">
+                <h4 className="font-semibold text-slate-900 dark:text-white">
                   Equipment #{index + 1}
                 </h4>
                 <button
                   type="button"
                   onClick={() => equipment.remove(index)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1176,7 +1193,7 @@ const Step5BudgetSetup = ({
               {/* Basic Fields */}
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Item Name *
                   </label>
                   <input
@@ -1186,11 +1203,11 @@ const Step5BudgetSetup = ({
                       equipment.update(index, "item_name", e.target.value)
                     }
                     placeholder="Equipment name"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Quantity *
                   </label>
                   <input
@@ -1199,11 +1216,11 @@ const Step5BudgetSetup = ({
                     onChange={(e) =>
                       equipment.update(index, "quantity", parseInt(e.target.value) || 1)
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg text-right focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Unit Cost *
                   </label>
                   <input
@@ -1216,7 +1233,7 @@ const Step5BudgetSetup = ({
                         parseFloat(e.target.value) || 0
                       )
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg text-right focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -1224,7 +1241,7 @@ const Step5BudgetSetup = ({
               {/* Additional Fields */}
               <div className="space-y-3 mb-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Description
                   </label>
                   <textarea
@@ -1234,11 +1251,11 @@ const Step5BudgetSetup = ({
                     }
                     placeholder="Detailed specifications, features, model number..."
                     rows="2"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 resize-none"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none resize-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                     <LinkIcon className="w-3 h-3" />
                     Product Website
                   </label>
@@ -1249,14 +1266,14 @@ const Step5BudgetSetup = ({
                       equipment.update(index, "product_website", e.target.value)
                     }
                     placeholder="https://www.manufacturer.com/product"
-                    className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
 
               {/* Total */}
-              <div className="bg-green-100 px-3 py-2 rounded-lg">
-                <p className="text-sm font-semibold text-green-900">
+              <div className="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-3 py-2 rounded-lg">
+                <p className="text-sm font-semibold text-green-900 dark:text-green-300">
                   Total: ₹{equipment.calculateTotal(row).toLocaleString("en-IN")}
                 </p>
               </div>
@@ -1265,8 +1282,8 @@ const Step5BudgetSetup = ({
         </div>
       )}
 
-      <div className="bg-green-50 p-3 rounded-lg mt-4">
-        <p className="text-sm font-semibold text-green-900">
+      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg mt-4">
+        <p className="text-sm font-semibold text-green-900 dark:text-green-300">
           Total Equipment Allocation: ₹
           {equipment.totalAllocation.toLocaleString("en-IN")}
         </p>
@@ -1306,7 +1323,7 @@ const Step5BudgetSetup = ({
     </div>
 
     {/* Total Budget */}
-    <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white p-6 rounded-2xl shadow-lg">
+    <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 text-white p-6 rounded-2xl shadow-lg">
       <p className="text-sm opacity-90 mb-1">Total Approved Budget</p>
       <p className="text-4xl font-bold">₹{totalBudget.toLocaleString("en-IN")}</p>
     </div>
@@ -1333,20 +1350,20 @@ const Step6Review = ({
 
   return (
     <div className="space-y-8">
-      <h2 className="text-2xl font-bold text-slate-900 mb-6">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
         Review & Submit
       </h2>
 
       {/* Project Metadata */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             1. Project Metadata
           </h3>
           <button
             type="button"
             onClick={() => onEditStep(1)}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 text-sm transition-colors"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -1354,44 +1371,44 @@ const Step6Review = ({
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-600">Project Number:</span>
-            <p className="font-medium text-slate-900">{formData.project_no}</p>
+            <span className="text-slate-600 dark:text-slate-400">Project Number:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.project_no}</p>
           </div>
           <div>
-            <span className="text-slate-600">Project Title:</span>
-            <p className="font-medium text-slate-900">{formData.title}</p>
+            <span className="text-slate-600 dark:text-slate-400">Project Title:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.title}</p>
           </div>
           {formData.alias && (
             <div className="col-span-2">
-              <span className="text-slate-600">Alias:</span>
-              <p className="font-medium text-slate-900">{formData.alias}</p>
+              <span className="text-slate-600 dark:text-slate-400">Alias:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.alias}</p>
             </div>
           )}
           <div>
-            <span className="text-slate-600">Category:</span>
-            <p className="font-medium text-slate-900 capitalize">
+            <span className="text-slate-600 dark:text-slate-400">Category:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">
               {formData.project_category}
             </p>
           </div>
           <div>
-            <span className="text-slate-600">Type:</span>
-            <p className="font-medium text-slate-900">{formData.project_type}</p>
+            <span className="text-slate-600 dark:text-slate-400">Type:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.project_type}</p>
           </div>
           {formData.pfms_id && (
             <div>
-              <span className="text-slate-600">PFMS ID:</span>
-              <p className="font-medium text-slate-900">{formData.pfms_id}</p>
+              <span className="text-slate-600 dark:text-slate-400">PFMS ID:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pfms_id}</p>
             </div>
           )}
           <div>
-            <span className="text-slate-600">Technical Group:</span>
-            <p className="font-medium text-slate-900">
+            <span className="text-slate-600 dark:text-slate-400">Technical Group:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
               {selectedGroup?.name || "N/A"}
             </p>
           </div>
           <div>
-            <span className="text-slate-600">Funding Agency:</span>
-            <p className="font-medium text-slate-900">
+            <span className="text-slate-600 dark:text-slate-400">Funding Agency:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
               {selectedAgency?.name || "N/A"}
             </p>
           </div>
@@ -1399,15 +1416,15 @@ const Step6Review = ({
       </div>
 
       {/* Funding Agency Details */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             2. Funding Agency Details
           </h3>
           <button
             type="button"
             onClick={() => onEditStep(2)}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 text-sm transition-colors"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -1416,71 +1433,71 @@ const Step6Review = ({
         <div className="grid grid-cols-2 gap-4 text-sm">
           {formData.funding_scheme && (
             <div>
-              <span className="text-slate-600">Scheme:</span>
-              <p className="font-medium text-slate-900">{formData.funding_scheme}</p>
+              <span className="text-slate-600 dark:text-slate-400">Scheme:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.funding_scheme}</p>
             </div>
           )}
           {formData.cna_sub_agency && (
             <div>
-              <span className="text-slate-600">CNA Sub-Agency:</span>
-              <p className="font-medium text-slate-900">{formData.cna_sub_agency}</p>
+              <span className="text-slate-600 dark:text-slate-400">CNA Sub-Agency:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.cna_sub_agency}</p>
             </div>
           )}
           {formData.sanctioned_number && (
             <div>
-              <span className="text-slate-600">Sanctioned Number:</span>
-              <p className="font-medium text-slate-900">
+              <span className="text-slate-600 dark:text-slate-400">Sanctioned Number:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {formData.sanctioned_number}
               </p>
             </div>
           )}
           <div>
-            <span className="text-slate-600">Contact Person:</span>
-            <p className="font-medium text-slate-900">{formData.contact_person}</p>
+            <span className="text-slate-600 dark:text-slate-400">Contact Person:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_person}</p>
           </div>
           {formData.contact_designation && (
             <div>
-              <span className="text-slate-600">Designation:</span>
-              <p className="font-medium text-slate-900">
+              <span className="text-slate-600 dark:text-slate-400">Designation:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {formData.contact_designation}
               </p>
             </div>
           )}
           {formData.contact_mobile && (
             <div>
-              <span className="text-slate-600">Mobile:</span>
-              <p className="font-medium text-slate-900">{formData.contact_mobile}</p>
+              <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_mobile}</p>
             </div>
           )}
           {formData.contact_email && (
             <div>
-              <span className="text-slate-600">Email:</span>
-              <p className="font-medium text-slate-900">{formData.contact_email}</p>
+              <span className="text-slate-600 dark:text-slate-400">Email:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_email}</p>
             </div>
           )}
           {formData.bank_name && (
             <div>
-              <span className="text-slate-600">Bank Name:</span>
-              <p className="font-medium text-slate-900">{formData.bank_name}</p>
+              <span className="text-slate-600 dark:text-slate-400">Bank Name:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.bank_name}</p>
             </div>
           )}
           {formData.bank_account_no && (
             <div>
-              <span className="text-slate-600">Account Number:</span>
-              <p className="font-medium text-slate-900">{formData.bank_account_no}</p>
+              <span className="text-slate-600 dark:text-slate-400">Account Number:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.bank_account_no}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Investigators */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">3. Investigators</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">3. Investigators</h3>
           <button
             type="button"
             onClick={() => onEditStep(3)}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 text-sm transition-colors"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -1488,47 +1505,47 @@ const Step6Review = ({
         </div>
         <div className="space-y-4">
           <div>
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
               Principal Investigator
             </h4>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="text-slate-600">Name:</span>
-                <p className="font-medium text-slate-900">
+                <span className="text-slate-600 dark:text-slate-400">Name:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
                   {formData.principal_investigator}
                 </p>
               </div>
               <div>
-                <span className="text-slate-600">Email:</span>
-                <p className="font-medium text-slate-900">{formData.pi_email}</p>
+                <span className="text-slate-600 dark:text-slate-400">Email:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pi_email}</p>
               </div>
               <div>
-                <span className="text-slate-600">Mobile:</span>
-                <p className="font-medium text-slate-900">{formData.pi_mobile}</p>
+                <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pi_mobile}</p>
               </div>
             </div>
           </div>
           {formData.co_investigator && (
-            <div className="border-t border-slate-200 pt-4">
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">
+            <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                 Co-Investigator
               </h4>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-slate-600">Name:</span>
-                  <p className="font-medium text-slate-900">
+                  <span className="text-slate-600 dark:text-slate-400">Name:</span>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_investigator}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-600">Email:</span>
-                  <p className="font-medium text-slate-900">
+                  <span className="text-slate-600 dark:text-slate-400">Email:</span>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_email || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-600">Mobile:</span>
-                  <p className="font-medium text-slate-900">
+                  <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_mobile || "N/A"}
                   </p>
                 </div>
@@ -1539,13 +1556,13 @@ const Step6Review = ({
       </div>
 
       {/* Timeline */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">4. Timeline</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">4. Timeline</h3>
           <button
             type="button"
             onClick={() => onEditStep(4)}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 text-sm transition-colors"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -1553,16 +1570,16 @@ const Step6Review = ({
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-600">Start Date:</span>
-            <p className="font-medium text-slate-900">
+            <span className="text-slate-600 dark:text-slate-400">Start Date:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
               {formData.start_date
                 ? new Date(formData.start_date).toLocaleDateString("en-IN")
                 : "N/A"}
             </p>
           </div>
           <div>
-            <span className="text-slate-600">End Date:</span>
-            <p className="font-medium text-slate-900">
+            <span className="text-slate-600 dark:text-slate-400">End Date:</span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
               {formData.end_date
                 ? new Date(formData.end_date).toLocaleDateString("en-IN")
                 : "Ongoing"}
@@ -1570,8 +1587,8 @@ const Step6Review = ({
           </div>
           {formData.start_date && formData.end_date && (
             <div className="col-span-2">
-              <span className="text-slate-600">Duration:</span>
-              <p className="font-medium text-slate-900">
+              <span className="text-slate-600 dark:text-slate-400">Duration:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {Math.ceil(
                   (new Date(formData.end_date) - new Date(formData.start_date)) /
                     (1000 * 60 * 60 * 24 * 30)
@@ -1584,13 +1601,13 @@ const Step6Review = ({
       </div>
 
       {/* Budget Summary */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">5. Budget Summary</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">5. Budget Summary</h3>
           <button
             type="button"
             onClick={() => onEditStep(5)}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 text-sm transition-colors"
           >
             <Edit2 className="w-4 h-4" />
             Edit
@@ -1599,79 +1616,79 @@ const Step6Review = ({
         <div className="space-y-6 text-sm">
           {/* Manpower Breakdown */}
           <div>
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">Manpower</h4>
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Manpower</h4>
             {formData.manpower_breakdown.length > 0 ? (
               <div className="space-y-4">
                 {formData.manpower_breakdown.map((row, index) => (
-                  <div key={index} className="border-b border-slate-200 pb-2">
-                    <p className="font-medium text-slate-900">Position #{index + 1}: {row.role}</p>
-                    <p>Salary/Month: ₹{row.salary_per_month.toLocaleString("en-IN")}</p>
-                    <p>Months: {row.months}</p>
-                    <p>Personnel: {row.num_personnel}</p>
-                    {row.qualification && <p>Qualification: {row.qualification}</p>}
-                    {row.experience_required && <p>Experience: {row.experience_required}</p>}
-                    <p className="font-semibold">Total: ₹{calculateManpowerTotal(row).toLocaleString("en-IN")}</p>
+                  <div key={index} className="border-b border-slate-200 dark:border-slate-600 pb-2">
+                    <p className="font-medium text-slate-900 dark:text-slate-100">Position #{index + 1}: {row.role}</p>
+                    <p className="text-slate-600 dark:text-slate-400">Salary/Month: ₹{row.salary_per_month.toLocaleString("en-IN")}</p>
+                    <p className="text-slate-600 dark:text-slate-400">Months: {row.months}</p>
+                    <p className="text-slate-600 dark:text-slate-400">Personnel: {row.num_personnel}</p>
+                    {row.qualification && <p className="text-slate-600 dark:text-slate-400">Qualification: {row.qualification}</p>}
+                    {row.experience_required && <p className="text-slate-600 dark:text-slate-400">Experience: {row.experience_required}</p>}
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">Total: ₹{calculateManpowerTotal(row).toLocaleString("en-IN")}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600">No manpower breakdown provided</p>
+              <p className="text-slate-600 dark:text-slate-400">No manpower breakdown provided</p>
             )}
-            <p className="mt-2 font-semibold">Total Manpower: ₹{getTotalManpowerAllocation().toLocaleString("en-IN")}</p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">Total Manpower: ₹{getTotalManpowerAllocation().toLocaleString("en-IN")}</p>
           </div>
 
           {/* Equipment Breakdown */}
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">Equipment</h4>
+          <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Equipment</h4>
             {formData.equipment_breakdown.length > 0 ? (
               <div className="space-y-4">
                 {formData.equipment_breakdown.map((row, index) => (
-                  <div key={index} className="border-b border-slate-200 pb-2">
-                    <p className="font-medium text-slate-900">Equipment #{index + 1}: {row.item_name}</p>
-                    <p>Quantity: {row.quantity}</p>
-                    <p>Unit Cost: ₹{row.unit_cost.toLocaleString("en-IN")}</p>
-                    {row.description && <p>Description: {row.description}</p>}
+                  <div key={index} className="border-b border-slate-200 dark:border-slate-600 pb-2">
+                    <p className="font-medium text-slate-900 dark:text-slate-100">Equipment #{index + 1}: {row.item_name}</p>
+                    <p className="text-slate-600 dark:text-slate-400">Quantity: {row.quantity}</p>
+                    <p className="text-slate-600 dark:text-slate-400">Unit Cost: ₹{row.unit_cost.toLocaleString("en-IN")}</p>
+                    {row.description && <p className="text-slate-600 dark:text-slate-400">Description: {row.description}</p>}
                     {row.product_website && (
-                      <p>
-                        Website: <a href={row.product_website} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">{row.product_website}</a>
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Website: <a href={row.product_website} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">{row.product_website}</a>
                       </p>
                     )}
-                    <p className="font-semibold">Total: ₹{calculateEquipmentTotal(row).toLocaleString("en-IN")}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">Total: ₹{calculateEquipmentTotal(row).toLocaleString("en-IN")}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600">No equipment breakdown provided</p>
+              <p className="text-slate-600 dark:text-slate-400">No equipment breakdown provided</p>
             )}
-            <p className="mt-2 font-semibold">Total Equipment: ₹{getTotalEquipmentAllocation().toLocaleString("en-IN")}</p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">Total Equipment: ₹{getTotalEquipmentAllocation().toLocaleString("en-IN")}</p>
           </div>
 
           {/* Other Budget Heads */}
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">Other Allocations</h4>
+          <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Other Allocations</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-slate-600">Travel & Training:</span>
-                <p className="font-medium text-slate-900">₹{(parseFloat(formData.travel_training_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">Travel & Training:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.travel_training_allocation) || 0).toLocaleString("en-IN")}</p>
               </div>
               <div>
-                <span className="text-slate-600">Consumables:</span>
-                <p className="font-medium text-slate-900">₹{(parseFloat(formData.consumables_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">Consumables:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.consumables_allocation) || 0).toLocaleString("en-IN")}</p>
               </div>
               <div>
-                <span className="text-slate-600">Contingency:</span>
-                <p className="font-medium text-slate-900">₹{(parseFloat(formData.contingency_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">Contingency:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.contingency_allocation) || 0).toLocaleString("en-IN")}</p>
               </div>
               <div>
-                <span className="text-slate-600">Overhead:</span>
-                <p className="font-medium text-slate-900">₹{(parseFloat(formData.overhead_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">Overhead:</span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.overhead_allocation) || 0).toLocaleString("en-IN")}</p>
               </div>
             </div>
           </div>
 
           {/* Grand Total */}
-          <div className="bg-emerald-100 p-4 rounded-lg mt-4">
-            <p className="text-base font-bold text-emerald-900">
+          <div className="bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 p-4 rounded-lg mt-4">
+            <p className="text-base font-bold text-emerald-900 dark:text-emerald-300">
               Grand Total Budget: ₹{getTotalBudget().toLocaleString("en-IN")}
             </p>
           </div>

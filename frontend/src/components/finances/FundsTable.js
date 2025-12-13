@@ -21,7 +21,6 @@ const FundsTable = ({
   const [deleteModal, setDeleteModal] = useState({ show: false, fund: null });
   const [deleting, setDeleting] = useState(false);
 
-  // Only manpower and equipment should have breakdown dropdowns
   const hasBreakdown = head === "manpower" || head === "equipment";
 
   const formatCurrency = (amount) => {
@@ -44,40 +43,39 @@ const FundsTable = ({
   const renderBreakdownTables = (breakdown, head) => {
     if (!breakdown || breakdown.length === 0) return null;
 
-    // Detect type based on fields present
     const isManpower = head === "manpower" || breakdown[0]?.role !== undefined;
     const isEquipment =
       head === "equipment" || breakdown[0]?.item_name !== undefined;
 
     return (
-      <div className="px-4 py-3 bg-gray-50">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-slate-900/50">
         {/* Manpower Table */}
         {isManpower && (
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Manpower Breakdown
             </h4>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
-                <thead className="bg-gray-100">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+                <thead className="bg-gray-100 dark:bg-slate-700">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Role</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Salary/Month</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Months</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Personnel</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Role</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Salary/Month</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Months</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Personnel</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Total Cost</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
                   {breakdown.map((m, idx) => (
                     <tr key={idx}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{m.role}</td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-700">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{m.role}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">
                         {formatCurrency(m.salary_per_month)}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-700">{m.months}</td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-700">{m.num_personnel}</td>
-                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">
+                      <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{m.months}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{m.num_personnel}</td>
+                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900 dark:text-gray-100">
                         {formatCurrency(m.total_amount)}
                       </td>
                     </tr>
@@ -91,28 +89,28 @@ const FundsTable = ({
         {/* Equipment Table */}
         {isEquipment && (
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Equipment Breakdown
             </h4>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 bg-white rounded border border-gray-200">
-                <thead className="bg-gray-100">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-700">
+                <thead className="bg-gray-100 dark:bg-slate-700">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Item</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Qty</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Unit Cost</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase">Total Cost</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Item</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Qty</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Unit Cost</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase">Total Cost</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
                   {breakdown.map((e, idx) => (
                     <tr key={idx}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{e.item_name}</td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-700">{e.quantity}</td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-700">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{e.item_name}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">{e.quantity}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-700 dark:text-gray-300">
                         {formatCurrency(e.unit_cost)}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900">
+                      <td className="px-4 py-2 text-sm text-right font-semibold text-gray-900 dark:text-gray-100">
                         {formatCurrency(e.total_amount)}
                       </td>
                     </tr>
@@ -127,11 +125,9 @@ const FundsTable = ({
   };
 
   const handleBreakdownToggle = async (fundId) => {
-    // Only toggle if this budget head has breakdowns
     if (!hasBreakdown) return;
 
     if (!expandedBreakdowns[fundId]) {
-      // Expanding - fetch breakdown if not cached
       if (!breakdownCache[fundId]) {
         await onBreakdownExpand(fundId);
       }
@@ -156,9 +152,7 @@ const FundsTable = ({
 
     setDeleting(true);
     try {
-      // Use service method
       await fundsService.deleteFund(deleteModal.fund.fund_id);
-
       setDeleteModal({ show: false, fund: null });
       onRefresh();
     } catch (err) {
@@ -170,14 +164,13 @@ const FundsTable = ({
   };
 
   const getFundRowSummary = (fund) => {
-    // Show breakdown count inline for manpower/equipment
     if (hasBreakdown) {
       const breakdownCount = breakdownCache[fund.fund_id]?.length || 0;
       return (
         <div>
-          <div className="font-medium text-gray-900">{formatCurrency(fund.amount)}</div>
+          <div className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(fund.amount)}</div>
           {breakdownCount > 0 && (
-            <div className="text-xs text-blue-600 mt-1">
+            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
               {breakdownCount} item{breakdownCount !== 1 ? 's' : ''} breakdown
             </div>
           )}
@@ -185,15 +178,14 @@ const FundsTable = ({
       );
     }
     
-    // For other budget heads, just show amount
     return (
-      <div className="font-medium text-gray-900">{formatCurrency(fund.amount)}</div>
+      <div className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(fund.amount)}</div>
     );
   };
 
   if (!funds || funds.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         No funds received yet
       </div>
     );
@@ -202,68 +194,62 @@ const FundsTable = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+          <thead className="bg-gray-100 dark:bg-slate-700">
             <tr>
-              {/* Only show expand column if budget head has breakdowns */}
               {hasBreakdown && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-10">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider w-10">
                   {/* Expand icon column */}
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Date Received
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Amount
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 Remarks
               </th>
               {canEdit && (
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
             {funds.map((fund) => {
               const isExpanded = expandedBreakdowns[fund.fund_id];
               
               return (
                 <React.Fragment key={fund.fund_id}>
                   <tr
-                    className={hasBreakdown ? "hover:bg-gray-50 cursor-pointer" : "hover:bg-gray-50"}
+                    className={hasBreakdown ? "hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer" : "hover:bg-gray-50 dark:hover:bg-slate-700/50"}
                     onClick={() => hasBreakdown && handleBreakdownToggle(fund.fund_id)}
                   >
-                    {/* Only show expand icon for manpower/equipment */}
                     {hasBreakdown && (
                       <td className="px-4 py-3 text-sm">
                         {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-gray-600" />
+                          <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                          <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         )}
                       </td>
                     )}
 
-                    {/* DATE */}
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                       {formatDate(fund.date_received)}
                     </td>
 
-                    {/* AMOUNT */}
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       {getFundRowSummary(fund)}
                     </td>
 
-                    {/* REMARKS */}
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {fund.remarks || "-"}
                     </td>
 
-                    {/* ACTIONS */}
                     {canEdit && (
                       <td className="px-4 py-3 text-right text-sm">
                         <button
@@ -271,7 +257,7 @@ const FundsTable = ({
                             e.stopPropagation();
                             onEditFund({ ...fund, head });
                           }}
-                          className="text-blue-600 hover:text-blue-800 mr-3"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mr-3 transition-colors"
                         >
                           Edit
                         </button>
@@ -280,7 +266,7 @@ const FundsTable = ({
                             e.stopPropagation();
                             handleDeleteClick(fund);
                           }}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
                         >
                           Delete
                         </button>
@@ -288,7 +274,6 @@ const FundsTable = ({
                     )}
                   </tr>
 
-                  {/* FIXED: Only render breakdown row for manpower/equipment */}
                   {hasBreakdown && isExpanded && (
                     <tr>
                       <td colSpan={canEdit ? 5 : 4} className="p-0">
@@ -303,29 +288,28 @@ const FundsTable = ({
         </table>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {deleteModal.show && (
         <DeleteConfirmationModal
           title="Delete Fund Record"
           message={
             <>
               Are you sure you want to delete this fund record?
-              <div className="mt-2 p-3 bg-gray-100 rounded">
-                <p>
+              <div className="mt-2 p-3 bg-gray-100 dark:bg-slate-700 rounded">
+                <p className="text-gray-900 dark:text-gray-100">
                   <strong>Amount:</strong>{" "}
                   {formatCurrency(deleteModal.fund.amount)}
                 </p>
-                <p>
+                <p className="text-gray-900 dark:text-gray-100">
                   <strong>Date:</strong>{" "}
                   {formatDate(deleteModal.fund.date_received)}
                 </p>
                 {deleteModal.fund.remarks && (
-                  <p>
+                  <p className="text-gray-900 dark:text-gray-100">
                     <strong>Remarks:</strong> {deleteModal.fund.remarks}
                   </p>
                 )}
               </div>
-              <p className="mt-2 text-red-600 font-semibold">
+              <p className="mt-2 text-red-600 dark:text-red-400 font-semibold">
                 This action cannot be undone.
               </p>
             </>

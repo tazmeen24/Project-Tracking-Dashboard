@@ -201,14 +201,18 @@ const ProjectFinancialsPage = () => {
     
     setEditFundModal({ isOpen: true, fund });
   };
+
   const openEditExpenditureModal = (exp) => {
     console.log("OPEN EDIT EXPENDITURE MODAL", exp);
     setEditExpenditureModal({ isOpen: true, expenditure: exp });
   };
+
   const closeEditFundModal = () =>
     setEditFundModal({ isOpen: false, fund: null });
+  
   const closeEditExpenditureModal = () =>
     setEditExpenditureModal({ isOpen: false, expenditure: null });
+  
   const handleEditSuccess = () => {
     closeEditFundModal();
     closeEditExpenditureModal();
@@ -233,11 +237,11 @@ const ProjectFinancialsPage = () => {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-300">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-2 text-red-600 hover:text-red-800 underline"
+            className="mt-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline transition-colors"
           >
             Retry
           </button>
@@ -263,15 +267,15 @@ const ProjectFinancialsPage = () => {
       <div className="mb-6">
         <button
           onClick={() => navigate("/projects")}
-          className="text-blue-600 hover:text-blue-800 mb-2 flex items-center"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mb-2 flex items-center transition-colors"
         >
           ← Back to Project
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Financial Management
         </h1>
         {project && (
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {project.title} (Project ID: {projectId})
           </p>
         )}
@@ -299,8 +303,7 @@ const ProjectFinancialsPage = () => {
             breakdownCache={breakdownCache}
             canEdit={canEdit}
             projectId={projectId}
-            project={project} // ← Add this (needed by modals)
-            // Existing props
+            project={project}
             onExpand={() => handleExpand(key)}
             onBreakdownExpand={(fundId) => handleBreakdownExpand(fundId, key)}
             onRefresh={handleRefresh}
@@ -315,7 +318,7 @@ const ProjectFinancialsPage = () => {
         <div className="mt-8 flex gap-4">
           <button
             onClick={() => navigate(`/projects/${projectId}/finances/add-fund`)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shadow-sm"
           >
             + Add Fund Received
           </button>
@@ -323,12 +326,14 @@ const ProjectFinancialsPage = () => {
             onClick={() =>
               navigate(`/projects/${projectId}/finances/add-expenditure`)
             }
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors shadow-sm"
           >
             + Add Expenditure
           </button>
         </div>
       )}
+
+      {/* Modals */}
       {editFundModal.isOpen && (
         <EditFundModal
           isOpen={editFundModal.isOpen}
@@ -351,9 +356,8 @@ const ProjectFinancialsPage = () => {
     </div>
   );
 };
-{
-  /* Edit Fund Modal */
-}
+
+{/* Edit Fund Modal */}
 const EditFundModal = ({ isOpen, onClose, project, fund, onSuccess }) => {
   const [formData, setFormData] = useState({
     head: "",
