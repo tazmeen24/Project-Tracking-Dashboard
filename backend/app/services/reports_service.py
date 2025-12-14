@@ -22,20 +22,31 @@ class ReportService:
         # Get project basic info
         cursor.execute("""
             SELECT 
-                p.*,
-                i.principal_investigator as pi_name,
-                i.pi_email,
-                i.pi_mobile,
-                i.co_investigator,
-                i.co_email,
-                i.co_mobile,
-                fa.name as funding_agency_name,
-                tg.name as technical_group_name
-            FROM projects p
-            LEFT JOIN investigators i ON p.project_id = i.project_id
-            LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
-            LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
-            WHERE p.project_id = %s
+            p.*,
+            i.principal_investigator as pi_name,
+            i.pi_email,
+            i.pi_mobile,
+            i.co_investigator,
+            i.co_email,
+            i.co_mobile,
+            fa.name as funding_agency_name,
+            fa.address as funding_agency_address,
+            fad.contact_person as agency_contact_person,
+            fad.designation as agency_designation,
+            fad.email as agency_email,
+            fad.mobile as agency_mobile,
+            fad.sanctioned_number as agency_sanctioned_number,
+            fad.scheme as agency_scheme,
+            fad.cna_sub_agency as agency_cna_sub_agency,
+            fad.bank_name as agency_bank_name,
+            fad.bank_account_no as agency_bank_account_no,
+            tg.name as technical_group_name
+        FROM projects p
+        LEFT JOIN investigators i ON p.project_id = i.project_id
+        LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+        LEFT JOIN funding_agency_details fad ON p.project_id = fad.project_id
+        LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
+        WHERE p.project_id = %s
         """, (project_id,))
         project = cursor.fetchone()
         
@@ -308,7 +319,7 @@ class ReportService:
         return categories
     
     def _get_funds_received_with_breakdowns(self, cursor, project_id: int) -> Dict[str, list]:
-        """Get all funds received with detailed breakdowns for manpower and equipment"""
+        """Get all funds received with detailed breakdowns for manpower and equipment - FIXED CALCULATIONS"""
         
         funds_by_head = {
             'manpower': [],
@@ -319,17 +330,17 @@ class ReportService:
             'overhead': []
         }
         
-        # Get manpower funds with breakdown
+        # Get manpower funds with breakdown - CALCULATE the correct amount
         cursor.execute("""
             SELECT 
                 fr.fund_id,
                 fr.head,
-                fr.amount,
                 fr.date_received,
                 mfb.role,
                 mfb.salary_per_month,
                 mfb.months,
-                mfb.num_personnel
+                mfb.num_personnel,
+                (mfb.salary_per_month * mfb.months * mfb.num_personnel) as calculated_amount
             FROM funds_received fr
             JOIN manpower_funds_breakdown mfb ON fr.fund_id = mfb.fund_id
             WHERE fr.project_id = %s AND fr.head = 'manpower'
@@ -340,7 +351,7 @@ class ReportService:
             funds_by_head['manpower'].append({
                 'fund_id': row['fund_id'],
                 'head': row['head'],
-                'amount': float(row['amount']),
+                'amount': float(row['calculated_amount']),  # Use calculated amount
                 'date_received': row['date_received'],
                 'breakdown': {
                     'role': row['role'],
@@ -350,16 +361,16 @@ class ReportService:
                 }
             })
         
-        # Get equipment funds with breakdown
+        # Get equipment funds with breakdown - CALCULATE the correct amount
         cursor.execute("""
             SELECT 
                 fr.fund_id,
                 fr.head,
-                fr.amount,
                 fr.date_received,
                 efb.item_name,
                 efb.quantity,
-                efb.unit_cost
+                efb.unit_cost,
+                (efb.quantity * efb.unit_cost) as calculated_amount
             FROM funds_received fr
             JOIN equipment_funds_breakdown efb ON fr.fund_id = efb.fund_id
             WHERE fr.project_id = %s AND fr.head = 'equipment'
@@ -370,7 +381,7 @@ class ReportService:
             funds_by_head['equipment'].append({
                 'fund_id': row['fund_id'],
                 'head': row['head'],
-                'amount': float(row['amount']),
+                'amount': float(row['calculated_amount']),  # Use calculated amount
                 'date_received': row['date_received'],
                 'breakdown': {
                     'item_name': row['item_name'],
@@ -601,6 +612,9 @@ class PDFReportGenerator:
         funds_expenditure = data.get('funds_expenditure', [])
         categories = data.get('categories', {})
         
+        # Check if cover page should be included
+        include_cover = sections.get('cover_page', False)
+        
         # Calculate duration in months
         try:
             from dateutil import relativedelta
@@ -641,6 +655,14 @@ class PDFReportGenerator:
             </style>
         </head>
         <body>
+        """
+        
+        # Add cover page if requested
+        if include_cover:
+            html += PDFReportGenerator._build_cover_page(project)
+            html += '<pdf:nextpage />'
+        
+        html += f"""
             <h1 class="main-title">PROJECT FINANCIAL REPORT</h1>
             
             <!-- Project Information Section -->
@@ -648,6 +670,7 @@ class PDFReportGenerator:
                 <h2>Project Information</h2>
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr><td style="width: 35%; padding: 3px 5px;">Project ID</td><td style="width: 3%; padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('project_no', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px; font-weight: bold;">Project Title</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px; font-weight: bold;">{project.get('title', 'N/A')}</td></tr>
                     <tr><td style="padding: 3px 5px;">Project Category</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('project_category', 'N/A')}</td></tr>
                     <tr><td style="padding: 3px 5px;">Project Type</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('project_type', 'N/A')}</td></tr>
                     <tr><td style="padding: 3px 5px;">PFMS ID</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('pfms_id', 'N/A')}</td></tr>
@@ -662,15 +685,15 @@ class PDFReportGenerator:
                 <h2>Funding Agency</h2>
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr><td style="width: 35%; padding: 3px 5px;">Agency Name</td><td style="width: 3%; padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('funding_agency_name', 'N/A')}</td></tr>
-                    <tr><td style="padding: 3px 5px;">Contact Person</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Designation</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Email</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Mobile No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Sanctioned No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Scheme</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">CNA Sub Agency</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Bank Name</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
-                    <tr><td style="padding: 3px 5px;">Bank Account No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">N/A</td></tr>
+                    <tr><td style="padding: 3px 5px;">Contact Person</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_contact_person', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Designation</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_designation', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Email</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_email', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Mobile No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_mobile', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Sanctioned No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_sanctioned_number', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Scheme</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_scheme', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">CNA Sub Agency</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_cna_sub_agency', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Bank Name</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_bank_name', 'N/A')}</td></tr>
+                    <tr><td style="padding: 3px 5px;">Bank Account No.</td><td style="padding: 3px 5px; text-align: center;">:</td><td style="padding: 3px 5px;">{project.get('agency_bank_account_no', 'N/A')}</td></tr>
                 </table>
             </div>
             
@@ -702,33 +725,41 @@ class PDFReportGenerator:
         
         # CONDITIONAL SECTIONS BASED ON USER SELECTION
         
-        # Financial Summary Section
+        # Financial Summary Section (VERTICALLY STACKED)
         if sections.get('financial_summary', False):
-            html += PDFReportGenerator._build_financial_summary(financial_summary)
-        
-        # Page break before budget sections
-        needs_page_break = sections.get('budget_allocation', False) or sections.get('funds_expenditure', False)
+            html += PDFReportGenerator._build_financial_summary_vertical(financial_summary)
+
+        # Determine if we need a page break
+        needs_page_break = (
+            sections.get('budget_allocation', False) or 
+            sections.get('funds_expenditure', False) or 
+            sections.get('category_breakdown', False) or 
+            sections.get('detailed_transactions', False)
+        )
+
         if needs_page_break:
             html += '<pdf:nextpage />'
-        
+
         # Budget Allocation Section
         if sections.get('budget_allocation', False):
             html += PDFReportGenerator._build_budget_table_simple(budget_allocation, funds_expenditure)
             html += PDFReportGenerator._build_allocation_breakdowns_from_db(project)
-        
+
         # Funds & Expenditure Section
         if sections.get('funds_expenditure', False):
-            if sections.get('budget_allocation', False):  # Add page break only if previous section was included
+            # Add page break only if budget allocation was shown
+            if sections.get('budget_allocation', False):
                 html += '<pdf:nextpage />'
+    
             html += PDFReportGenerator._build_funds_received_breakdown(data.get('funds_received', {}))
             html += '<pdf:nextpage />'
             html += PDFReportGenerator._build_expenditure_breakdown(data.get('expenditures', {}))
-        
+
         # Category Breakdown Section
         if sections.get('category_breakdown', False):
             html += '<pdf:nextpage />'
             html += PDFReportGenerator._build_category_breakdown(budget_allocation, funds_expenditure)
-        
+
         # Detailed Transactions Section
         if sections.get('detailed_transactions', False):
             html += '<pdf:nextpage />'
@@ -742,95 +773,137 @@ class PDFReportGenerator:
         return html
     
     @staticmethod
-    def _build_financial_summary(summary: Dict[str, Any]) -> str:
-        """Build financial summary section"""
+    def _build_cover_page(project: Dict[str, Any]) -> str:
+        """Build professional cover page"""
+        
+        generation_date = datetime.now().strftime("%d %B %Y")
+        generation_time = datetime.now().strftime("%I:%M %p")
+        
+        return f"""
+        <div class="cover-page">
+            <div class="cover-header">
+                <div class="org-placeholder">
+                    [Organization Logo]
+                </div>
+            </div>
+            
+            <div class="cover-title-section">
+                <h1 class="cover-main-title">FINANCIAL STATUS REPORT</h1>
+                <div class="cover-subtitle">Comprehensive Project Financial Analysis</div>
+            </div>
+            
+            <div class="cover-project-info">
+                <table class="cover-info-table">
+                    <tr>
+                        <td class="cover-label">Project Title:</td>
+                        <td class="cover-value">{project.get('title', 'N/A')}</td>
+                    </tr>
+                    <tr>
+                        <td class="cover-label">Project ID:</td>
+                        <td class="cover-value">{project.get('project_no', 'N/A')}</td>
+                    </tr>
+                    <tr>
+                        <td class="cover-label">Category:</td>
+                        <td class="cover-value">{project.get('project_category', 'N/A').title()}</td>
+                    </tr>
+                    <tr>
+                        <td class="cover-label">Funding Agency:</td>
+                        <td class="cover-value">{project.get('funding_agency_name', 'N/A')}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="cover-footer">
+                <div class="cover-date-info">
+                    <div>Report Generated: {generation_date}</div>
+                    <div>Time: {generation_time} IST</div>
+                </div>
+                <div class="cover-confidential">
+                    This document contains confidential financial information
+                </div>
+            </div>
+        </div>
+        """
+    
+    @staticmethod
+    def _build_financial_summary_vertical(summary: Dict[str, Any]) -> str:
+        """Build financial summary section with VERTICAL stacking"""
         
         return f"""
         <div class="section">
             <h2>FINANCIAL SUMMARY</h2>
             
-            <table class="summary-grid">
-                <tr>
-                    <td style="width: 48%; vertical-align: top;">
-                        <div class="summary-box">
-                            <h3>Budget Overview</h3>
-                            <table class="summary-table">
-                                <tr>
-                                    <td>Approved Budget:</td>
-                                    <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_budget', 0))}</td>
-                                </tr>
-                                <tr>
-                                    <td>Committed:</td>
-                                    <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_committed', 0))}</td>
-                                </tr>
-                                <tr class="total-row">
-                                    <td><strong>Balance:</strong></td>
-                                    <td class="amount"><strong>{PDFReportGenerator.format_currency(summary.get('budget_balance', 0))}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td>Utilization:</td>
-                                    <td class="amount">{PDFReportGenerator.format_percentage(summary.get('budget_utilization', 0))}</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </td>
-                    <td style="width: 4%;"></td>
-                    <td style="width: 48%; vertical-align: top;">
-                        <div class="summary-box">
-                            <h3>Funds Overview</h3>
-                            <table class="summary-table">
-                                <tr>
-                                    <td>Funds Received:</td>
-                                    <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_funds', 0))}</td>
-                                </tr>
-                                <tr>
-                                    <td>Expenditure:</td>
-                                    <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_spent', 0))}</td>
-                                </tr>
-                                <tr class="total-row">
-                                    <td><strong>Balance:</strong></td>
-                                    <td class="amount"><strong>{PDFReportGenerator.format_currency(summary.get('funds_balance', 0))}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td>Utilization:</td>
-                                    <td class="amount">{PDFReportGenerator.format_percentage(summary.get('funds_utilization', 0))}</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </td>
-                </tr>
-            </table>
+            <div class="summary-box-vertical">
+                <h3>Budget Overview</h3>
+                <table class="summary-table">
+                    <tr>
+                        <td style="width: 60%;">Approved Budget:</td>
+                        <td class="amount" style="width: 40%;">{PDFReportGenerator.format_currency(summary.get('total_budget', 0))}</td>
+                    </tr>
+                    <tr>
+                        <td>Committed:</td>
+                        <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_committed', 0))}</td>
+                    </tr>
+                    <tr class="total-row-summary">
+                        <td><strong>Balance:</strong></td>
+                        <td class="amount"><strong>{PDFReportGenerator.format_currency(summary.get('budget_balance', 0))}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Utilization:</td>
+                        <td class="amount">{PDFReportGenerator.format_percentage(summary.get('budget_utilization', 0))}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="summary-box-vertical" style="margin-top: 15pt;">
+                <h3>Funds Overview</h3>
+                <table class="summary-table">
+                    <tr>
+                        <td style="width: 60%;">Funds Received:</td>
+                        <td class="amount" style="width: 40%;">{PDFReportGenerator.format_currency(summary.get('total_funds', 0))}</td>
+                    </tr>
+                    <tr>
+                        <td>Expenditure:</td>
+                        <td class="amount">{PDFReportGenerator.format_currency(summary.get('total_spent', 0))}</td>
+                    </tr>
+                    <tr class="total-row-summary">
+                        <td><strong>Balance:</strong></td>
+                        <td class="amount"><strong>{PDFReportGenerator.format_currency(summary.get('funds_balance', 0))}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Utilization:</td>
+                        <td class="amount">{PDFReportGenerator.format_percentage(summary.get('funds_utilization', 0))}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
         """
     
     @staticmethod
     def _build_budget_table_simple(budget_data: list, funds_data: list) -> str:
-        """Build simple budget allocation table"""
-        
+        """Build simple budget allocation table with right-aligned numbers"""
         if not budget_data or len(budget_data) == 0:
             return "<p>No budget data available.</p>"
-        
+    
         rows = ""
         for i, item in enumerate(budget_data):
             funds_item = funds_data[i] if i < len(funds_data) else {}
-            
             allocated = float(item.get('approved_budget', 0) or 0)
             received = float(funds_item.get('funds_received', 0) or 0)
             spent = float(funds_item.get('spent', 0) or 0)
             balance = received - spent
-            
             category = str(item.get('category', 'N/A')).title().replace('_', ' ')
-            
+        
             rows += f"""
             <tr>
-                <td>{category}</td>
-                <td style="text-align: right;">{PDFReportGenerator.format_currency(allocated)}</td>
-                <td style="text-align: right;">{PDFReportGenerator.format_currency(received)}</td>
-                <td style="text-align: right;">{PDFReportGenerator.format_currency(spent)}</td>
-                <td style="text-align: right;">{PDFReportGenerator.format_currency(balance)}</td>
+                <td style="padding: 6px;">{category}</td>
+                <td style="text-align: right; padding: 6px;">{PDFReportGenerator.format_currency(allocated)}</td>
+                <td style="text-align: right; padding: 6px;">{PDFReportGenerator.format_currency(received)}</td>
+                <td style="text-align: right; padding: 6px;">{PDFReportGenerator.format_currency(spent)}</td>
+                <td style="text-align: right; padding: 6px;">{PDFReportGenerator.format_currency(balance)}</td>
             </tr>
             """
-        
+    
         return f"""
         <div class="section">
             <h2>Budget Allocation By Head</h2>
@@ -846,23 +919,22 @@ class PDFReportGenerator:
             </table>
         </div>
         """
-    
+
     @staticmethod
     def _build_allocation_breakdowns_from_db(project_data) -> str:
-        """Build manpower and equipment allocation breakdown tables from data"""
+        """Build manpower and equipment allocation breakdown tables from database"""
         from app.database import get_db_connection
-        
+    
         project_id = project_data.get('project_id')
         if not project_id:
             return ""
-        
         html = ""
         conn = None
-        
+    
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            
+        
             # Get manpower breakdown
             cursor.execute("""
                 SELECT role, salary_per_month, months, num_personnel,
@@ -871,12 +943,14 @@ class PDFReportGenerator:
                 WHERE project_id = %s
                 ORDER BY role
             """, (project_id,))
-            
+        
             manpower_rows = cursor.fetchall()
-            
+        
             if manpower_rows and len(manpower_rows) > 0:
                 manpower_html = ""
+                manpower_total = 0
                 for row in manpower_rows:
+                    manpower_total += float(row[4])
                     manpower_html += f"""
                     <tr>
                         <td style="border: 1px solid #000; padding: 6px;">{row[0]}</td>
@@ -887,6 +961,14 @@ class PDFReportGenerator:
                     </tr>
                     """
                 
+                # Add total row
+                manpower_html += f"""
+                    <tr style="background-color: #e8e8e8; font-weight: bold;">
+                        <td colspan="4" style="border: 1px solid #000; padding: 6px; text-align: right;">TOTAL</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(manpower_total)}</td>
+                    </tr>
+                    """
+            
                 html += f"""
                 <div class="section">
                     <h2>Manpower Allocation Breakdown</h2>
@@ -902,7 +984,7 @@ class PDFReportGenerator:
                     </table>
                 </div>
                 """
-            
+        
             # Get equipment breakdown
             cursor.execute("""
                 SELECT item_name, quantity, unit_cost,
@@ -911,12 +993,14 @@ class PDFReportGenerator:
                 WHERE project_id = %s
                 ORDER BY item_name
             """, (project_id,))
-            
+        
             equipment_rows = cursor.fetchall()
-            
+        
             if equipment_rows and len(equipment_rows) > 0:
                 equipment_html = ""
+                equipment_total = 0
                 for row in equipment_rows:
+                    equipment_total += float(row[3])
                     equipment_html += f"""
                     <tr>
                         <td style="border: 1px solid #000; padding: 6px;">{row[0]}</td>
@@ -926,6 +1010,14 @@ class PDFReportGenerator:
                     </tr>
                     """
                 
+                # Add total row
+                equipment_html += f"""
+                    <tr style="background-color: #e8e8e8; font-weight: bold;">
+                        <td colspan="3" style="border: 1px solid #000; padding: 6px; text-align: right;">TOTAL</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(equipment_total)}</td>
+                    </tr>
+                    """
+            
                 html += f"""
                 <div class="section">
                     <h2>Equipment Allocation Breakdown</h2>
@@ -940,132 +1032,20 @@ class PDFReportGenerator:
                     </table>
                 </div>
                 """
-            
+        
             cursor.close()
-            
+        
         except Exception as e:
             print(f"Error fetching breakdown data: {e}")
         finally:
             if conn:
                 conn.close()
-        
-        return html
-        """Build manpower and equipment allocation breakdown tables from database"""
-        from app.database import get_db_connection
-        
-        if not project_id:
-            return ""
-        
-        html = ""
-        conn = None
-        
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            # Get manpower breakdown
-            cursor.execute("""
-                SELECT role, salary_per_month, months, num_personnel,
-                       (salary_per_month * months * num_personnel) as total
-                FROM manpower_allocation_breakdown
-                WHERE project_id = %s
-                ORDER BY role
-            """, (project_id,))
-            
-            manpower_rows = cursor.fetchall()
-            
-            if manpower_rows and len(manpower_rows) > 0:
-                manpower_html = ""
-                for row in manpower_rows:
-                    manpower_html += f"""
-                    <tr>
-                        <td style="border: 1px solid #000; padding: 6px;">{row[0]}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[1]))}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[2]}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[3]}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[4]))}</td>
-                    </tr>
-                    """
-                
-                html += f"""
-                <div class="section">
-                    <h2>Manpower Allocation Breakdown</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
-                        <tr style="background-color: #f0f0f0; font-weight: bold;">
-                            <td style="border: 1px solid #000; padding: 6px;">ROLE</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: right;">SALARY/MONTH</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">MONTHS</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">PERSONNEL</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: right;">TOTAL</td>
-                        </tr>
-                        {manpower_html}
-                    </table>
-                </div>
-                """
-            
-            # Get equipment breakdown
-            cursor.execute("""
-                SELECT item_name, quantity, unit_cost,
-                       (quantity * unit_cost) as total
-                FROM equipment_allocation_breakdown
-                WHERE project_id = %s
-                ORDER BY item_name
-            """, (project_id,))
-            
-            equipment_rows = cursor.fetchall()
-            
-            if equipment_rows and len(equipment_rows) > 0:
-                equipment_html = ""
-                for row in equipment_rows:
-                    equipment_html += f"""
-                    <tr>
-                        <td style="border: 1px solid #000; padding: 6px;">{row[0]}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[1]}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[2]))}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[3]))}</td>
-                    </tr>
-                    """
-                
-                html += f"""
-                <div class="section">
-                    <h2>Equipment Allocation Breakdown</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
-                        <tr style="background-color: #f0f0f0; font-weight: bold;">
-                            <td style="border: 1px solid #000; padding: 6px;">ITEM</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">QUANTITY</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: right;">UNIT COST</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: right;">TOTAL</td>
-                        </tr>
-                        {equipment_html}
-                    </table>
-                </div>
-                """
-            
-            # Add page break before Funds Received section
-            html += '<pdf:nextpage />'
-            
-            # FUNDS RECEIVED SECTION
-            html += PDFReportGenerator._build_funds_received_breakdown(cursor, project_id)
-            
-            # Add page break before Expenditure section
-            html += '<pdf:nextpage />'
-            
-            # EXPENDITURE SECTION
-            html += PDFReportGenerator._build_expenditure_breakdown(cursor, project_id)
-            
-            cursor.close()
-            
-        except Exception as e:
-            print(f"Error fetching breakdown data: {e}")
-        finally:
-            if conn:
-                conn.close()
-        
+    
         return html
     
     @staticmethod
     def _build_funds_received_breakdown(data: Dict[str, list]) -> str:
-        """Build detailed Funds Received section with breakdowns"""
+        """Build detailed Funds Received section with breakdowns - FIXED CALCULATIONS"""
         
         html = '<div class="section"><h2>Funds Received</h2>'
         
@@ -1092,7 +1072,7 @@ class PDFReportGenerator:
             for fund in manpower_funds:
                 date_str = PDFReportGenerator.format_date(fund['date_received'])
                 breakdown = fund.get('breakdown', {})
-                amount = fund['amount']
+                amount = fund['amount']  # This is now the correctly calculated amount
                 manpower_subtotal += amount
                 
                 html += f'''
@@ -1108,7 +1088,7 @@ class PDFReportGenerator:
             
             html += f'''
                 <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="5" style="border: 1px solid #000; padding: 6px;">Subtotal (Manpower)</td>
+                    <td colspan="5" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal (Manpower)</td>
                     <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(manpower_subtotal)}</td>
                 </tr>
             </table>
@@ -1135,7 +1115,7 @@ class PDFReportGenerator:
             for fund in equipment_funds:
                 date_str = PDFReportGenerator.format_date(fund['date_received'])
                 breakdown = fund.get('breakdown', {})
-                amount = fund['amount']
+                amount = fund['amount']  # This is now the correctly calculated amount
                 equipment_subtotal += amount
                 
                 html += f'''
@@ -1150,175 +1130,67 @@ class PDFReportGenerator:
             
             html += f'''
                 <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="4" style="border: 1px solid #000; padding: 6px;">Subtotal (Equipment)</td>
+                    <td colspan="4" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal (Equipment)</td>
                     <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(equipment_subtotal)}</td>
                 </tr>
             </table>
             '''
             grand_total += equipment_subtotal
         
-        # Other budget heads (Consumables, Travel, Contingency, Overhead)
+        # Other budget heads (Consumables, Travel, Contingency, Overhead)  
+        # CRITICAL: Check if items list actually has data
         for head in ['consumables', 'travel & training', 'contingency', 'overhead']:
             items = data.get(head, [])
+            
+            # Only show if there are actual items
             if items and len(items) > 0:
-                head_total = sum(item['amount'] for item in items)
                 display_name = head.title().replace('&', 'and')
                 
                 html += f'''
-                <h3 style="margin-top: 10pt; margin-bottom: 5pt;">{display_name}</h3>
-                <p style="padding-left: 15pt; margin: 5pt 0;">{PDFReportGenerator.format_currency(head_total)}</p>
+                <h3 style="margin-top: 12pt; margin-bottom: 6pt;">{display_name}</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="background-color: #f0f0f0; font-weight: bold;">
+                        <td style="border: 1px solid #000; padding: 6px;">Date</td>
+                        <td style="border: 1px solid #000; padding: 6px;">Remarks</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">Amount</td>
+                    </tr>
+                '''
+                
+                head_total = 0
+                for item in items:
+                    head_total += item['amount']
+                    date_str = PDFReportGenerator.format_date(item.get('date_received', ''))
+                    # Provide default if remarks is None or empty
+                    remarks = item.get('remarks') or 'General fund receipt'
+                    html += f'''
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
+                        <td style="border: 1px solid #000; padding: 6px;">{remarks}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(item['amount'])}</td>
+                    </tr>
+                    '''
+                
+                html += f'''
+                    <tr style="background-color: #e8e8e8; font-weight: bold;">
+                        <td colspan="2" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal ({display_name})</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(head_total)}</td>
+                    </tr>
+                </table>
                 '''
                 grand_total += head_total
         
         # Grand Total
         html += f'''
-        <div style="margin-top: 15pt; padding: 10pt; background-color: #f0f0f0; border: 2px solid #000;">
-            <p style="margin: 0; font-size: 12pt; font-weight: bold;">Total Funds Received</p>
-            <p style="margin: 5pt 0 0 0; font-size: 11pt;">Across all budget heads</p>
-            <p style="margin: 5pt 0 0 0; font-size: 14pt; font-weight: bold;">{PDFReportGenerator.format_currency(grand_total)}</p>
-        </div>
-        '''
-        
-        html += '</div>'
-        return html
-        """Build detailed Funds Received section with breakdowns"""
-        
-        html = '<div class="section"><h2>Funds Received</h2>'
-        
-        grand_total = 0
-        
-        # Manpower Funds
-        cursor.execute("""
-            SELECT mfb.date_received, mfb.role, mfb.salary_per_month, 
-                   mfb.months, mfb.num_personnel, mfb.amount,
-                   fr.date_received as fund_date
-            FROM manpower_funds_breakdown mfb
-            JOIN funds_received fr ON mfb.fund_id = fr.fund_id
-            WHERE mfb.project_id = %s
-            ORDER BY fr.date_received DESC
-        """, (project_id,))
-        
-        manpower_funds = cursor.fetchall()
-        
-        if manpower_funds and len(manpower_funds) > 0:
-            html += '<h3 style="margin-top: 10pt; margin-bottom: 5pt;">Manpower</h3>'
-            html += '''
+        <div style="margin-top: 20pt; padding: 12pt; background-color: #f0f0f0; border: 2px solid #000;">
             <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f0f0f0; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 6px;">Date</td>
-                    <td style="border: 1px solid #000; padding: 6px;">Role</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Salary/Month</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Months</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Personnel</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Total</td>
-                </tr>
-            '''
-            
-            manpower_subtotal = 0
-            for row in manpower_funds:
-                date_str = PDFReportGenerator.format_date(row[0]) if row[0] else 'N/A'
-                amount = float(row[5])
-                manpower_subtotal += amount
-                
-                html += f'''
                 <tr>
-                    <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
-                    <td style="border: 1px solid #000; padding: 6px;">{row[1]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[2]))}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[3]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[4]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(amount)}</td>
+                    <td style="font-size: 12pt; font-weight: bold;">Total Funds Received</td>
+                    <td style="font-size: 14pt; font-weight: bold; text-align: right;">{PDFReportGenerator.format_currency(grand_total)}</td>
                 </tr>
-                '''
-            
-            html += f'''
-                <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="5" style="border: 1px solid #000; padding: 6px;">Subtotal (Manpower)</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(manpower_subtotal)}</td>
+                <tr>
+                    <td colspan="2" style="font-size: 9pt; padding-top: 5pt;">Across all budget heads</td>
                 </tr>
             </table>
-            '''
-            grand_total += manpower_subtotal
-        
-        # Equipment Funds
-        cursor.execute("""
-            SELECT efb.date_received, efb.item_name, efb.quantity, 
-                   efb.unit_cost, efb.amount,
-                   fr.date_received as fund_date
-            FROM equipment_funds_breakdown efb
-            JOIN funds_received fr ON efb.fund_id = fr.fund_id
-            WHERE efb.project_id = %s
-            ORDER BY fr.date_received DESC
-        """, (project_id,))
-        
-        equipment_funds = cursor.fetchall()
-        
-        if equipment_funds and len(equipment_funds) > 0:
-            html += '<h3 style="margin-top: 10pt; margin-bottom: 5pt;">Equipment</h3>'
-            html += '''
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f0f0f0; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 6px;">Date</td>
-                    <td style="border: 1px solid #000; padding: 6px;">Item</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Quantity</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Unit Cost</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Total</td>
-                </tr>
-            '''
-            
-            equipment_subtotal = 0
-            for row in equipment_funds:
-                date_str = PDFReportGenerator.format_date(row[0]) if row[0] else 'N/A'
-                amount = float(row[4])
-                equipment_subtotal += amount
-                
-                html += f'''
-                <tr>
-                    <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
-                    <td style="border: 1px solid #000; padding: 6px;">{row[1]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[2]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[3]))}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(amount)}</td>
-                </tr>
-                '''
-            
-            html += f'''
-                <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="4" style="border: 1px solid #000; padding: 6px;">Subtotal (Equipment)</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(equipment_subtotal)}</td>
-                </tr>
-            </table>
-            '''
-            grand_total += equipment_subtotal
-        
-        # Other budget heads (Consumables, Travel, Contingency, Overhead)
-        cursor.execute("""
-            SELECT head, SUM(amount) as total_amount
-            FROM funds_received
-            WHERE project_id = %s 
-            AND head NOT IN ('manpower', 'equipment')
-            GROUP BY head
-            ORDER BY head
-        """, (project_id,))
-        
-        other_funds = cursor.fetchall()
-        
-        for row in other_funds:
-            head = row[0].title().replace('_', ' ')
-            amount = float(row[1])
-            grand_total += amount
-            
-            html += f'''
-            <h3 style="margin-top: 10pt; margin-bottom: 5pt;">{head}</h3>
-            <p style="padding-left: 15pt; margin: 5pt 0;">{PDFReportGenerator.format_currency(amount)}</p>
-            '''
-        
-        # Grand Total
-        html += f'''
-        <div style="margin-top: 15pt; padding: 10pt; background-color: #f0f0f0; border: 2px solid #000;">
-            <p style="margin: 0; font-size: 12pt; font-weight: bold;">Total Funds Received</p>
-            <p style="margin: 5pt 0 0 0; font-size: 11pt;">Across all budget heads</p>
-            <p style="margin: 5pt 0 0 0; font-size: 14pt; font-weight: bold;">{PDFReportGenerator.format_currency(grand_total)}</p>
         </div>
         '''
         
@@ -1369,7 +1241,7 @@ class PDFReportGenerator:
             
             html += f'''
                 <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="5" style="border: 1px solid #000; padding: 6px;">Subtotal (Manpower)</td>
+                    <td colspan="5" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal (Manpower)</td>
                     <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(manpower_subtotal)}</td>
                 </tr>
             </table>
@@ -1410,7 +1282,7 @@ class PDFReportGenerator:
             
             html += f'''
                 <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="4" style="border: 1px solid #000; padding: 6px;">Subtotal (Equipment)</td>
+                    <td colspan="4" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal (Equipment)</td>
                     <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(equipment_subtotal)}</td>
                 </tr>
             </table>
@@ -1421,233 +1293,62 @@ class PDFReportGenerator:
         for head in ['consumables', 'travel & training', 'contingency', 'overhead']:
             items = data.get(head, [])
             if items and len(items) > 0:
-                head_total = sum(item['amount'] for item in items)
                 display_name = head.title().replace('&', 'and') + ' Expenditure'
                 
                 html += f'''
-                <h3 style="margin-top: 10pt; margin-bottom: 5pt;">{display_name}</h3>
-                <p style="padding-left: 15pt; margin: 5pt 0;">{PDFReportGenerator.format_currency(head_total)}</p>
+                <h3 style="margin-top: 12pt; margin-bottom: 6pt;">{display_name}</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="background-color: #f0f0f0; font-weight: bold;">
+                        <td style="border: 1px solid #000; padding: 6px;">Date</td>
+                        <td style="border: 1px solid #000; padding: 6px;">Description</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">Amount</td>
+                    </tr>
+                '''
+                
+                head_total = 0
+                for item in items:
+                    head_total += item['amount']
+                    date_str = PDFReportGenerator.format_date(item.get('date_incurred'))
+                    description = item.get('description', 'N/A')
+                    html += f'''
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
+                        <td style="border: 1px solid #000; padding: 6px;">{description}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(item['amount'])}</td>
+                    </tr>
+                    '''
+                
+                html += f'''
+                    <tr style="background-color: #e8e8e8; font-weight: bold;">
+                        <td colspan="2" style="border: 1px solid #000; padding: 6px; text-align: right;">Subtotal ({display_name})</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(head_total)}</td>
+                    </tr>
+                </table>
                 '''
                 grand_total += head_total
         
         # Grand Total
         html += f'''
-        <div style="margin-top: 15pt; padding: 10pt; background-color: #f0f0f0; border: 2px solid #000;">
-            <p style="margin: 0; font-size: 12pt; font-weight: bold;">Total Expenditure</p>
-            <p style="margin: 5pt 0 0 0; font-size: 11pt;">Across all budget heads</p>
-            <p style="margin: 5pt 0 0 0; font-size: 14pt; font-weight: bold;">{PDFReportGenerator.format_currency(grand_total)}</p>
+        <div style="margin-top: 20pt; padding: 12pt; background-color: #f0f0f0; border: 2px solid #000;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="font-size: 12pt; font-weight: bold;">Total Expenditure</td>
+                    <td style="font-size: 14pt; font-weight: bold; text-align: right;">{PDFReportGenerator.format_currency(grand_total)}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="font-size: 9pt; padding-top: 5pt;">Across all budget heads</td>
+                </tr>
+            </table>
         </div>
         '''
         
         html += '</div>'
         return html
-        """Build detailed Expenditure section with breakdowns"""
-        
-        html = '<div class="section"><h2>Expenditure</h2>'
-        
-        grand_total = 0
-        
-        # Manpower Expenditure
-        cursor.execute("""
-            SELECT date_incurred, role, salary_per_month, months, 
-                   num_personnel, total_cost
-            FROM manpower
-            WHERE project_id = %s
-            ORDER BY date_incurred DESC
-        """, (project_id,))
-        
-        manpower_exp = cursor.fetchall()
-        
-        if manpower_exp and len(manpower_exp) > 0:
-            html += '<h3 style="margin-top: 10pt; margin-bottom: 5pt;">Manpower Expenditure</h3>'
-            html += '''
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f0f0f0; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 6px;">Date</td>
-                    <td style="border: 1px solid #000; padding: 6px;">Role</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Salary/Month</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Months</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Personnel</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Amount Spent</td>
-                </tr>
-            '''
-            
-            manpower_subtotal = 0
-            for row in manpower_exp:
-                date_str = PDFReportGenerator.format_date(row[0]) if row[0] else 'N/A'
-                amount = float(row[5])
-                manpower_subtotal += amount
-                
-                html += f'''
-                <tr>
-                    <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
-                    <td style="border: 1px solid #000; padding: 6px;">{row[1]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[2]))}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[3]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[4]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(amount)}</td>
-                </tr>
-                '''
-            
-            html += f'''
-                <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="5" style="border: 1px solid #000; padding: 6px;">Subtotal (Manpower)</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(manpower_subtotal)}</td>
-                </tr>
-            </table>
-            '''
-            grand_total += manpower_subtotal
-        
-        # Equipment Expenditure
-        cursor.execute("""
-            SELECT purchase_date, name, quantity, unit_cost, total_cost
-            FROM equipment
-            WHERE project_id = %s
-            ORDER BY purchase_date DESC
-        """, (project_id,))
-        
-        equipment_exp = cursor.fetchall()
-        
-        if equipment_exp and len(equipment_exp) > 0:
-            html += '<h3 style="margin-top: 10pt; margin-bottom: 5pt;">Equipment Expenditure</h3>'
-            html += '''
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f0f0f0; font-weight: bold;">
-                    <td style="border: 1px solid #000; padding: 6px;">Date</td>
-                    <td style="border: 1px solid #000; padding: 6px;">Item</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">Quantity</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Unit Cost</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">Amount Spent</td>
-                </tr>
-            '''
-            
-            equipment_subtotal = 0
-            for row in equipment_exp:
-                date_str = PDFReportGenerator.format_date(row[0]) if row[0] else 'N/A'
-                amount = float(row[4])
-                equipment_subtotal += amount
-                
-                html += f'''
-                <tr>
-                    <td style="border: 1px solid #000; padding: 6px;">{date_str}</td>
-                    <td style="border: 1px solid #000; padding: 6px;">{row[1]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">{row[2]}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(float(row[3]))}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(amount)}</td>
-                </tr>
-                '''
-            
-            html += f'''
-                <tr style="background-color: #e8e8e8; font-weight: bold;">
-                    <td colspan="4" style="border: 1px solid #000; padding: 6px;">Subtotal (Equipment)</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{PDFReportGenerator.format_currency(equipment_subtotal)}</td>
-                </tr>
-            </table>
-            '''
-            grand_total += equipment_subtotal
-        
-        # Other expenditures (from budget_expenditure table)
-        cursor.execute("""
-            SELECT head, SUM(amount) as total_amount
-            FROM budget_expenditure
-            WHERE project_id = %s
-            GROUP BY head
-            ORDER BY head
-        """, (project_id,))
-        
-        other_exp = cursor.fetchall()
-        
-        for row in other_exp:
-            head = row[0].title().replace('_', ' ')
-            amount = float(row[1])
-            grand_total += amount
-            
-            html += f'''
-            <h3 style="margin-top: 10pt; margin-bottom: 5pt;">{head} Expenditure</h3>
-            <p style="padding-left: 15pt; margin: 5pt 0;">{PDFReportGenerator.format_currency(amount)}</p>
-            '''
-        
-        # Grand Total
-        html += f'''
-        <div style="margin-top: 15pt; padding: 10pt; background-color: #f0f0f0; border: 2px solid #000;">
-            <p style="margin: 0; font-size: 12pt; font-weight: bold;">Total Expenditure</p>
-            <p style="margin: 5pt 0 0 0; font-size: 11pt;">Across all budget heads</p>
-            <p style="margin: 5pt 0 0 0; font-size: 14pt; font-weight: bold;">{PDFReportGenerator.format_currency(grand_total)}</p>
-        </div>
-        '''
-        
-        html += '</div>'
-        return html
-    
-    @staticmethod
-    def _build_funds_expenditure_table(funds_data: list) -> str:
-        """Build funds and expenditure table"""
-        
-        if not funds_data or len(funds_data) == 0:
-            return """
-            <div class="section">
-                <h2>FUNDS RECEIVED & EXPENDITURE BY CATEGORY</h2>
-                <p>No funds or expenditure data available.</p>
-            </div>
-            """
-        
-        rows = ""
-        total_received = 0
-        total_spent = 0
-        total_balance = 0
-        
-        for item in funds_data:
-            received = float(item.get('funds_received', 0) or 0)
-            spent = float(item.get('spent', 0) or 0)
-            balance = float(item.get('balance', 0) or 0)
-            utilization = (spent / received * 100) if received > 0 else 0
-            
-            total_received += received
-            total_spent += spent
-            total_balance += balance
-            
-            rows += f"""
-            <tr>
-                <td>{item.get('category', 'N/A')}</td>
-                <td class="amount">{PDFReportGenerator.format_currency(received)}</td>
-                <td class="amount">{PDFReportGenerator.format_currency(spent)}</td>
-                <td class="amount">{PDFReportGenerator.format_currency(balance)}</td>
-                <td class="amount">{PDFReportGenerator.format_percentage(utilization)}</td>
-            </tr>
-            """
-        
-        return f"""
-        <div class="section">
-            <h2>FUNDS RECEIVED & EXPENDITURE BY CATEGORY</h2>
-            
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Funds Received</th>
-                        <th>Spent</th>
-                        <th>Balance</th>
-                        <th>Utilization %</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                    <tr class="total-row">
-                        <td><strong>TOTAL</strong></td>
-                        <td class="amount"><strong>{PDFReportGenerator.format_currency(total_received)}</strong></td>
-                        <td class="amount"><strong>{PDFReportGenerator.format_currency(total_spent)}</strong></td>
-                        <td class="amount"><strong>{PDFReportGenerator.format_currency(total_balance)}</strong></td>
-                        <td class="amount"><strong>{PDFReportGenerator.format_percentage((total_spent/total_received*100) if total_received > 0 else 0)}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        """
     
     @staticmethod
     def _build_category_breakdown(budget_data: list, funds_data: list) -> str:
-        """Build category-wise breakdown summary"""
-        
+        """Build category-wise breakdown summary as a professional table"""
+
         if not budget_data or len(budget_data) == 0:
             return """
             <div class="section">
@@ -1655,28 +1356,70 @@ class PDFReportGenerator:
                 <p>No category breakdown data available.</p>
             </div>
             """
-        
-        html = '<div class="section"><h2>CATEGORY-WISE BREAKDOWN SUMMARY</h2>'
-        
-        for i, budget_item in enumerate(budget_data):
-            category = budget_item.get('category', 'N/A')
-            funds_item = funds_data[i] if i < len(funds_data) else {}
-            
-            html += f"""
-            <div class="category-summary">
-                <h3>{category}</h3>
-                <p><strong>Budget - Approved:</strong> {PDFReportGenerator.format_currency(budget_item.get('approved_budget', 0) or 0)} | 
-                <strong>Committed:</strong> {PDFReportGenerator.format_currency(budget_item.get('committed_amount', 0) or 0)} | 
-                <strong>Balance:</strong> {PDFReportGenerator.format_currency(budget_item.get('balance', 0) or 0)}</p>
-                <p><strong>Funds - Received:</strong> {PDFReportGenerator.format_currency(funds_item.get('funds_received', 0) or 0)} | 
-                <strong>Spent:</strong> {PDFReportGenerator.format_currency(funds_item.get('spent', 0) or 0)} | 
-                <strong>Balance:</strong> {PDFReportGenerator.format_currency(funds_item.get('balance', 0) or 0)}</p>
-            </div>
-            """
-        
-        html += '</div>'
-        return html
     
+        html = '<div class="section"><h2>Category-Wise Breakdown Summary</h2>'
+        html += '''
+        <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+            <tr style="background-color: #f0f0f0; font-weight: bold;">
+                <td style="border: 1px solid #000; padding: 6px; width: 20%;">HEAD</td>
+                <td style="border: 1px solid #000; padding: 6px; text-align: center;">BUDGET</td>
+                <td style="border: 1px solid #000; padding: 6px; text-align: center;">FUNDS</td>
+            </tr>
+        '''
+    
+        for i, budget_item in enumerate(budget_data):
+            category = str(budget_item.get('category', 'N/A')).title().replace('_', ' ').replace('&', 'and')
+            funds_item = funds_data[i] if i < len(funds_data) else {}
+            # Budget figures
+            budget_approved = float(budget_item.get('approved_budget', 0) or 0)
+            budget_committed = float(budget_item.get('committed_amount', 0) or 0)
+            budget_balance = float(budget_item.get('balance', 0) or 0)
+            # Funds figures
+            funds_received = float(funds_item.get('funds_received', 0) or 0)
+            funds_spent = float(funds_item.get('spent', 0) or 0)
+            funds_balance = float(funds_item.get('balance', 0) or 0)
+        
+            html += f'''
+            <tr>
+                <td style="border: 1px solid #000; padding: 8px; font-weight: bold; background-color: #f9f9f9;">{category}</td>
+                <td style="border: 1px solid #000; padding: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 3px; font-size: 9pt;">Approved:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(budget_approved)}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 3px; font-size: 9pt;">Committed:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(budget_committed)}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #ccc;">
+                            <td style="padding: 3px; font-size: 9pt; font-weight: bold;">Balance:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt; font-weight: bold;">{PDFReportGenerator.format_currency(budget_balance)}</td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #000; padding: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 3px; font-size: 9pt;">Received:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(funds_received)}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 3px; font-size: 9pt;">Spent:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(funds_spent)}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #ccc;">
+                            <td style="padding: 3px; font-size: 9pt; font-weight: bold;">Balance:</td>
+                            <td style="padding: 3px; text-align: right; font-size: 9pt; font-weight: bold;">{PDFReportGenerator.format_currency(funds_balance)}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            '''
+    
+        html += '</table></div>'
+        return html
+
     @staticmethod
     def _build_detailed_transactions(categories: Dict[str, list]) -> str:
         """Build detailed transaction tables for each category"""
@@ -1687,10 +1430,10 @@ class PDFReportGenerator:
         for category_name, items in categories.items():
             if items and len(items) > 0:
                 # Capitalize category name for display
-                display_name = category_name.upper().replace('_', ' ').replace('&', 'AND')
+                display_name = category_name.UPPER().replace('_', ' ').replace('&', 'AND')
                 
                 html += f'<div class="section"><h2>{display_name} DETAILS</h2>'
-                html += '<table class="data-table"><thead><tr><th>Description</th><th>Amount</th><th>Date</th></tr></thead><tbody>'
+                html += '<table class="data-table"><thead><tr><th>Description</th><th style="text-align: right;">Amount</th><th>Date</th></tr></thead><tbody>'
                 
                 total = 0
                 for item in items:
@@ -1698,16 +1441,17 @@ class PDFReportGenerator:
                     total += amount
                     html += f"""
                     <tr>
-                        <td>{item.get('description', 'N/A')}</td>
-                        <td class="amount">{PDFReportGenerator.format_currency(amount)}</td>
-                        <td>{PDFReportGenerator.format_date(item.get('date_incurred'))}</td>
+                        <td style="padding: 6px;">{item.get('description', 'N/A')}</td>
+                        <td class="amount" style="padding: 6px;">{PDFReportGenerator.format_currency(amount)}</td>
+                        <td style="padding: 6px;">{PDFReportGenerator.format_date(item.get('date_incurred'))}</td>
                     </tr>
                     """
                 
                 html += f"""
-                    <tr class="total-row">
-                        <td><strong>Total {display_name}</strong></td>
-                        <td class="amount" colspan="2"><strong>{PDFReportGenerator.format_currency(total)}</strong></td>
+                    <tr style="background-color: #e8e8e8; font-weight: bold;">
+                        <td style="padding: 6px; text-align: right;">Total {display_name}</td>
+                        <td class="amount" style="padding: 6px;">{PDFReportGenerator.format_currency(total)}</td>
+                        <td style="padding: 6px;"></td>
                     </tr>
                 """
                 html += '</tbody></table></div>'
@@ -1770,6 +1514,12 @@ class PDFReportGenerator:
             border-bottom: 1pt solid #000000;
         }
         
+        .section h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 15pt 0 8pt 0;
+        }
+        
         .simple-table {
             width: 100%;
             border-collapse: collapse;
@@ -1780,5 +1530,143 @@ class PDFReportGenerator:
             border: 1px solid #000;
             padding: 6pt 8pt;
             font-size: 9pt;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8pt;
+        }
+        
+        .data-table th {
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            padding: 6pt 8pt;
+            font-size: 9pt;
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .data-table td {
+            border: 1px solid #000;
+            padding: 6pt 8pt;
+            font-size: 9pt;
+        }
+        
+        .summary-box-vertical {
+            border: 1.5pt solid #000000;
+            padding: 12pt;
+            background-color: #fafafa;
+        }
+        
+        .summary-box-vertical h3 {
+            font-size: 11pt;
+            font-weight: bold;
+            margin: 0 0 10pt 0;
+            padding-bottom: 5pt;
+            border-bottom: 1pt solid #cccccc;
+        }
+        
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .summary-table td {
+            padding: 5pt 0;
+            font-size: 9pt;
+        }
+        
+        .amount {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .total-row-summary {
+            border-top: 1pt solid #000000;
+            padding-top: 5pt;
+        }
+        
+        .total-row-summary td {
+            padding-top: 8pt;
+        }
+        
+        /* Cover Page Styles */
+        .cover-page {
+            height: 100%;
+            display: table;
+            width: 100%;
+        }
+        
+        .cover-header {
+            text-align: center;
+            padding: 40pt 0 30pt 0;
+        }
+        
+        .org-placeholder {
+            font-size: 14pt;
+            font-weight: bold;
+            border: 2px solid #000;
+            padding: 30pt;
+            display: inline-block;
+            background-color: #f5f5f5;
+        }
+        
+        .cover-title-section {
+            text-align: center;
+            padding: 60pt 0;
+        }
+        
+        .cover-main-title {
+            font-size: 24pt;
+            font-weight: bold;
+            margin: 0 0 15pt 0;
+            letter-spacing: 2pt;
+        }
+        
+        .cover-subtitle {
+            font-size: 12pt;
+            font-style: italic;
+            color: #444;
+        }
+        
+        .cover-project-info {
+            padding: 40pt 60pt;
+        }
+        
+        .cover-info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .cover-info-table td {
+            padding: 10pt 0;
+            font-size: 11pt;
+        }
+        
+        .cover-label {
+            font-weight: bold;
+            width: 35%;
+        }
+        
+        .cover-value {
+            width: 65%;
+        }
+        
+        .cover-footer {
+            text-align: center;
+            padding: 40pt 0 0 0;
+            border-top: 2pt solid #000;
+        }
+        
+        .cover-date-info {
+            font-size: 10pt;
+            margin-bottom: 20pt;
+        }
+        
+        .cover-confidential {
+            font-size: 9pt;
+            font-style: italic;
+            color: #666;
         }
         """

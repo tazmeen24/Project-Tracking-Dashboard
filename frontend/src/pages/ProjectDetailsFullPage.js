@@ -188,7 +188,9 @@ const ProjectDetailsFullPage = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-300">Loading project details...</p>
+          <p className="text-slate-600 dark:text-slate-300">
+            Loading project details...
+          </p>
         </div>
       </div>
     );
@@ -233,10 +235,10 @@ const ProjectDetailsFullPage = () => {
       text: "text-slate-800 dark:text-slate-200",
       icon: CheckCircle,
     },
-    Upcoming: { 
-      bg: "bg-blue-100 dark:bg-blue-900/30", 
-      text: "text-blue-800 dark:text-blue-300", 
-      icon: Calendar 
+    Upcoming: {
+      bg: "bg-blue-100 dark:bg-blue-900/30",
+      text: "text-blue-800 dark:text-blue-300",
+      icon: Calendar,
     },
   };
   const StatusIcon = statusColors[status]?.icon || CheckCircle;
@@ -254,7 +256,9 @@ const ProjectDetailsFullPage = () => {
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
               <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              {title}
+            </h2>
           </div>
           {isExpanded ? (
             <ChevronUp className="w-5 h-5 text-slate-400 dark:text-slate-500" />
@@ -264,7 +268,9 @@ const ProjectDetailsFullPage = () => {
         </button>
 
         {isExpanded && (
-          <div className="px-6 pb-6 border-t border-slate-100 dark:border-slate-700">{children}</div>
+          <div className="px-6 pb-6 border-t border-slate-100 dark:border-slate-700">
+            {children}
+          </div>
         )}
       </div>
     );
@@ -278,8 +284,12 @@ const ProjectDetailsFullPage = () => {
         </div>
       )}
       <div className="flex-1">
-        <div className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</div>
-        <div className="text-base text-slate-900 dark:text-slate-100 mt-1">{value || "N/A"}</div>
+        <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="text-base text-slate-900 dark:text-slate-100 mt-1">
+          {value || "N/A"}
+        </div>
       </div>
     </div>
   );
@@ -312,7 +322,9 @@ const ProjectDetailsFullPage = () => {
                   {status}
                 </span>
               </div>
-              <p className="text-slate-600 dark:text-slate-400 font-medium">{project.project_no}</p>
+              <p className="text-slate-600 dark:text-slate-400 font-medium">
+                {project.project_no}
+              </p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -502,216 +514,254 @@ const ProjectDetailsFullPage = () => {
           </div>
         </CollapsibleSection>
 
-{/* Budget Allocation & Expenditure */}
-<CollapsibleSection
-  title="Budget Allocation & Expenditure"
-  icon={DollarSign}
-  sectionKey="budget"
->
-  <div className="mt-4">
-    <table className="w-full">
-      <thead className="bg-slate-50 dark:bg-slate-700/50">
-        <tr>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-slate-100">Head</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Allocated</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Spent</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Spent (%)</th>
-          <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">Balance</th>
-        </tr>
-      </thead>
+        {/* Budget Allocation & Expenditure */}
+        <CollapsibleSection
+          title="Budget Allocation & Expenditure"
+          icon={DollarSign}
+          sectionKey="budget"
+        >
+          <div className="mt-4">
+            <table className="w-full">
+              <thead className="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Head
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Allocated
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Spent
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Spent (%)
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Balance
+                  </th>
+                </tr>
+              </thead>
 
-      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-        {[
-          {
-            label: "Manpower",
-            allocated: project.manpower_allocation,
-            type: "manpower",
-            breakdown: project.manpower_breakdown,
-          },
-          {
-            label: "Equipment",
-            allocated: project.equipment_allocation,
-            type: "equipment",
-            breakdown: project.equipment_breakdown,
-          },
-          {
-            label: "Travel & Training",
-            allocated: project.travel_training_allocation,
-          },
-          {
-            label: "Consumables",
-            allocated: project.consumables_allocation,
-          },
-          {
-            label: "Contingency",
-            allocated: project.contingency_allocation,
-          },
-          {
-            label: "Overhead",
-            allocated: project.overhead_allocation,
-          },
-        ].map((item, index) => {
-          const spent = getExpenditureByHead(item.label.toLowerCase());
-          const balance = item.allocated - spent;
-          const percentSpent =
-            item.allocated > 0 ? (spent / item.allocated) * 100 : 0;
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {[
+                  {
+                    label: "Manpower",
+                    allocated: project.manpower_allocation,
+                    type: "manpower",
+                    breakdown: project.manpower_breakdown,
+                  },
+                  {
+                    label: "Equipment",
+                    allocated: project.equipment_allocation,
+                    type: "equipment",
+                    breakdown: project.equipment_breakdown,
+                  },
+                  {
+                    label: "Travel & Training",
+                    allocated: project.travel_training_allocation,
+                  },
+                  {
+                    label: "Consumables",
+                    allocated: project.consumables_allocation,
+                  },
+                  {
+                    label: "Contingency",
+                    allocated: project.contingency_allocation,
+                  },
+                  {
+                    label: "Overhead",
+                    allocated: project.overhead_allocation,
+                  },
+                ].map((item, index) => {
+                  const spent = getExpenditureByHead(item.label.toLowerCase());
+                  const balance = item.allocated - spent;
+                  const percentSpent =
+                    item.allocated > 0 ? (spent / item.allocated) * 100 : 0;
 
-          const expandable =
-            item.type === "manpower" || item.type === "equipment";
+                  const expandable =
+                    item.type === "manpower" || item.type === "equipment";
 
-          const isExpanded = expanded[item.type];
+                  const isExpanded = expanded[item.type];
 
-          return (
-            <>
-              {/* Main Row */}
-              <tr
-                key={index}
-                className={expandable ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50" : ""}
-                onClick={() =>
-                  expandable &&
-                  setExpanded(prev => ({
-                    ...prev,
-                    [item.type]: !prev[item.type],
-                  }))
-                }
-              >
-                <td className="px-4 py-3 text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  {expandable && (
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {isExpanded ? "▼" : "▶"}
-                    </span>
-                  )}
-                  {item.label}
-                </td>
+                  return (
+                    <React.Fragment key={index}>
+                      {/* Main Row */}
+                      <tr
+                        key={index}
+                        className={
+                          expandable
+                            ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                            : ""
+                        }
+                        onClick={() =>
+                          expandable &&
+                          setExpanded((prev) => ({
+                            ...prev,
+                            [item.type]: !prev[item.type],
+                          }))
+                        }
+                      >
+                        <td className="px-4 py-3 text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          {expandable && (
+                            <span className="text-slate-500 dark:text-slate-400">
+                              {isExpanded ? "▼" : "▶"}
+                            </span>
+                          )}
+                          {item.label}
+                        </td>
 
-                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100 font-semibold">
-                  {formatCurrency(item.allocated || 0)}
-                </td>
+                        <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100 font-semibold">
+                          {formatCurrency(item.allocated || 0)}
+                        </td>
 
-                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
-                  {formatCurrency(spent)}
-                </td>
+                        <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
+                          {formatCurrency(spent)}
+                        </td>
 
-                <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
-                  {percentSpent.toFixed(1)}%
-                </td>
+                        <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
+                          {percentSpent.toFixed(1)}%
+                        </td>
 
-                <td
-                  className={`px-4 py-3 text-right font-semibold ${
-                    balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {formatCurrency(balance)}
-                </td>
-              </tr>
+                        <td
+                          className={`px-4 py-3 text-right font-semibold ${
+                            balance >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {formatCurrency(balance)}
+                        </td>
+                      </tr>
 
-              {/* Manpower Breakdown */}
-              {isExpanded &&
-                item.type === "manpower" &&
-                item.breakdown &&
-                item.breakdown.length > 0 && (
-                  <tr>
-                    <td colSpan={5} className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-slate-700 dark:text-slate-300">
-                            <th className="text-left py-2">Role</th>
-                            <th className="text-left py-2">Salary/Month</th>
-                            <th className="text-left py-2">Months</th>
-                            <th className="text-left py-2">Personnel</th>
-                            <th className="text-right py-2">Total</th>
+                      {/* Manpower Breakdown */}
+                      {isExpanded &&
+                        item.type === "manpower" &&
+                        item.breakdown &&
+                        item.breakdown.length > 0 && (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4"
+                            >
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-slate-700 dark:text-slate-300">
+                                    <th className="text-left py-2">Role</th>
+                                    <th className="text-left py-2">
+                                      Salary/Month
+                                    </th>
+                                    <th className="text-left py-2">Months</th>
+                                    <th className="text-left py-2">
+                                      Personnel
+                                    </th>
+                                    <th className="text-right py-2">Total</th>
+                                  </tr>
+                                </thead>
+
+                                <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
+                                  {item.breakdown.map((row, i) => (
+                                    <tr
+                                      key={i}
+                                      className="text-slate-900 dark:text-slate-100"
+                                    >
+                                      <td className="py-2">{row.role}</td>
+                                      <td className="py-2">
+                                        {formatCurrency(row.salary_per_month)}
+                                      </td>
+                                      <td className="py-2">{row.months}</td>
+                                      <td className="py-2">
+                                        {row.num_personnel || 1}
+                                      </td>
+                                      <td className="py-2 text-right font-semibold">
+                                        {formatCurrency(
+                                          (row.salary_per_month || 0) *
+                                            (row.months || 0) *
+                                            (row.num_personnel || 1)
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
                           </tr>
-                        </thead>
+                        )}
 
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                          {item.breakdown.map((row, i) => (
-                            <tr key={i} className="text-slate-900 dark:text-slate-100">
-                              <td className="py-2">{row.role}</td>
-                              <td className="py-2">
-                                {formatCurrency(row.salary_per_month)}
-                              </td>
-                              <td className="py-2">{row.months}</td>
-                              <td className="py-2">
-                                {row.num_personnel || 1}
-                              </td>
-                              <td className="py-2 text-right font-semibold">
-                                {formatCurrency(
-                                  (row.salary_per_month || 0) *
-                                    (row.months || 0) *
-                                    (row.num_personnel || 1)
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                )}
+                      {/* Equipment Breakdown */}
+                      {isExpanded &&
+                        item.type === "equipment" &&
+                        item.breakdown &&
+                        item.breakdown.length > 0 && (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4"
+                            >
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-slate-700 dark:text-slate-300">
+                                    <th className="text-left py-2">Item</th>
+                                    <th className="text-left py-2">Qty</th>
+                                    <th className="text-left py-2">
+                                      Unit Cost
+                                    </th>
+                                    <th className="text-left py-2">
+                                      Description
+                                    </th>
+                                    <th className="text-right py-2">Total</th>
+                                  </tr>
+                                </thead>
 
-              {/* Equipment Breakdown */}
-              {isExpanded &&
-                item.type === "equipment" &&
-                item.breakdown &&
-                item.breakdown.length > 0 && (
-                  <tr>
-                    <td colSpan={5} className="bg-slate-50 dark:bg-slate-700/30 px-6 py-4">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-slate-700 dark:text-slate-300">
-                            <th className="text-left py-2">Item</th>
-                            <th className="text-left py-2">Qty</th>
-                            <th className="text-left py-2">Unit Cost</th>
-                            <th className="text-left py-2">Description</th>
-                            <th className="text-right py-2">Total</th>
+                                <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
+                                  {item.breakdown.map((row, i) => (
+                                    <tr
+                                      key={i}
+                                      className="text-slate-900 dark:text-slate-100"
+                                    >
+                                      <td className="py-2">{row.item_name}</td>
+                                      <td className="py-2">{row.quantity}</td>
+                                      <td className="py-2">
+                                        {formatCurrency(row.unit_cost)}
+                                      </td>
+                                      <td className="py-2">
+                                        {row.description || "-"}
+                                      </td>
+                                      <td className="py-2 text-right font-semibold">
+                                        {formatCurrency(
+                                          row.quantity * row.unit_cost
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
                           </tr>
-                        </thead>
+                        )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
 
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                          {item.breakdown.map((row, i) => (
-                            <tr key={i} className="text-slate-900 dark:text-slate-100">
-                              <td className="py-2">{row.item_name}</td>
-                              <td className="py-2">{row.quantity}</td>
-                              <td className="py-2">
-                                {formatCurrency(row.unit_cost)}
-                              </td>
-                              <td className="py-2">
-                                {row.description || "-"}
-                              </td>
-                              <td className="py-2 text-right font-semibold">
-                                {formatCurrency(
-                                  row.quantity * row.unit_cost
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                )}
-            </>
-          );
-        })}
-      </tbody>
-    </table>
+            {/* Total Budget Row */}
+            <div className="bg-slate-900 dark:bg-slate-700 rounded-xl p-6 flex items-center justify-between mt-6">
+              <div>
+                <span className="text-white text-lg font-bold">
+                  Total Budget
+                </span>
+                <div className="text-slate-300 dark:text-slate-400 text-sm mt-1">
+                  Spent: {formatCurrency(getTotalExpenditure())} • Balance:
+                  {formatCurrency(getTotalBudget() - getTotalExpenditure())}
+                </div>
+              </div>
 
-    {/* Total Budget Row */}
-    <div className="bg-slate-900 dark:bg-slate-700 rounded-xl p-6 flex items-center justify-between mt-6">
-      <div>
-        <span className="text-white text-lg font-bold">Total Budget</span>
-        <div className="text-slate-300 dark:text-slate-400 text-sm mt-1">
-          Spent: {formatCurrency(getTotalExpenditure())} • Balance:
-          {formatCurrency(getTotalBudget() - getTotalExpenditure())}
-        </div>
-      </div>
-
-      <span className="text-white text-2xl font-bold">
-        {formatCurrency(getTotalBudget())}
-      </span>
-    </div>
-  </div>
-</CollapsibleSection>
+              <span className="text-white text-2xl font-bold">
+                {formatCurrency(getTotalBudget())}
+              </span>
+            </div>
+          </div>
+        </CollapsibleSection>
 
         {/* FUNDS RECEIVED */}
         {project.funds && project.funds.length > 0 && (
@@ -754,7 +804,10 @@ const ProjectDetailsFullPage = () => {
                       {project.funds
                         .filter((f) => f.head === "manpower")
                         .map((fund) => (
-                          <tr key={fund.fund_id} className="text-slate-900 dark:text-slate-100">
+                          <tr
+                            key={fund.fund_id}
+                            className="text-slate-900 dark:text-slate-100"
+                          >
                             <td className="px-4 py-3 text-sm">
                               {new Date(fund.received_date).toLocaleDateString(
                                 "en-IN"
@@ -830,7 +883,10 @@ const ProjectDetailsFullPage = () => {
                       {project.funds
                         .filter((f) => f.head === "equipment")
                         .map((fund) => (
-                          <tr key={fund.fund_id} className="text-slate-900 dark:text-slate-100">
+                          <tr
+                            key={fund.fund_id}
+                            className="text-slate-900 dark:text-slate-100"
+                          >
                             <td className="px-4 py-3 text-sm">
                               {new Date(fund.received_date).toLocaleDateString(
                                 "en-IN"
@@ -964,7 +1020,10 @@ const ProjectDetailsFullPage = () => {
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {actualExpenditures.manpower_expenditures.map(
                       (exp, idx) => (
-                        <tr key={idx} className="text-slate-900 dark:text-slate-100">
+                        <tr
+                          key={`manpower-exp-${idx}`}
+                          className="text-slate-900 dark:text-slate-100"
+                        >
                           <td className="px-4 py-3 text-sm">
                             {exp.date_incurred
                               ? new Date(exp.date_incurred).toLocaleDateString(
@@ -1036,7 +1095,10 @@ const ProjectDetailsFullPage = () => {
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {actualExpenditures.equipment_expenditures.map(
                       (exp, idx) => (
-                        <tr key={idx} className="text-slate-900 dark:text-slate-100">
+                        <tr
+                          key={`equipment-exp-${idx}`}
+                          className="text-slate-900 dark:text-slate-100"
+                        >
                           <td className="px-4 py-3 text-sm">
                             {exp.purchase_date
                               ? new Date(exp.purchase_date).toLocaleDateString(

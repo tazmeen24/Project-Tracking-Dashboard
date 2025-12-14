@@ -22,30 +22,25 @@ const reportService = {
     console.log('Project ID:', projectId);
     console.log('Report Type:', reportType);
     console.log('Format:', format);
+    console.log('Include Sections:', includeSections);
 
     try {
-      const queryParams = new URLSearchParams({
-        report_type: reportType,
-        format: format,
-        include_financial_summary: includeSections.financial_summary,
-        include_budget_allocation: includeSections.budget_allocation,
-        include_funds_expenditure: includeSections.funds_expenditure,
-        include_category_breakdown: includeSections.category_breakdown,
-        include_detailed_transactions: includeSections.detailed_transactions,
-        include_charts: includeSections.charts
-      });
-
       const token = authService.getToken();
       
-      // Use fetch directly for blob response
+      // CRITICAL FIX: Send as JSON body, NOT query parameters
       const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/reports/generate?${queryParams.toString()}`,
+        `${API_BASE_URL}/api/projects/${projectId}/reports/generate`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            reportType: reportType,
+            format: format,
+            includeSections: includeSections
+          })
         }
       );
 
