@@ -803,33 +803,49 @@ const ProjectDetailsFullPage = () => {
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                       {project.funds
                         .filter((f) => f.head === "manpower")
-                        .map((fund) => (
+                        .flatMap(
+                          (fund) =>
+                            // If breakdown exists and is an array, map each item
+                            fund.breakdown &&
+                            Array.isArray(fund.breakdown) &&
+                            fund.breakdown.length > 0
+                              ? fund.breakdown.map((item) => ({
+                                  fund_id: fund.fund_id,
+                                  received_date: fund.received_date,
+                                  ...item,
+                                  // Calculate amount if not present
+                                  amount:
+                                    item.total_amount ||
+                                    item.salary_per_month *
+                                      item.months *
+                                      item.num_personnel,
+                                }))
+                              : [] // Skip if no breakdown
+                        )
+                        .map((item, idx) => (
                           <tr
-                            key={fund.fund_id}
+                            key={`${item.fund_id}-${item.breakdown_id || idx}`}
                             className="text-slate-900 dark:text-slate-100"
                           >
                             <td className="px-4 py-3 text-sm">
-                              {new Date(fund.received_date).toLocaleDateString(
+                              {new Date(item.received_date).toLocaleDateString(
                                 "en-IN"
                               )}
                             </td>
                             <td className="px-4 py-3 font-medium">
-                              {fund.breakdown.role}
+                              {item.role}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              ₹
-                              {fund.breakdown.salary_per_month.toLocaleString(
-                                "en-IN"
-                              )}
+                              ₹{item.salary_per_month.toLocaleString("en-IN")}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {fund.breakdown.months}
+                              {item.months}
                             </td>
-                            <td className="px-4 py-3text-center">
-                              {fund.breakdown.num_personnel}
+                            <td className="px-4 py-3 text-center">
+                              {item.num_personnel}
                             </td>
                             <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                              ₹{fund.amount.toLocaleString("en-IN")}
+                              ₹{item.amount.toLocaleString("en-IN")}
                             </td>
                           </tr>
                         ))}
@@ -844,7 +860,7 @@ const ProjectDetailsFullPage = () => {
                           ₹
                           {project.funds
                             .filter((f) => f.head === "manpower")
-                            .reduce((s, f) => s + f.amount, 0)
+                            .reduce((sum, f) => sum + f.amount, 0)
                             .toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -927,7 +943,7 @@ const ProjectDetailsFullPage = () => {
                 </div>
               )}
 
-              {/* OTHER HEADS */}
+              {/* OTHER HEADS - FUNDS */}
               {[
                 "travel & training",
                 "consumables",
@@ -937,7 +953,6 @@ const ProjectDetailsFullPage = () => {
                 const items = project.funds.filter((f) => f.head === head);
                 if (items.length === 0) return null;
 
-                const total = items.reduce((s, f) => s + f.amount, 0);
                 const displayName =
                   head === "travel & training"
                     ? "Travel & Training"
@@ -946,14 +961,60 @@ const ProjectDetailsFullPage = () => {
                 return (
                   <div
                     key={head}
-                    className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700"
+                    className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden"
                   >
-                    <div className="text-slate-800 dark:text-slate-200 font-medium">
+                    <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
                       {displayName}
                     </div>
-                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      ₹{total.toLocaleString("en-IN")}
-                    </div>
+                    <table className="w-full">
+                      <thead className="bg-slate-100 dark:bg-slate-700/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Date
+                          </th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Description
+                          </th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Amount
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {items.map((fund) => (
+                          <tr
+                            key={fund.fund_id}
+                            className="text-slate-900 dark:text-slate-100"
+                          >
+                            <td className="px-4 py-3 text-sm">
+                              {new Date(fund.received_date).toLocaleDateString(
+                                "en-IN"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-medium">
+                              {fund.description || displayName}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                              ₹{fund.amount.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
+                          <td
+                            colSpan={2}
+                            className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
+                          >
+                            Subtotal ({displayName})
+                          </td>
+                          <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
+                            ₹
+                            {items
+                              .reduce((s, f) => s + f.amount, 0)
+                              .toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 );
               })}
@@ -1135,41 +1196,84 @@ const ProjectDetailsFullPage = () => {
               </div>
             )}
 
-            {/* OTHER HEADS */}
-            {(() => {
-              const heads = {};
-              actualExpenditures.budget_expenditures?.forEach((exp) => {
-                if (!heads[exp.head]) heads[exp.head] = 0;
-                heads[exp.head] += exp.amount;
-              });
+            {/* OTHER HEADS - EXPENDITURE */}
+            {[
+              "travel & training",
+              "consumables",
+              "contingency",
+              "overhead",
+            ].map((head) => {
+              const items = (
+                actualExpenditures.budget_expenditures || []
+              ).filter((exp) => exp.head === head);
+              if (items.length === 0) return null;
 
-              return Object.entries(heads).map(([head, amount]) => {
-                const displayName =
-                  head === "travel & training"
-                    ? "Travel & Training"
-                    : head === "consumables"
-                    ? "Consumables"
-                    : head === "contingency"
-                    ? "Contingency"
-                    : head === "overhead"
-                    ? "Overhead"
-                    : head;
+              const displayName =
+                head === "travel & training"
+                  ? "Travel & Training"
+                  : head.charAt(0).toUpperCase() + head.slice(1);
 
-                return (
-                  <div
-                    key={head}
-                    className="flex justify-between items-center py-3 border-b border-slate-200 dark:border-slate-700"
-                  >
-                    <div className="text-slate-800 dark:text-slate-200 font-medium">
-                      {displayName}
-                    </div>
-                    <div className="font-semibold text-orange-600 dark:text-orange-400">
-                      {formatCurrency(amount)}
-                    </div>
+              return (
+                <div
+                  key={head}
+                  className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden"
+                >
+                  <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-semibold text-slate-900 dark:text-white">
+                    {displayName} Expenditure
                   </div>
-                );
-              });
-            })()}
+                  <table className="w-full">
+                    <thead className="bg-slate-100 dark:bg-slate-700/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
+                          Description
+                        </th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
+                          Amount Spent
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {items.map((exp, idx) => (
+                        <tr
+                          key={`${head}-exp-${idx}`}
+                          className="text-slate-900 dark:text-slate-100"
+                        >
+                          <td className="px-4 py-3 text-sm">
+                            {exp.date_incurred
+                              ? new Date(exp.date_incurred).toLocaleDateString(
+                                  "en-IN"
+                                )
+                              : "N/A"}
+                          </td>
+                          <td className="px-4 py-3 font-medium">
+                            {exp.description || displayName}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
+                            {formatCurrency(exp.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
+                        <td
+                          colSpan={2}
+                          className="px-4 py-3 text-purple-900 dark:text-purple-300 text-right"
+                        >
+                          Subtotal ({displayName})
+                        </td>
+                        <td className="px-4 py-3 text-right text-purple-900 dark:text-purple-300">
+                          {formatCurrency(
+                            items.reduce((s, exp) => s + exp.amount, 0)
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
 
             {/* NO EXPENDITURE MESSAGE */}
             {!actualExpenditures.manpower_expenditures?.length &&
