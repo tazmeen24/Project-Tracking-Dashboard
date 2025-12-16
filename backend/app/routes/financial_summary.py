@@ -4,10 +4,15 @@ Matches existing project structure with psycopg2 direct connections
 Place in: backend/app/routes/financial_summary.py
 """
 
+import traceback
 from fastapi import APIRouter, HTTPException, Query, status
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 from psycopg2.extras import RealDictCursor
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
+from .financial_summary_excel_generator import FinancialSummaryExcelGenerator
+import os
 import json
 
 from ..database import get_db_connection
@@ -707,3 +712,131 @@ def _build_date_filtered_query(base_func, date_filter_mode, as_of_date, start_da
         params = (project_id, project_id)
     
     return query, params
+
+@router.get("/export")
+async def export_financial_summary(
+    view_mode: str = Query(..., description="View mode: by_project, by_budget_head, by_technical_group, by_funding_agency, project_budget_head_detail"),
+    date_filter_mode: str = Query("current", description="Date filter mode"),
+    as_of_date: Optional[date] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    financial_year: Optional[int] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    quarter: Optional[int] = None,
+    project_id: Optional[int] = None
+):
+    """
+    Export financial summary to Excel based on view mode and filters
+    """
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Fetch data using the same logic as the main endpoint
+        if view_mode == "by_project":
+            data = _get_by_project(cursor, date_filter_mode, as_of_date, start_date, end_date, 
+                                  financial_year, year, month, quarter, project_id)
+        elif view_mode == "by_budget_head":
+            data = _get_by_budget_head(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                      financial_year, year, month, quarter, project_id)
+        elif view_mode == "by_technical_group":
+            data = _get_by_technical_group(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                          financial_year, year, month, quarter, project_id)
+        elif view_mode == "by_funding_agency":
+            data = _get_by_funding_agency(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                         financial_year, year, month, quarter, project_id)
+        elif view_mode == "project_budget_head_detail":
+            if not project_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="project_id is required for project_budget_head_detail view"
+                )
+            data = _get_project_budget_head_detail(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                                   financial_year, year, month, quarter, project_id)
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid view_mode: {view_mode}")
+        
+        # Get grand totals
+        if view_mode != "project_budget_head_detail":
+            grand_totals = _get_grand_totals(cursor, date_filter_mode, as_of_date, start_date, end_date,
+                                            financial_year, year, month, quarter, project_id)
+        else:
+            # For single project detail, calculate totals from data
+            grand_totals = {
+                "total_projects": 1,
+                "total_approved_budget": sum(item['approved_budget'] for item in data),
+                "total_funds_received": sum(item['funds_received'] for item in data),
+                "total_expenditure": sum(item['expenditure'] for item in data),
+                "budget_balance": sum(item['budget_balance'] for item in data),
+                "funds_balance": sum(item['funds_balance'] for item in data),
+                "overall_utilization": (
+                    sum(item['expenditure'] for item in data) / sum(item['approved_budget'] for item in data) * 100
+                    if sum(item['approved_budget'] for item in data) > 0 else 0
+                )
+            }
+        
+        # Prepare filter information for Excel header
+        filters = {
+            'dateFilterMode': date_filter_mode,
+            'asOfDate': as_of_date.isoformat() if as_of_date else None,
+            'startDate': start_date.isoformat() if start_date else None,
+            'endDate': end_date.isoformat() if end_date else None,
+            'financialYear': financial_year,
+            'year': year,
+            'month': month,
+            'quarter': quarter
+        }
+        
+        # Add project name for project_budget_head_detail view
+        if view_mode == 'project_budget_head_detail' and project_id:
+            cursor.execute(
+                "SELECT project_no, title FROM projects WHERE project_id = %s",
+                (project_id,)
+            )
+            project = cursor.fetchone()
+            if project:
+                filters['projectName'] = f"{project['project_no']} - {project['title']}"
+            else:
+                filters['projectName'] = f"Project {project_id}"
+        
+        cursor.close()
+        
+        # Generate Excel file
+        excel_path = FinancialSummaryExcelGenerator.generate_financial_summary_excel(
+            view_mode=view_mode,
+            data=data,
+            summary=grand_totals,
+            filters=filters
+        )
+        
+        # Determine filename based on view mode
+        view_mode_names = {
+            'by_project': 'By_Project',
+            'by_budget_head': 'By_Budget_Head',
+            'by_technical_group': 'By_Technical_Group',
+            'by_funding_agency': 'By_Funding_Agency',
+            'project_budget_head_detail': 'Project_Budget_Detail'
+        }
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"Financial_Summary_{view_mode_names.get(view_mode, 'Report')}_{timestamp}.xlsx"
+        
+        # Return file response with auto-cleanup
+        return FileResponse(
+            path=excel_path,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            background=BackgroundTask(lambda: os.unlink(excel_path) if os.path.exists(excel_path) else None)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Export failed: {str(e)}"
+        )
+    finally:
+        conn.close()

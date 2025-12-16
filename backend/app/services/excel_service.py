@@ -135,8 +135,9 @@ class ExcelReportGenerator:
         
         row += 1
         ws[f'A{row}'] = "Utilization (%):"
-        ws[f'B{row}'] = round(summary.get('budget_utilization', 0), 2)
-        ws[f'B{row}'].number_format = '0.00"%"'
+        utilization_value = summary.get('budget_utilization', 0) / 100
+        ws[f'B{row}'] = utilization_value
+        ws[f'B{row}'].number_format = '0.00%'
         
         # Funds Overview
         row += 2
@@ -164,8 +165,9 @@ class ExcelReportGenerator:
         
         row += 1
         ws[f'A{row}'] = "Utilization (%):"
-        ws[f'B{row}'] = round(summary.get('funds_utilization', 0), 2)
-        ws[f'B{row}'].number_format = '0.00"%"'
+        funds_utilization_value = summary.get('funds_utilization', 0) / 100
+        ws[f'B{row}'] = funds_utilization_value
+        ws[f'B{row}'].number_format = '0.00%'
         
         # Adjust column widths
         ws.column_dimensions['A'].width = 30
@@ -215,7 +217,7 @@ class ExcelReportGenerator:
             approved = ExcelReportGenerator.format_currency(item.get('approved_budget', 0))
             committed = ExcelReportGenerator.format_currency(item.get('committed_amount', 0))
             balance = ExcelReportGenerator.format_currency(item.get('balance', 0))
-            utilization = round(item.get('utilization_percentage', 0), 2)
+            utilization = item.get('utilization_percentage', 0) / 100
             
             total_approved += approved
             total_committed += committed
@@ -235,7 +237,7 @@ class ExcelReportGenerator:
             ws[f'B{row}'].number_format = '₹#,##0.00'
             ws[f'C{row}'].number_format = '₹#,##0.00'
             ws[f'D{row}'].number_format = '₹#,##0.00'
-            ws[f'E{row}'].number_format = '0.00"%"'
+            ws[f'E{row}'].number_format = '0.00%'
             
             row += 1
         
@@ -244,7 +246,7 @@ class ExcelReportGenerator:
         ws[f'B{row}'] = total_approved
         ws[f'C{row}'] = total_committed
         ws[f'D{row}'] = total_balance
-        ws[f'E{row}'] = round((total_committed / total_approved * 100) if total_approved > 0 else 0, 2)
+        ws[f'E{row}'] = (total_committed / total_approved) if total_approved > 0 else 0
         
         # Style total row
         total_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
@@ -257,7 +259,7 @@ class ExcelReportGenerator:
         ws[f'B{row}'].number_format = '₹#,##0.00'
         ws[f'C{row}'].number_format = '₹#,##0.00'
         ws[f'D{row}'].number_format = '₹#,##0.00'
-        ws[f'E{row}'].number_format = '0.00"%"'
+        ws[f'E{row}'].number_format = '0.00%'
         
         # Adjust column widths
         ws.column_dimensions['A'].width = 20
@@ -310,7 +312,7 @@ class ExcelReportGenerator:
             received = ExcelReportGenerator.format_currency(item.get('funds_received', 0))
             spent = ExcelReportGenerator.format_currency(item.get('spent', 0))
             balance = ExcelReportGenerator.format_currency(item.get('balance', 0))
-            utilization = round((spent / received * 100) if received > 0 else 0, 2)
+            utilization = (spent / received) if received > 0 else 0
             
             total_received += received
             total_spent += spent
@@ -330,7 +332,7 @@ class ExcelReportGenerator:
             ws[f'B{row}'].number_format = '₹#,##0.00'
             ws[f'C{row}'].number_format = '₹#,##0.00'
             ws[f'D{row}'].number_format = '₹#,##0.00'
-            ws[f'E{row}'].number_format = '0.00"%"'
+            ws[f'E{row}'].number_format = '0.00%'
             
             row += 1
         
@@ -339,7 +341,7 @@ class ExcelReportGenerator:
         ws[f'B{row}'] = total_received
         ws[f'C{row}'] = total_spent
         ws[f'D{row}'] = total_balance
-        ws[f'E{row}'] = round((total_spent / total_received * 100) if total_received > 0 else 0, 2)
+        ws[f'E{row}'] = (total_spent / total_received) if total_received > 0 else 0
         
         # Style total row
         total_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
@@ -352,7 +354,7 @@ class ExcelReportGenerator:
         ws[f'B{row}'].number_format = '₹#,##0.00'
         ws[f'C{row}'].number_format = '₹#,##0.00'
         ws[f'D{row}'].number_format = '₹#,##0.00'
-        ws[f'E{row}'].number_format = '0.00"%"'
+        ws[f'E{row}'].number_format = '0.00%'
         
         # Adjust column widths
         ws.column_dimensions['A'].width = 20
@@ -368,3 +370,157 @@ class ExcelReportGenerator:
         categories = data.get('categories', {})
         # Implementation remains the same...
         pass
+    
+    @staticmethod
+    def generate_projects_summary_excel(projects_data: list) -> str:
+        """Generate Excel report for all projects summary"""
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Projects Summary"
+        
+        # Title
+        ws['A1'] = "ALL PROJECTS SUMMARY"
+        ws['A1'].font = Font(size=16, bold=True)
+        ws.merge_cells('A1:J1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        # Subtitle with date
+        ws['A2'] = f"Generated on: {datetime.now().strftime('%d-%b-%Y %I:%M %p')}"
+        ws['A2'].font = Font(size=10, italic=True)
+        ws.merge_cells('A2:J2')
+        ws['A2'].alignment = Alignment(horizontal='center')
+        
+        # Headers
+        headers = [
+            'Project No', 'Title', 'Technical Group', 'Funding Agency',
+            'Approved Budget', 'Funds Received', 'Expenditure',
+            'Budget Balance', 'Funds Balance', 'Utilization'
+        ]
+        header_row = 4
+        
+        # Style for headers
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=header_row, column=col)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        
+        # Data rows
+        row = header_row + 1
+        total_budget = 0
+        total_funds = 0
+        total_expenditure = 0
+        total_budget_balance = 0
+        total_funds_balance = 0
+        
+        for project in projects_data:
+            approved_budget = ExcelReportGenerator.format_currency(project.get('approved_budget', 0))
+            funds_received = ExcelReportGenerator.format_currency(project.get('funds_received', 0))
+            expenditure = ExcelReportGenerator.format_currency(project.get('expenditure', 0))
+            budget_balance = ExcelReportGenerator.format_currency(project.get('budget_balance', 0))
+            funds_balance = ExcelReportGenerator.format_currency(project.get('funds_balance', 0))
+            utilization = project.get('utilization', 0) / 100  # Divide by 100 for percentage format
+            
+            total_budget += approved_budget
+            total_funds += funds_received
+            total_expenditure += expenditure
+            total_budget_balance += budget_balance
+            total_funds_balance += funds_balance
+            
+            ws[f'A{row}'] = project.get('project_no', 'N/A')
+            ws[f'B{row}'] = project.get('title', 'N/A')
+            ws[f'C{row}'] = project.get('technical_group', 'N/A')
+            ws[f'D{row}'] = project.get('funding_agency', 'N/A')
+            ws[f'E{row}'] = approved_budget
+            ws[f'F{row}'] = funds_received
+            ws[f'G{row}'] = expenditure
+            ws[f'H{row}'] = budget_balance
+            ws[f'I{row}'] = funds_balance
+            ws[f'J{row}'] = utilization
+            
+            # Formatting
+            for col in range(1, 11):
+                cell = ws.cell(row=row, column=col)
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical='center')
+            
+            # Currency formatting
+            ws[f'E{row}'].number_format = '₹#,##0'
+            ws[f'F{row}'].number_format = '₹#,##0'
+            ws[f'G{row}'].number_format = '₹#,##0'
+            ws[f'H{row}'].number_format = '₹#,##0'
+            ws[f'I{row}'].number_format = '₹#,##0'
+            ws[f'J{row}'].number_format = '0.0%'
+            
+            # Color coding for balances
+            if budget_balance > 0:
+                ws[f'H{row}'].font = Font(color="10B981")  # Green
+            if funds_balance > 0:
+                ws[f'I{row}'].font = Font(color="10B981")  # Green
+            
+            row += 1
+        
+        # Total row
+        ws[f'A{row}'] = "TOTAL"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws.merge_cells(f'A{row}:D{row}')
+        ws[f'A{row}'].alignment = Alignment(horizontal='center')
+        
+        ws[f'E{row}'] = total_budget
+        ws[f'F{row}'] = total_funds
+        ws[f'G{row}'] = total_expenditure
+        ws[f'H{row}'] = total_budget_balance
+        ws[f'I{row}'] = total_funds_balance
+        
+        avg_utilization = (total_expenditure / total_funds) if total_funds > 0 else 0
+        ws[f'J{row}'] = avg_utilization
+        
+        # Style total row
+        total_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+        for col in range(1, 11):
+            cell = ws.cell(row=row, column=col)
+            cell.font = Font(bold=True)
+            cell.fill = total_fill
+            cell.border = thin_border
+        
+        ws[f'E{row}'].number_format = '₹#,##0'
+        ws[f'F{row}'].number_format = '₹#,##0'
+        ws[f'G{row}'].number_format = '₹#,##0'
+        ws[f'H{row}'].number_format = '₹#,##0'
+        ws[f'I{row}'].number_format = '₹#,##0'
+        ws[f'J{row}'].number_format = '0.0%'
+        
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 12
+        ws.column_dimensions['B'].width = 30
+        ws.column_dimensions['C'].width = 18
+        ws.column_dimensions['D'].width = 18
+        ws.column_dimensions['E'].width = 16
+        ws.column_dimensions['F'].width = 16
+        ws.column_dimensions['G'].width = 14
+        ws.column_dimensions['H'].width = 16
+        ws.column_dimensions['I'].width = 16
+        ws.column_dimensions['J'].width = 12
+        
+        # Freeze header row
+        ws.freeze_panes = 'A5'
+        
+        # Save to temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        temp_path = temp_file.name
+        temp_file.close()
+        
+        wb.save(temp_path)
+        return temp_path

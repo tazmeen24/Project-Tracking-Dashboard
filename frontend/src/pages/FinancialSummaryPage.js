@@ -125,7 +125,6 @@ const FinancialSummaryPage = () => {
         params.projectId = parseInt(projectFilter);
       }
       const data = await financialSummaryService.getFinancialSummary(params);
-      console.log("RAW SUMMARY DATA:", data);
       setFinancialData(data);
     } catch (err) {
       console.error('Financial Summary Error:', err);
