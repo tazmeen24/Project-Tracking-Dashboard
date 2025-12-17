@@ -19,6 +19,9 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
 import ProjectFinancialsPage from './pages/ProjectFinancialsPage';
 import ProjectReportPage from './pages/ProjectReportPage';
+import UCManagementPage from './pages/UCManagementPage';
+import UCCreatePage from './pages/UCCreatePage';
+import ProjectUCsPage from './pages/ProjectUCsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -61,6 +64,10 @@ function App() {
               <Route path="reports" element={<ReportsPage />} />
               <Route path="/projects/:projectId/reports" element={<ProjectReportPage />} />
               <Route path="/projects/:projectId/finances" element={<ProjectFinancialsPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="uc-management" element={<UCManagementPage />} />
+              <Route path="uc/new" element={<UCCreatePage />} />
+              <Route path="uc/project/:projectId" element={<ProjectUCsPage />} />
             </Route>
 
             {/* 404 Catch-all */}

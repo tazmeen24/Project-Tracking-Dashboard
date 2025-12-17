@@ -219,7 +219,7 @@ class ReportService:
                 FROM funds_received
                 WHERE project_id = %s
                 GROUP BY head
-            ) fr_sum ON ba.head = fr_sum.head
+            ) fr_sum ON LOWER(TRIM(ba.head)) = fr_sum.head
             LEFT JOIN (
                 SELECT head, SUM(total_spent) as total_spent
                 FROM (
@@ -1389,7 +1389,7 @@ class PDFReportGenerator:
                             <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(budget_approved)}</td>
                         </tr>
                         <tr>
-                            <td style="padding: 3px; font-size: 9pt;">Committed:</td>
+                            <td style="padding: 3px; font-size: 9pt;">Spent:</td>
                             <td style="padding: 3px; text-align: right; font-size: 9pt;">{PDFReportGenerator.format_currency(budget_committed)}</td>
                         </tr>
                         <tr style="border-top: 1px solid #ccc;">

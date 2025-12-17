@@ -1,3 +1,4 @@
+# backend/app/services/excel_service.py
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import datetime
@@ -29,8 +30,14 @@ class ExcelReportGenerator:
             return str(date_value)
     
     @staticmethod
-    def generate_excel(project_data: Dict[str, Any], include_sections: Dict[str, bool]) -> str:
-        """Generate Excel report and return file path"""
+    def generate_excel(project_data: Dict[str, Any], include_sections: Dict[str, bool], report_type: str = 'comprehensive') -> str:
+        """Generate Excel report and return file path
+        
+        Args:
+            project_data: Project financial data
+            include_sections: Dictionary of sections to include
+            report_type: 'summary' or 'comprehensive'
+        """
         
         wb = Workbook()
         
@@ -38,18 +45,22 @@ class ExcelReportGenerator:
         if 'Sheet' in wb.sheetnames:
             wb.remove(wb['Sheet'])
         
-        # Create sheets based on included sections
-        if include_sections.get('financial_summary', True):
+        # For summary reports, only create the summary sheet
+        if report_type == 'summary':
             ExcelReportGenerator._create_summary_sheet(wb, project_data)
-        
-        if include_sections.get('budget_allocation', True):
-            ExcelReportGenerator._create_budget_sheet(wb, project_data)
-        
-        if include_sections.get('funds_expenditure', True):
-            ExcelReportGenerator._create_funds_sheet(wb, project_data)
-        
-        if include_sections.get('detailed_transactions', False):
-            ExcelReportGenerator._create_transaction_sheets(wb, project_data)
+        else:
+            # Comprehensive report - create sheets based on included sections
+            if include_sections.get('financial_summary', True):
+                ExcelReportGenerator._create_summary_sheet(wb, project_data)
+            
+            if include_sections.get('budget_allocation', True):
+                ExcelReportGenerator._create_budget_sheet(wb, project_data)
+            
+            if include_sections.get('funds_expenditure', True):
+                ExcelReportGenerator._create_funds_sheet(wb, project_data)
+            
+            if include_sections.get('detailed_transactions', False):
+                ExcelReportGenerator._create_transaction_sheets(wb, project_data)
         
         # Save to temporary file - let Python choose temp directory automatically
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
@@ -175,10 +186,12 @@ class ExcelReportGenerator:
     
     @staticmethod
     def _create_budget_sheet(wb: Workbook, data: Dict[str, Any]):
-        """Create Budget Allocation sheet"""
+        """Create Budget Allocation sheet with breakdowns"""
         
         ws = wb.create_sheet("Budget Allocation")
         budget_data = data.get('budget_allocation', [])
+        project = data.get('project', {})
+        project_id = project.get('project_id')
         
         # Title
         ws['A1'] = "BUDGET ALLOCATION BY CATEGORY"
@@ -190,8 +203,8 @@ class ExcelReportGenerator:
         header_row = 3
         
         # Style for headers
-        header_fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
-        header_font = Font(bold=True)
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
         thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
@@ -205,26 +218,26 @@ class ExcelReportGenerator:
             cell.font = header_font
             cell.fill = header_fill
             cell.border = thin_border
-            cell.alignment = Alignment(horizontal='center')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
         
         # Data rows
         row = header_row + 1
-        total_approved = 0
+        total_budget = 0
         total_committed = 0
         total_balance = 0
         
         for item in budget_data:
-            approved = ExcelReportGenerator.format_currency(item.get('approved_budget', 0))
+            budget = ExcelReportGenerator.format_currency(item.get('approved_budget', 0))
             committed = ExcelReportGenerator.format_currency(item.get('committed_amount', 0))
             balance = ExcelReportGenerator.format_currency(item.get('balance', 0))
             utilization = item.get('utilization_percentage', 0) / 100
             
-            total_approved += approved
+            total_budget += budget
             total_committed += committed
             total_balance += balance
             
             ws[f'A{row}'] = str(item.get('category', 'N/A')).title()
-            ws[f'B{row}'] = approved
+            ws[f'B{row}'] = budget
             ws[f'C{row}'] = committed
             ws[f'D{row}'] = balance
             ws[f'E{row}'] = utilization
@@ -243,10 +256,10 @@ class ExcelReportGenerator:
         
         # Total row
         ws[f'A{row}'] = "TOTAL"
-        ws[f'B{row}'] = total_approved
+        ws[f'B{row}'] = total_budget
         ws[f'C{row}'] = total_committed
         ws[f'D{row}'] = total_balance
-        ws[f'E{row}'] = (total_committed / total_approved) if total_approved > 0 else 0
+        ws[f'E{row}'] = (total_committed / total_budget) if total_budget > 0 else 0
         
         # Style total row
         total_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
@@ -261,12 +274,187 @@ class ExcelReportGenerator:
         ws[f'D{row}'].number_format = '₹#,##0.00'
         ws[f'E{row}'].number_format = '0.00%'
         
+        # Add breakdowns if project_id is available
+        if project_id:
+            row += 3  # Add space before breakdowns
+            row = ExcelReportGenerator._add_allocation_breakdowns(ws, row, project_id)
+        
         # Adjust column widths
         ws.column_dimensions['A'].width = 20
         ws.column_dimensions['B'].width = 20
         ws.column_dimensions['C'].width = 20
         ws.column_dimensions['D'].width = 20
         ws.column_dimensions['E'].width = 18
+    
+    @staticmethod
+    def _add_allocation_breakdowns(ws, start_row: int, project_id: int) -> int:
+        """Add manpower and equipment allocation breakdowns from database"""
+        from app.database import get_db_connection
+        
+        conn = None
+        row = start_row
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Styles
+            section_fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF")
+            total_fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+            thin_border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            # ===== MANPOWER BREAKDOWN =====
+            cursor.execute("""
+                SELECT role, salary_per_month, months, num_personnel,
+                       (salary_per_month * months * num_personnel) as total
+                FROM manpower_allocation_breakdown
+                WHERE project_id = %s
+                ORDER BY role
+            """, (project_id,))
+            
+            manpower_rows = cursor.fetchall()
+            
+            if manpower_rows and len(manpower_rows) > 0:
+                # Section title
+                ws[f'A{row}'] = "Manpower Allocation Breakdown"
+                ws[f'A{row}'].font = Font(size=12, bold=True)
+                ws[f'A{row}'].fill = section_fill
+                ws.merge_cells(f'A{row}:E{row}')
+                row += 1
+                
+                # Headers
+                headers = ['Role', 'Salary/Month', 'Months', 'Personnel', 'Total']
+                for col, header in enumerate(headers, start=1):
+                    cell = ws.cell(row=row, column=col)
+                    cell.value = header
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                row += 1
+                
+                # Data rows
+                manpower_total = 0
+                for data_row in manpower_rows:
+                    role, salary, months, personnel, total = data_row
+                    manpower_total += float(total)
+                    
+                    ws[f'A{row}'] = role
+                    ws[f'B{row}'] = float(salary)
+                    ws[f'C{row}'] = months
+                    ws[f'D{row}'] = personnel
+                    ws[f'E{row}'] = float(total)
+                    
+                    # Formatting
+                    for col in range(1, 6):
+                        ws.cell(row=row, column=col).border = thin_border
+                    
+                    ws[f'B{row}'].number_format = '₹#,##0.00'
+                    ws[f'C{row}'].alignment = Alignment(horizontal='center')
+                    ws[f'D{row}'].alignment = Alignment(horizontal='center')
+                    ws[f'E{row}'].number_format = '₹#,##0.00'
+                    
+                    row += 1
+                
+                # Total row
+                ws[f'A{row}'] = "TOTAL"
+                ws[f'E{row}'] = manpower_total
+                
+                ws.merge_cells(f'A{row}:D{row}')
+                for col in range(1, 6):
+                    cell = ws.cell(row=row, column=col)
+                    cell.font = Font(bold=True)
+                    cell.fill = total_fill
+                    cell.border = thin_border
+                
+                ws[f'A{row}'].alignment = Alignment(horizontal='right')
+                ws[f'E{row}'].number_format = '₹#,##0.00'
+                
+                row += 3  # Space before next section
+            
+            # ===== EQUIPMENT BREAKDOWN =====
+            cursor.execute("""
+                SELECT item_name, quantity, unit_cost,
+                       (quantity * unit_cost) as total
+                FROM equipment_allocation_breakdown
+                WHERE project_id = %s
+                ORDER BY item_name
+            """, (project_id,))
+            
+            equipment_rows = cursor.fetchall()
+            
+            if equipment_rows and len(equipment_rows) > 0:
+                # Section title
+                ws[f'A{row}'] = "Equipment Allocation Breakdown"
+                ws[f'A{row}'].font = Font(size=12, bold=True)
+                ws[f'A{row}'].fill = section_fill
+                ws.merge_cells(f'A{row}:D{row}')
+                row += 1
+                
+                # Headers
+                headers = ['Item', 'Quantity', 'Unit Cost', 'Total']
+                for col, header in enumerate(headers, start=1):
+                    cell = ws.cell(row=row, column=col)
+                    cell.value = header
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                row += 1
+                
+                # Data rows
+                equipment_total = 0
+                for data_row in equipment_rows:
+                    item, quantity, unit_cost, total = data_row
+                    equipment_total += float(total)
+                    
+                    ws[f'A{row}'] = item
+                    ws[f'B{row}'] = quantity
+                    ws[f'C{row}'] = float(unit_cost)
+                    ws[f'D{row}'] = float(total)
+                    
+                    # Formatting
+                    for col in range(1, 5):
+                        ws.cell(row=row, column=col).border = thin_border
+                    
+                    ws[f'B{row}'].alignment = Alignment(horizontal='center')
+                    ws[f'C{row}'].number_format = '₹#,##0.00'
+                    ws[f'D{row}'].number_format = '₹#,##0.00'
+                    
+                    row += 1
+                
+                # Total row
+                ws[f'A{row}'] = "TOTAL"
+                ws[f'D{row}'] = equipment_total
+                
+                ws.merge_cells(f'A{row}:C{row}')
+                for col in range(1, 5):
+                    cell = ws.cell(row=row, column=col)
+                    cell.font = Font(bold=True)
+                    cell.fill = total_fill
+                    cell.border = thin_border
+                
+                ws[f'A{row}'].alignment = Alignment(horizontal='right')
+                ws[f'D{row}'].number_format = '₹#,##0.00'
+                
+                row += 1
+            
+            cursor.close()
+            
+        except Exception as e:
+            print(f"Error fetching breakdown data: {e}")
+        finally:
+            if conn:
+                conn.close()
+        
+        return row
     
     @staticmethod
     def _create_funds_sheet(wb: Workbook, data: Dict[str, Any]):
@@ -276,17 +464,17 @@ class ExcelReportGenerator:
         funds_data = data.get('funds_expenditure', [])
         
         # Title
-        ws['A1'] = "FUNDS RECEIVED & EXPENDITURE BY CATEGORY"
+        ws['A1'] = "FUNDS RECEIVED & EXPENDITURE"
         ws['A1'].font = Font(size=14, bold=True)
         ws.merge_cells('A1:E1')
         
         # Headers
-        headers = ['Category', 'Funds Received', 'Spent', 'Balance', 'Utilization (%)']
+        headers = ['Category', 'Funds Received', 'Expenditure', 'Balance', 'Utilization (%)']
         header_row = 3
         
         # Style for headers
-        header_fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
-        header_font = Font(bold=True)
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
         thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
@@ -300,7 +488,7 @@ class ExcelReportGenerator:
             cell.font = header_font
             cell.fill = header_fill
             cell.border = thin_border
-            cell.alignment = Alignment(horizontal='center')
+            cell.alignment = Alignment(horizontal='center', vertical='center')
         
         # Data rows
         row = header_row + 1
@@ -431,7 +619,7 @@ class ExcelReportGenerator:
             expenditure = ExcelReportGenerator.format_currency(project.get('expenditure', 0))
             budget_balance = ExcelReportGenerator.format_currency(project.get('budget_balance', 0))
             funds_balance = ExcelReportGenerator.format_currency(project.get('funds_balance', 0))
-            utilization = project.get('utilization', 0) / 100  # Divide by 100 for percentage format
+            utilization = project.get('utilization', 0) / 100
             
             total_budget += approved_budget
             total_funds += funds_received
@@ -466,9 +654,9 @@ class ExcelReportGenerator:
             
             # Color coding for balances
             if budget_balance > 0:
-                ws[f'H{row}'].font = Font(color="10B981")  # Green
+                ws[f'H{row}'].font = Font(color="10B981")
             if funds_balance > 0:
-                ws[f'I{row}'].font = Font(color="10B981")  # Green
+                ws[f'I{row}'].font = Font(color="10B981")
             
             row += 1
         

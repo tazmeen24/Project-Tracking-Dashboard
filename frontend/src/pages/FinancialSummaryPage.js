@@ -2,8 +2,8 @@
  * Financial Summary Page
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { FileDown, TrendingUp, DollarSign, PiggyBank, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileDown, DollarSign, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import financialSummaryService from '../services/financialSummaryService';
 import ByProjectTable from '../components/FinancialSummary/ByProjectTable';
 import { ByBudgetHeadTable, ByTechnicalGroupTable, ByFundingAgencyTable } from '../components/FinancialSummary/OtherTables';
@@ -602,12 +602,12 @@ const FinancialSummaryPage = () => {
       {financialData?.summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {[
-            { label: "Total Projects", value: financialData.summary.total_projects, icon: TrendingUp, color: "blue" },
-            { label: "Approved Budget", value: formatCurrency(financialData.summary.total_approved_budget), icon: DollarSign, color: "purple" },
-            { label: "Funds Received", value: formatCurrency(financialData.summary.total_funds_received), icon: PiggyBank, color: "green" },
-            { label: "Expenditure", value: formatCurrency(financialData.summary.total_expenditure), icon: DollarSign, color: "orange" },
-            { label: "Budget Balance", value: formatCurrency(financialData.summary.budget_balance), icon: DollarSign, color: "blue", balance: true },
-            { label: "Funds Balance", value: formatCurrency(financialData.summary.funds_balance), icon: PiggyBank, color: "teal", balance: true },
+            { label: "Total Projects", value: financialData.summary.total_projects, color: "blue" },
+            { label: "Approved Budget", value: formatCurrency(financialData.summary.total_approved_budget), color: "purple" },
+            { label: "Funds Received", value: formatCurrency(financialData.summary.total_funds_received), color: "green" },
+            { label: "Expenditure", value: formatCurrency(financialData.summary.total_expenditure), color: "orange" },
+            { label: "Budget Balance", value: formatCurrency(financialData.summary.budget_balance), color: "blue", balance: true },
+            { label: "Funds Balance", value: formatCurrency(financialData.summary.funds_balance), color: "teal", balance: true },
           ].map((card, i) => (
             <div key={i} className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 p-6">
               <div className="flex items-center justify-between">
@@ -617,7 +617,6 @@ const FinancialSummaryPage = () => {
                     {card.value}
                   </p>
                 </div>
-                <card.icon className={`text-${card.color}-600 dark:text-${card.color}-400`} size={36} />
               </div>
             </div>
           ))}

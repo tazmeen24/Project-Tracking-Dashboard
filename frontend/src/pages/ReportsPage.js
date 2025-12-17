@@ -9,9 +9,11 @@ import {
   ChevronRight,
   BarChart3,
   PieChart,
-  AlertCircle
+  AlertCircle,
+  FileCheck
 } from 'lucide-react';
 import projectService from '../services/projectService';
+import UCReportCard from '../components/reports/UCReportCard';
 
 const ReportsPage = () => {
   const navigate = useNavigate();
@@ -256,7 +258,7 @@ const ReportsPage = () => {
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400">Report Types</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                {reportCategories.filter(c => c.available !== false).length}
+                {reportCategories.filter(c => c.available !== false).length + 1}
               </p>
             </div>
             <BarChart3 className="text-purple-600 dark:text-purple-400" size={32} />
@@ -279,6 +281,10 @@ const ReportsPage = () => {
       {/* Report Categories Grid */}
       {!showProjectSelection ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* UC Card - Featured Position */}
+          <UCReportCard />
+
+          {/* Other Report Categories */}
           {reportCategories.map((category) => {
             const colors = colorConfig[category.color];
             return (
@@ -426,6 +432,9 @@ const ReportsPage = () => {
             </p>
             <p>
               <strong className="font-semibold">Financial Summary:</strong> Institutional-level overview of all active projects and consolidated financial data.
+            </p>
+            <p>
+              <strong className="font-semibold">Utilization Certificates:</strong> Generate GFR 12-A format UCs for annual financial year reporting to funding agencies.
             </p>
           </div>
           <div className="space-y-2">

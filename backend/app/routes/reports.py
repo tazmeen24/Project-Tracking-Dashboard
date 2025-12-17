@@ -1,3 +1,5 @@
+# backend/app/routes/reports.py
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from datetime import datetime
@@ -14,7 +16,7 @@ router = APIRouter()
 @router.post("/projects/{project_id}/reports/generate")
 async def generate_project_report(
     project_id: int,
-    request: ReportGenerationRequest  # Changed from individual parameters
+    request: ReportGenerationRequest
 ):
     """Generate project report in PDF or Excel format"""
     
@@ -72,12 +74,17 @@ async def generate_project_report(
         date_str = datetime.now().strftime("%d%b%Y_%H%M")
         filename = f"{project_no_clean}_{request.reportType.capitalize()}_{date_str}.{file_format}"
         
-        # Generate report
+        # Generate report - PASS report_type TO EXCEL GENERATOR
         if file_format == 'pdf':
             temp_file_path = PDFReportGenerator.generate_pdf(project_data, include_sections)
             media_type = "application/pdf"
         elif file_format == 'xlsx':
-            temp_file_path = ExcelReportGenerator.generate_excel(project_data, include_sections)
+            # Pass report_type parameter to Excel generator
+            temp_file_path = ExcelReportGenerator.generate_excel(
+                project_data, 
+                include_sections,
+                report_type=request.reportType  
+            )
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         else:
             raise HTTPException(status_code=400, detail=f"Invalid format: {request.format}")

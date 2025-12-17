@@ -26,30 +26,29 @@ const ReportGenerationModal = ({ isOpen, onClose, projectId, projectTitle }) => 
   };
 
   const handleGenerateReport = async () => {
-  setIsGenerating(true);
-  setError(null);
+    setIsGenerating(true);
+    setError(null);
 
-  try {
-    // Remove the dynamic import, just use the service directly
-    const { blob, filename } = await reportService.generateReport(projectId, {
-      reportType,
-      format,
-      includeSections
-    });
+    try {
+      const { blob, filename } = await reportService.generateReport(projectId, {
+        reportType,
+        format,
+        includeSections
+      });
 
-    reportService.downloadReport(blob, filename);
+      reportService.downloadReport(blob, filename);
 
-    setTimeout(() => {
-      onClose();
+      setTimeout(() => {
+        onClose();
+        setIsGenerating(false);
+      }, 500);
+
+    } catch (err) {
+      console.error('Report generation error:', err);
+      setError(err.response?.data?.detail || 'Failed to generate report. Please try again.');
       setIsGenerating(false);
-    }, 500);
-
-  } catch (err) {
-    console.error('Report generation error:', err);
-    setError(err.response?.data?.detail || 'Failed to generate report. Please try again.');
-    setIsGenerating(false);
-  }
-};
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -141,20 +140,20 @@ const ReportGenerationModal = ({ isOpen, onClose, projectId, projectTitle }) => 
               </label>
               
               <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                format === 'excel' 
+                format === 'xlsx' 
                   ? 'border-blue-500 bg-blue-50' 
                   : 'border-gray-300 hover:border-gray-400'
               }`}>
                 <input
                   type="radio"
                   name="format"
-                  value="excel"
-                  checked={format === 'excel'}
+                  value="xlsx"
+                  checked={format === 'xlsx'}
                   onChange={(e) => setFormat(e.target.value)}
                   disabled={isGenerating}
                   className="w-4 h-4 text-blue-600"
                 />
-                <FileSpreadsheet size={24} className={format === 'excel' ? 'text-blue-600' : 'text-gray-600'} />
+                <FileSpreadsheet size={24} className={format === 'xlsx' ? 'text-blue-600' : 'text-gray-600'} />
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">Excel</div>
                   <div className="text-xs text-gray-600">Editable format</div>

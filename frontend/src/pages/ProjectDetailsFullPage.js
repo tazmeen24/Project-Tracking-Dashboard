@@ -32,6 +32,8 @@ const ProjectDetailsFullPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
+  console.log('🔍 ProjectDetailsFullPage mounted with projectId:', projectId);
+
   // Use selectedProject directly from context
   const { selectedProject, fetchProjectById, loading, error } = useProject();
   const [expanded, setExpanded] = useState({
