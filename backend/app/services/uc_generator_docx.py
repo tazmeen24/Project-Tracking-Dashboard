@@ -112,22 +112,22 @@ class UCWordGenerator:
             p.add_run(f'{num} {label}').bold = True
             p.add_run(f': {value}')
         
-        # Grant position section
+        # Grant position section - Use correct numbering and title
         doc.add_paragraph()
         p = doc.add_paragraph()
-        p.add_run('7. ').bold = True
-        p.add_run('Grants position of the beginning of the financial year [unspent balance of last financial year if any]').bold = True
+        p.add_run('8. ').bold = True
+        p.add_run('Details of grants received, expenditure incurred and closing balances: (Actuals)').bold = True
         
         # Create grants position table
         UCWordGenerator._create_grants_position_table(doc, data)
         
         doc.add_paragraph()
         
-        # Component-wise breakdown
+        # Component-wise breakdown - USING EXPENDITURE
         p = doc.add_paragraph('Component wise utilization of grants:')
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         
-        UCWordGenerator._create_component_breakdown_table(doc, grants)
+        UCWordGenerator._create_component_breakdown_table(doc, expenditure)
         
         # Closing balance details
         doc.add_paragraph()
@@ -142,7 +142,7 @@ class UCWordGenerator:
         for detail in details_end:
             doc.add_paragraph(detail)
         
-        # Signatures section
+        # Signatures section - DESIGNATION ONLY
         doc.add_paragraph()
         doc.add_paragraph()
         
@@ -152,14 +152,14 @@ class UCWordGenerator:
         
         cells = sig_table.rows[0].cells
         
-        # Signature 1
-        cells[0].text = '\n\nSignature with Seal:\nName: Mr.V.Palani\nChief Administrative Accounts Officer'
+        # Signature 1 - Only designation
+        cells[0].text = '\n\nSignature with Seal:\nChief Administrative and Accounts Officer'
         
-        # Signature 2
-        cells[1].text = '\n\nSignature with Seal:\nName: Dr.N.Subramanian\nHead of the Organization'
+        # Signature 2 - Only designation
+        cells[1].text = '\n\nSignature with Seal:\nHead of the Organization'
         
-        # Signature 3
-        cells[2].text = '\n\nSignature of PI\nName: Dr.Reshmi'
+        # Signature 3 - Only designation
+        cells[2].text = '\n\nSignature of PI:\nPrincipal Investigator'
     
     @staticmethod
     def _add_page2_certifications(doc: Document, data: Dict[str, Any]):
@@ -229,13 +229,13 @@ class UCWordGenerator:
         doc.add_paragraph()
         doc.add_paragraph()
         
-        # Signatures
+        # Signatures - Only designations
         sig_table = doc.add_table(rows=1, cols=3)
         cells = sig_table.rows[0].cells
         
-        cells[0].text = '\n\nSignature with Seal:\nName: Mr.V.Palani\nChief Administrative Accounts Officer'
-        cells[1].text = '\n\nSignature with Seal:\nName: Dr.N.Subramanian\nHead of the Organization'
-        cells[2].text = '\n\nSignature of PI\nName: Dr.Reshmi'
+        cells[0].text = '\n\nSignature with Seal:\nChief Administrative and Accounts Officer'
+        cells[1].text = '\n\nSignature with Seal:\nHead of the Organization'
+        cells[2].text = '\n\nSignature of PI:\nPrincipal Investigator'
     
     @staticmethod
     def _add_page3_soe(doc: Document, data: Dict[str, Any]):
@@ -263,7 +263,7 @@ class UCWordGenerator:
         doc.add_paragraph()
         
         # Project details table
-        details_table = doc.add_table(rows=6, cols=3)
+        details_table = doc.add_table(rows=7, cols=3)  # Changed from 6 to 7 rows to add Interest
         details_table.style = 'Table Grid'
         
         details_data = [
@@ -273,9 +273,10 @@ class UCWordGenerator:
             ('3.', 'Sanctioned/ Revised project cost (If applicable): Rs. /-', 
              'b.', '2nd Payment: Rs. 12,50,000/-'),
             ('4.', f'Date of Commencement of Project: {project.get("start_date", "N/A")}', 
-             'c', '3rd Payment: Rs. 19,18,071/-'),
-            ('', '', '', '4th Payment: Rs. 21,60,000/-'),
-            ('5.', 'Statement of Expenditure', 'd.', f'Total: Rs. {UCWordGenerator._format_currency(data["grants_received"]["total"])}'),
+             'c.', '3rd Payment: Rs. 19,18,071/-'),
+            ('', '', 'd.', '4th Payment: Rs. 21,60,000/-'),
+            ('5.', 'Statement of Expenditure', 'e.', f'Total: Rs. {UCWordGenerator._format_currency(data["grants_received"]["total"])}'),
+            ('', '', 'f.', 'Interest: Rs. 0/-'),  # Added Interest row
         ]
         
         for i, (col1, col2, col3, col4) in enumerate(details_data):
@@ -299,12 +300,12 @@ class UCWordGenerator:
         doc.add_paragraph()
         doc.add_paragraph()
         
-        # Signatures
+        # Signatures - Only designations
         sig_table = doc.add_table(rows=1, cols=2)
         cells = sig_table.rows[0].cells
         
-        cells[0].text = '\n\nSignature of PI\nV. PALANI\nChief Administrative and Accounts Officer'
-        cells[1].text = '\n\nSignature and Seal of\nHead of the Institute\nDr. N. SUBRAMANIAN\nExecutive Director'
+        cells[0].text = '\n\nSignature of PI:\nPrincipal Investigator'
+        cells[1].text = '\n\nSignature and Seal of\nHead of the Institute:\nExecutive Director'
         
         # Notes
         doc.add_paragraph()
@@ -322,61 +323,127 @@ class UCWordGenerator:
     
     @staticmethod
     def _create_grants_position_table(doc: Document, data: Dict[str, Any]):
-        """Create the grants position table for Page 1"""
+        """Create the grants position table for Page 1 - matching reference format exactly"""
         
         grants = data['grants_received']
         expenditure = data['expenditure']
         opening = data['opening_balance']
+        project = data['project']
         
-        # Main table
-        table = doc.add_table(rows=3, cols=7)
+        # Main table with complex structure
+        table = doc.add_table(rows=4, cols=7)
         table.style = 'Table Grid'
         
-        # Header row 1
+        # Row 1: Main headers
+        row1 = table.rows[0]
         headers1 = [
             'Unspent Balances of Grants received in previous years [figure as at SI. No. 7 (iii)]',
             'Interest Earned thereon',
-            'Interest deposited back to the Governme nt',
+            'Interest deposited back to the Government',
             'Grant received during the year',
-            'Total available funds (1+2 -3+4)',
+            'Total available funds (1+2-3+4)',
             'Expenditure incurred',
-            'Closing Balances (5 - 6)'
+            'Closing Balances (5-6)'
         ]
         
-        row1 = table.rows[0]
         for i, header in enumerate(headers1):
             row1.cells[i].text = header
             UCWordGenerator._set_cell_background(row1.cells[i], 'D3D3D3')
+            # Center align and bold
+            for paragraph in row1.cells[i].paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in paragraph.runs:
+                    run.bold = True
         
-        # Column numbers row
+        # Row 2: Column numbers
         row2 = table.rows[1]
-        for i in range(7):
-            row2.cells[i].text = str(i + 1)
-            UCWordGenerator._set_cell_background(row2.cells[i], 'E8E8E8')
+        row2.cells[0].text = '1'
+        row2.cells[1].text = '2'
+        row2.cells[2].text = '3'
+        row2.cells[3].text = '4'
+        row2.cells[4].text = '5'
+        row2.cells[5].text = '6'
+        row2.cells[6].text = '7'
         
-        # Data row
+        for cell in row2.cells:
+            UCWordGenerator._set_cell_background(cell, 'E8E8E8')
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Row 3: Sub-headers for column 4 (Grant received)
         row3 = table.rows[2]
-        row3.cells[0].text = UCWordGenerator._format_currency(opening)
-        row3.cells[1].text = '0.00'
-        row3.cells[2].text = '0.00'
+        row3.cells[0].text = ''
+        row3.cells[1].text = ''
+        row3.cells[2].text = ''
         
-        # Grant received cell - needs sub-columns
-        grant_cell = row3.cells[3]
+        # Column 4 sub-headers
+        row3.cells[3].text = 'Sanction no.\n(i)'
+        row3.cells[4].text = 'Date (ii)'
+        row3.cells[5].text = 'Amount\n(iii)'
+        row3.cells[6].text = ''
+        
+        # Actually, we need to properly structure this - let me recreate
+        # The reference shows column 4 split into 3 sub-columns
+        # But we have 7 main columns, so we need a different approach
+        
+        # Let's merge cells properly
+        # Merge row 2-3 for columns 1,2,3,5,6,7
+        table.rows[1].cells[0].merge(table.rows[2].cells[0])
+        table.rows[1].cells[1].merge(table.rows[2].cells[1])
+        table.rows[1].cells[2].merge(table.rows[2].cells[2])
+        table.rows[1].cells[4].merge(table.rows[2].cells[4])
+        table.rows[1].cells[5].merge(table.rows[2].cells[5])
+        table.rows[1].cells[6].merge(table.rows[2].cells[6])
+        
+        # Column 4 gets sub-headers in row 3
+        row3.cells[3].text = 'Sanction no. (i)\nDate (ii)\nAmount (iii)'
+        row3.cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Row 4: Data
+        row4 = table.rows[3]
+        row4.cells[0].text = UCWordGenerator._format_currency(opening)
+        row4.cells[1].text = '0.00'
+        row4.cells[2].text = '0.00'
+        
+        # Grant received cell with sanction details
+        sanction_no = project.get('sanctioned_number', 'N/A')
+        sanction_date = str(project.get('start_date', 'N/A'))
         grant_text = (
-            f'Sanction no. No.4(4)/20 21-ITEA(7)\n'
-            f'Date: 09.08.2024\n'
-            f'Amount: {UCWordGenerator._format_currency(grants["total"])}'
+            f'{sanction_no}\n'
+            f'{sanction_date}\n'
+            f'{UCWordGenerator._format_currency(grants["total"])}'
         )
-        grant_cell.text = grant_text
+        row4.cells[3].text = grant_text
+        row4.cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         
         total_available = opening + grants['total']
-        row3.cells[4].text = UCWordGenerator._format_currency(total_available)
-        row3.cells[5].text = UCWordGenerator._format_currency(expenditure['total'])
-        row3.cells[6].text = UCWordGenerator._format_currency(data['closing_balance'])
+        row4.cells[4].text = UCWordGenerator._format_currency(total_available)
+        row4.cells[5].text = UCWordGenerator._format_currency(expenditure['total'])
+        row4.cells[6].text = UCWordGenerator._format_currency(data['closing_balance'])
+        
+        # Center align data cells
+        for cell in row4.cells:
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     
     @staticmethod
-    def _create_component_breakdown_table(doc: Document, grants: Dict[str, float]):
-        """Create component-wise breakdown table"""
+    def _create_component_breakdown_table(doc: Document, expenditure: Dict[str, Any]):
+        """Create component-wise breakdown table using EXPENDITURE data"""
+        
+        # Calculate component-wise expenditure
+        # General = Consumables + Travels + Contingencies + Overheads
+        general_exp = (
+            expenditure['by_head'].get('consumables', 0) +
+            expenditure['by_head'].get('travels', 0) +
+            expenditure['by_head'].get('contingencies', 0) +
+            expenditure['by_head'].get('overheads', 0)
+        )
+        
+        # Salary = Salaries (Recurring)
+        salary_exp = expenditure['by_head'].get('salaries', 0)
+        
+        # Capital Assets = Equipment (Non-Recurring)
+        capital_exp = expenditure['by_head'].get('equipment', 0)
+        
+        total_exp = general_exp + salary_exp + capital_exp
         
         table = doc.add_table(rows=2, cols=4)
         table.style = 'Table Grid'
@@ -389,12 +456,12 @@ class UCWordGenerator:
             row1.cells[i].text = header
             UCWordGenerator._set_cell_background(row1.cells[i], 'D3D3D3')
         
-        # Data
+        # Data - using expenditure amounts
         row2 = table.rows[1]
-        row2.cells[0].text = UCWordGenerator._format_currency(grants['general'])
-        row2.cells[1].text = UCWordGenerator._format_currency(grants['salary'])
-        row2.cells[2].text = UCWordGenerator._format_currency(grants['capital_assets'])
-        row2.cells[3].text = UCWordGenerator._format_currency(grants['total'])
+        row2.cells[0].text = UCWordGenerator._format_currency(general_exp)
+        row2.cells[1].text = UCWordGenerator._format_currency(salary_exp)
+        row2.cells[2].text = UCWordGenerator._format_currency(capital_exp)
+        row2.cells[3].text = UCWordGenerator._format_currency(total_exp)
     
     @staticmethod
     def _create_soe_table(doc: Document, expenditure: Dict[str, Any], budget: Dict[str, float]):

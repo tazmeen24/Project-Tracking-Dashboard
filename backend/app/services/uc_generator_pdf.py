@@ -103,6 +103,7 @@ class UCPDFGenerator:
         
         project = data['project']
         grants = data['grants_received']
+        expenditure = data['expenditure']
         
         # Title
         story.append(Paragraph('GFR 12-A', title_style))
@@ -155,10 +156,10 @@ class UCPDFGenerator:
         
         story.append(Spacer(1, 0.2*inch))
         
-        # Component breakdown
+        # Component breakdown - USING EXPENDITURE
         story.append(Paragraph('Component wise utilization of grants:', normal_style))
         
-        component_table = UCPDFGenerator._create_component_breakdown_table(grants)
+        component_table = UCPDFGenerator._create_component_breakdown_table(expenditure)
         story.append(component_table)
         
         story.append(Spacer(1, 0.2*inch))
@@ -174,7 +175,7 @@ class UCPDFGenerator:
         for detail in closing_details:
             story.append(Paragraph(detail, normal_style))
         
-        # Signatures
+        # Signatures - Only designations
         story.append(Spacer(1, 0.4*inch))
         sig_table = UCPDFGenerator._create_signature_table()
         story.append(sig_table)
@@ -256,7 +257,8 @@ class UCPDFGenerator:
             ['3. Sanctioned/Revised:', 'Rs. /-', '2nd Payment: Rs. 12,50,000/-'],
             ['4. Date of Commencement:', str(project.get('start_date', 'N/A')), '3rd Payment: Rs. 19,18,071/-'],
             ['', '', '4th Payment: Rs. 21,60,000/-'],
-            ['5. Statement of Expenditure', '', f'Total: Rs. {data["grants_received"]["total"]:,.2f}']
+            ['5. Statement of Expenditure', '', f'Total: Rs. {data["grants_received"]["total"]:,.2f}'],
+            ['', '', 'Interest: Rs. 0/-']  # Added Interest row
         ]
         
         details_table = Table(details_data, colWidths=[2*inch, 2.5*inch, 2*inch])
@@ -288,54 +290,112 @@ class UCPDFGenerator:
     
     @staticmethod
     def _create_grants_position_table(data: Dict[str, Any]) -> Table:
-        """Create grants position table"""
+        """Create grants position table - properly sized for PDF"""
         
         grants = data['grants_received']
         expenditure = data['expenditure']
         opening = data['opening_balance']
+        project = data['project']
         total_available = opening + grants['total']
         
+        # Simplified structure - 3 rows with proper widths
         table_data = [
-            ['Unspent Balance', 'Interest Earned', 'Interest Deposited', 
-             'Grant Received', 'Total Available', 'Expenditure', 'Closing Balance'],
-            ['1', '2', '3', '4', '5', '6', '7'],
+            # Row 1: Headers
             [
-                UCPDFGenerator._format_currency(opening),
+                'Unspent Balances',
+                'Interest Earned',
+                'Interest Deposited',
+                'Sanction no.',
+                'Date',
+                'Amount',
+                'Total Available',
+                'Expenditure',
+                'Closing Balance'
+            ],
+            # Row 2: Column numbers
+            ['1', '2', '3', '4(i)', '4(ii)', '4(iii)', '5', '6', '7'],
+            # Row 3: Data
+            [
+                UCPDFGenerator._format_currency(opening).replace('Rs. ', ''),
                 '0.00',
                 '0.00',
-                UCPDFGenerator._format_currency(grants['total']),
-                UCPDFGenerator._format_currency(total_available),
-                UCPDFGenerator._format_currency(expenditure['total']),
-                UCPDFGenerator._format_currency(data['closing_balance'])
+                str(project.get('sanctioned_number', 'N/A')),
+                str(project.get('start_date', 'N/A')),
+                UCPDFGenerator._format_currency(grants['total']).replace('Rs. ', ''),
+                UCPDFGenerator._format_currency(total_available).replace('Rs. ', ''),
+                UCPDFGenerator._format_currency(expenditure['total']).replace('Rs. ', ''),
+                UCPDFGenerator._format_currency(data['closing_balance']).replace('Rs. ', '')
             ]
         ]
         
-        table = Table(table_data, colWidths=[1*inch] * 7)
+        # Proper column widths - total should be ~7 inches for A4
+        col_widths = [
+            0.7*inch,   # Unspent
+            0.6*inch,   # Interest Earned
+            0.7*inch,   # Interest Deposited
+            0.7*inch,   # Sanction no
+            0.8*inch,   # Date
+            0.9*inch,   # Amount
+            0.8*inch,   # Total Available
+            0.8*inch,   # Expenditure
+            0.8*inch    # Closing
+        ]
+        
+        table = Table(table_data, colWidths=col_widths)
         table.setStyle(TableStyle([
+            # Font
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            
+            # Headers bold
             ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+            
+            # Background colors
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('BACKGROUND', (0, 1), (-1, 1), colors.whitesmoke),
+            
+            # Grid
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            
+            # Alignment
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # Word wrap
+            ('WORDWRAP', (0, 0), (-1, -1), True),
         ]))
         
         return table
     
     @staticmethod
-    def _create_component_breakdown_table(grants: Dict[str, float]) -> Table:
-        """Create component breakdown table"""
+    def _create_component_breakdown_table(expenditure: Dict[str, Any]) -> Table:
+        """Create component breakdown table using EXPENDITURE data"""
+        
+        # Calculate component-wise expenditure
+        # General = Consumables + Travels + Contingencies + Overheads
+        general_exp = (
+            expenditure['by_head'].get('consumables', 0) +
+            expenditure['by_head'].get('travels', 0) +
+            expenditure['by_head'].get('contingencies', 0) +
+            expenditure['by_head'].get('overheads', 0)
+        )
+        
+        # Salary = Salaries (Recurring)
+        salary_exp = expenditure['by_head'].get('salaries', 0)
+        
+        # Capital Assets = Equipment (Non-Recurring)
+        capital_exp = expenditure['by_head'].get('equipment', 0)
+        
+        total_exp = general_exp + salary_exp + capital_exp
         
         table_data = [
             ['Grant-in-aid-General', 'Grant-in-aid-Salary', 
              'Grant-in-aid-Capital Assets', 'Total'],
             [
-                UCPDFGenerator._format_currency(grants['general']),
-                UCPDFGenerator._format_currency(grants['salary']),
-                UCPDFGenerator._format_currency(grants['capital_assets']),
-                UCPDFGenerator._format_currency(grants['total'])
+                UCPDFGenerator._format_currency(general_exp),
+                UCPDFGenerator._format_currency(salary_exp),
+                UCPDFGenerator._format_currency(capital_exp),
+                UCPDFGenerator._format_currency(total_exp)
             ]
         ]
         
@@ -413,12 +473,12 @@ class UCPDFGenerator:
     
     @staticmethod
     def _create_signature_table() -> Table:
-        """Create signature table"""
+        """Create signature table with designations only"""
         
         table_data = [[
-            'Signature with Seal:\nMr.V.Palani\nChief Administrative\nAccounts Officer',
-            'Signature with Seal:\nDr.N.Subramanian\nHead of Organization',
-            'Signature of PI:\nDr.Reshmi'
+            'Signature with Seal:\nChief Administrative and\nAccounts Officer',
+            'Signature with Seal:\nHead of Organization',
+            'Signature of PI:\nPrincipal Investigator'
         ]]
         
         table = Table(table_data, colWidths=[2.2*inch] * 3)

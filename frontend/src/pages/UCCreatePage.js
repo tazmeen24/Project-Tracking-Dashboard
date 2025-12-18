@@ -62,14 +62,22 @@ const UCCreatePage = () => {
       setSuccess(null);
 
       const projectId = project.project_id || project.id;
+      console.log('📥 Generating UC...', { projectId, financialYear, format });
+      
       const blob = await ucService.generateUC(projectId, financialYear, format);
+      console.log('📥 Received blob:', blob instanceof Blob, blob);
+      
+      if (!(blob instanceof Blob)) {
+        throw new Error('Invalid response format - expected file data');
+      }
       
       ucService.downloadUC(blob, projectId, financialYear, format);
       
       setSuccess(`UC generated successfully for FY ${financialYear}`);
     } catch (err) {
       console.error('Error generating UC:', err);
-      setError('Failed to generate UC. Please ensure the project has data for the selected financial year.');
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to generate UC. Please ensure the project has data for the selected financial year.';
+      setError(errorMessage);
     } finally {
       setIsGenerating(false);
     }

@@ -1,5 +1,8 @@
 // frontend/src/services/ucService.js
 import api from './api';
+import authService from './authService';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const ucService = {
   /**
@@ -7,15 +10,31 @@ const ucService = {
    */
   generateUC: async (projectId, financialYear, format = 'docx') => {
     try {
-      const response = await api.post('/uc/generate', {
-        project_id: projectId,
-        financial_year: financialYear,
-        format: format
-      }, {
-        responseType: 'blob'
-      });
+      const token = authService.getToken();
       
-      return response.data;
+      const response = await fetch(`${API_BASE_URL}/api/uc/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          financial_year: financialYear,
+          format: format
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          detail: `HTTP ${response.status}: ${response.statusText}`
+        }));
+        throw new Error(error.detail || 'Failed to generate UC');
+      }
+
+      // Get blob from response
+      const blob = await response.blob();
+      return blob;
     } catch (error) {
       console.error('Error generating UC:', error);
       throw error;
@@ -27,7 +46,7 @@ const ucService = {
    */
   createUC: async (projectId, financialYear, interestEarned = 0) => {
     try {
-      const response = await api.post('/uc/new', {
+      const response = await api.post('/api/uc/create', {
         project_id: projectId,
         financial_year: financialYear,
         interest_earned: interestEarned
@@ -45,7 +64,7 @@ const ucService = {
    */
   getUCData: async (projectId, financialYear) => {
     try {
-      const response = await api.get(`/uc/data/${projectId}/${financialYear}`);
+      const response = await api.get(`/api/uc/data/${projectId}/${financialYear}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching UC data:', error);
@@ -58,7 +77,7 @@ const ucService = {
    */
   getProjectUCs: async (projectId) => {
     try {
-      const response = await api.get(`/uc/project/${projectId}`);
+      const response = await api.get(`/api/uc/project/${projectId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching project UCs:', error);
@@ -71,7 +90,7 @@ const ucService = {
    */
   getUCById: async (ucId) => {
     try {
-      const response = await api.get(`/uc/${ucId}`);
+      const response = await api.get(`/api/uc/${ucId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching UC:', error);
@@ -84,7 +103,7 @@ const ucService = {
    */
   updateUCStatus: async (ucId, status, signatureData = {}) => {
     try {
-      const response = await api.put(`/uc/${ucId}/status`, {
+      const response = await api.put(`/api/uc/${ucId}/status`, {
         status,
         ...signatureData
       });
@@ -101,7 +120,7 @@ const ucService = {
    */
   deleteUC: async (ucId) => {
     try {
-      const response = await api.delete(`/uc/${ucId}`);
+      const response = await api.delete(`/api/uc/${ucId}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting UC:', error);
@@ -113,6 +132,12 @@ const ucService = {
    * Download UC document
    */
   downloadUC: (blob, projectId, financialYear, format) => {
+    // Ensure it's actually a Blob
+    if (!(blob instanceof Blob)) {
+      console.error('downloadUC received non-Blob data:', blob);
+      throw new Error('Invalid file data received');
+    }
+    
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
