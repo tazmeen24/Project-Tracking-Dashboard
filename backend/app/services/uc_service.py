@@ -130,7 +130,11 @@ class UCService:
     
     def _get_installments(self, cursor, project_id: int, 
                          period_from: date, period_to: date) -> List[Dict[str, Any]]:
-        """Get all installments received during the period"""
+        """
+        Get all installments received during the period.
+        If no installments exist, aggregate from funds_received by date.
+        """
+        # Try to get installments from project_installments table
         cursor.execute("""
             SELECT 
                 installment_number,
@@ -145,8 +149,41 @@ class UCService:
             ORDER BY installment_number
         """, (project_id, period_from, period_to))
         
+        rows = cursor.fetchall()
+        
+        # If installments exist, use them
+        if rows:
+            installments = []
+            for row in rows:
+                installments.append({
+                    'installment_number': row[0],
+                    'sanction_number': row[1],
+                    'sanction_date': row[2],
+                    'amount': float(row[3]),
+                    'date_received': row[4],
+                    'remarks': row[5]
+                })
+            return installments
+        
+        # FALLBACK: If no installments, aggregate from funds_received
+        cursor.execute("""
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY date_received) as installment_number,
+                'AUTO-' || TO_CHAR(date_received, 'YYYYMMDD') as sanction_number,
+                date_received as sanction_date,
+                SUM(amount) as total_amount,
+                date_received,
+                'Auto-generated from funds received' as remarks
+            FROM funds_received
+            WHERE project_id = %s 
+              AND date_received BETWEEN %s AND %s
+            GROUP BY date_received
+            ORDER BY date_received
+        """, (project_id, period_from, period_to))
+        
+        fallback_rows = cursor.fetchall()
         installments = []
-        for row in cursor.fetchall():
+        for row in fallback_rows:
             installments.append({
                 'installment_number': row[0],
                 'sanction_number': row[1],
@@ -163,40 +200,49 @@ class UCService:
         """
         Calculate opening balance (unspent from previous FY)
         Opening Balance = Total Grants Received (before period) - Total Expenditure (before period)
+        Handles NULL dates gracefully by excluding them.
         """
         # Get total grants received before this FY
         cursor.execute("""
             SELECT COALESCE(SUM(amount), 0) as total_grants
             FROM funds_received
-            WHERE project_id = %s AND date_received < %s
+            WHERE project_id = %s 
+              AND date_received < %s
+              AND date_received IS NOT NULL
         """, (project_id, period_from))
-        total_grants_before = cursor.fetchone()[0]
+        total_grants_before = cursor.fetchone()[0] or Decimal('0')
         
         # Get total expenditure before this FY
         cursor.execute("""
             SELECT COALESCE(SUM(total_spent), 0) as total_exp
             FROM (
+                -- Manpower with valid dates
                 SELECT SUM(total_cost) as total_spent
                 FROM manpower
                 WHERE project_id = %s 
-                  AND (date_incurred < %s OR date_incurred IS NULL)
+                  AND date_incurred IS NOT NULL
+                  AND date_incurred < %s
                 
                 UNION ALL
                 
+                -- Equipment with valid dates
                 SELECT SUM(total_cost) as total_spent
                 FROM equipment
                 WHERE project_id = %s 
-                  AND (purchase_date < %s OR purchase_date IS NULL)
+                  AND purchase_date IS NOT NULL
+                  AND purchase_date < %s
                 
                 UNION ALL
                 
+                -- Budget expenditure with valid dates
                 SELECT SUM(amount) as total_spent
                 FROM budget_expenditure
                 WHERE project_id = %s 
-                  AND (date_incurred < %s OR date_incurred IS NULL)
+                  AND date_incurred IS NOT NULL
+                  AND date_incurred < %s
             ) all_exp
         """, (project_id, period_from, project_id, period_from, project_id, period_from))
-        total_exp_before = cursor.fetchone()[0]
+        total_exp_before = cursor.fetchone()[0] or Decimal('0')
         
         return total_grants_before - total_exp_before
     
@@ -238,7 +284,8 @@ class UCService:
     def _get_expenditure(self, cursor, project_id: int,
                         period_from: date, period_to: date) -> Dict[str, Any]:
         """
-        Get expenditure during the period
+        Get expenditure during the period.
+        Only includes records with valid dates within the period.
         Recurring: manpower + consumables + travel + contingency + overhead
         Non-Recurring: equipment
         """
@@ -249,35 +296,38 @@ class UCService:
             'total': Decimal('0')
         }
         
-        # Manpower (Recurring)
+        # Manpower (Recurring) - only with valid dates in period
         cursor.execute("""
             SELECT COALESCE(SUM(total_cost), 0) as amount
             FROM manpower
             WHERE project_id = %s 
+              AND date_incurred IS NOT NULL
               AND date_incurred BETWEEN %s AND %s
         """, (project_id, period_from, period_to))
         manpower_exp = cursor.fetchone()[0] or Decimal('0')
         expenditure['by_head']['salaries'] = float(manpower_exp)
         expenditure['recurring'] += manpower_exp
         
-        # Equipment (Non-Recurring)
+        # Equipment (Non-Recurring) - only with valid dates in period
         cursor.execute("""
             SELECT COALESCE(SUM(total_cost), 0) as amount
             FROM equipment
             WHERE project_id = %s 
+              AND purchase_date IS NOT NULL
               AND purchase_date BETWEEN %s AND %s
         """, (project_id, period_from, period_to))
         equipment_exp = cursor.fetchone()[0] or Decimal('0')
         expenditure['by_head']['equipment'] = float(equipment_exp)
         expenditure['non_recurring'] += equipment_exp
         
-        # Other heads (Recurring)
+        # Other heads (Recurring) - only with valid dates in period
         cursor.execute("""
             SELECT 
                 head,
                 SUM(amount) as total
             FROM budget_expenditure
             WHERE project_id = %s 
+              AND date_incurred IS NOT NULL
               AND date_incurred BETWEEN %s AND %s
             GROUP BY head
         """, (project_id, period_from, period_to))
@@ -294,6 +344,11 @@ class UCService:
             mapped_head = head_mapping.get(head, head)
             expenditure['by_head'][mapped_head] = float(amount)
             expenditure['recurring'] += amount
+        
+        # Ensure all heads exist (even if zero)
+        for head in ['equipment', 'salaries', 'consumables', 'travels', 'contingencies', 'overheads']:
+            if head not in expenditure['by_head']:
+                expenditure['by_head'][head] = 0.0
         
         expenditure['total'] = expenditure['recurring'] + expenditure['non_recurring']
         
