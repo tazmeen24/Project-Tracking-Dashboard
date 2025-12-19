@@ -130,7 +130,6 @@ class UCWordGenerator:
         UCWordGenerator._create_component_breakdown_table(doc, expenditure)
         
         # Closing balance details
-        doc.add_paragraph()
         doc.add_paragraph('Details of grants position at the end of the year')
         details_end = [
             f"(i)   Cash in Hand/Bank: Rs. {UCWordGenerator._format_currency(data['closing_balance'])}",
@@ -143,7 +142,6 @@ class UCWordGenerator:
             doc.add_paragraph(detail)
         
         # Signatures section - DESIGNATION ONLY
-        doc.add_paragraph()
         doc.add_paragraph()
         
         sig_table = doc.add_table(rows=1, cols=3)
@@ -263,27 +261,40 @@ class UCWordGenerator:
         doc.add_paragraph()
         
         # Project details table
-        details_table = doc.add_table(rows=7, cols=3)  # Changed from 6 to 7 rows to add Interest
+        details_table = doc.add_table(rows=7, cols=2)
         details_table.style = 'Table Grid'
+        details_table.autofit = False
+
+        left_col_width = Inches(4.2)
+        right_col_width = Inches(2.8)
+
+        for row in details_table.rows:
+            row.cells[0].width = left_col_width
+            row.cells[1].width = right_col_width
         
-        details_data = [
-            ('1.', 'Sanction Letter No: No.4(4)/2021-ITEA', '6.', 'Grant Received in each year:'),
-            ('2.', f'Total Project Cost: Rs. {UCWordGenerator._format_currency(sum(budget.values()))}', 
-             'a.', '1st Payment: Rs. 88,01,000/-'),
-            ('3.', 'Sanctioned/ Revised project cost (If applicable): Rs. /-', 
-             'b.', '2nd Payment: Rs. 12,50,000/-'),
-            ('4.', f'Date of Commencement of Project: {project.get("start_date", "N/A")}', 
-             'c.', '3rd Payment: Rs. 19,18,071/-'),
-            ('', '', 'd.', '4th Payment: Rs. 21,60,000/-'),
-            ('5.', 'Statement of Expenditure', 'e.', f'Total: Rs. {UCWordGenerator._format_currency(data["grants_received"]["total"])}'),
-            ('', '', 'f.', 'Interest: Rs. 0/-'),  # Added Interest row
+        left_data = [
+        '1. Sanction Letter No: No.4(4)/2021-ITEA',
+        f'2. Total Project Cost: Rs. {UCWordGenerator._format_currency(sum(budget.values()))}',
+        '3. Sanctioned / Revised project cost (If applicable): Rs. /-',
+        f'4. Date of Commencement of Project: {project.get("start_date", "N/A")}',
+        '5. Statement of Expenditure',
+        '',
+        ''
         ]
-        
-        for i, (col1, col2, col3, col4) in enumerate(details_data):
-            row = details_table.rows[i]
-            row.cells[0].text = f'{col1} {col2}'
-            if col3:
-                row.cells[2].text = f'{col3} {col4}'
+
+        right_data = [
+        '6. Grant Received in each year:',
+        'a. 1st Payment : Rs. 88,01,000/-',
+        'b. 2nd Payment : Rs. 12,50,000/-',
+        'c. 3rd Payment : Rs. 19,18,071/-',
+        'd. Total : Rs. ' + UCWordGenerator._format_currency(data["grants_received"]["total"]),
+        'e. Interest : Rs. 0/-',
+        ''
+        ]
+
+        for i in range(7):
+            details_table.rows[i].cells[0].text = left_data[i]
+            details_table.rows[i].cells[1].text = right_data[i]
         
         doc.add_paragraph()
         

@@ -12,11 +12,15 @@ from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, 
     Spacer, PageBreak
 )
+from reportlab.platypus import KeepTogether
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
 import tempfile
 from typing import Dict, Any, List
 
+from sqlalchemy import table
 
 class UCPDFGenerator:
     """Generate UC in PDF format (GFR 12-A)"""
@@ -108,7 +112,6 @@ class UCPDFGenerator:
         # Title
         story.append(Paragraph('GFR 12-A', title_style))
         story.append(Paragraph('{{See Rule 238 (1)}}S', heading_style))
-        story.append(Spacer(1, 0.2*inch))
         
         # Main heading
         story.append(Paragraph('FORM OF UTILIZATION CERTIFICATE (UC)', heading_style))
@@ -119,7 +122,6 @@ class UCPDFGenerator:
             f'({data["period_from"].strftime("%d.%m.%Y")} to '
             f'{data["period_to"].strftime("%d.%m.%Y")})'
         )
-        story.append(Paragraph(period_text, heading_style))
         
         # Grant type
         grant_type_text = (
@@ -128,7 +130,7 @@ class UCPDFGenerator:
             'Creation of CAPITAL ASSESTS'
         )
         story.append(Paragraph(grant_type_text, heading_style))
-        story.append(Spacer(1, 0.3*inch))
+        story.append(Spacer(1, 0.2*inch))
         
         # Project details
         details = [
@@ -175,10 +177,11 @@ class UCPDFGenerator:
         for detail in closing_details:
             story.append(Paragraph(detail, normal_style))
         
-        # Signatures - Only designations
-        story.append(Spacer(1, 0.4*inch))
-        sig_table = UCPDFGenerator._create_signature_table()
-        story.append(sig_table)
+        sig_block = KeepTogether([
+        Spacer(1, 0.25 * inch), 
+        UCPDFGenerator._create_signature_table()
+        ])
+        story.append(sig_block)
     
     @staticmethod
     def _add_page2_certifications(story: List, data: Dict[str, Any],
@@ -251,23 +254,44 @@ class UCPDFGenerator:
         story.append(Spacer(1, 0.2*inch))
         
         # Project details table
+        def P(text):
+            return Paragraph(text, normal_style)
+
         details_data = [
-            ['1. Sanction Letter No:', 'No.4(4)/2021-ITEA', '6. Grant Received:'],
-            ['2. Total Project Cost:', f'Rs. {sum(budget.values()):,.2f}', '1st Payment: Rs. 88,01,000/-'],
-            ['3. Sanctioned/Revised:', 'Rs. /-', '2nd Payment: Rs. 12,50,000/-'],
-            ['4. Date of Commencement:', str(project.get('start_date', 'N/A')), '3rd Payment: Rs. 19,18,071/-'],
-            ['', '', '4th Payment: Rs. 21,60,000/-'],
-            ['5. Statement of Expenditure', '', f'Total: Rs. {data["grants_received"]["total"]:,.2f}'],
-            ['', '', 'Interest: Rs. 0/-']  # Added Interest row
+        [
+            P('<b>1. Sanction Letter No:</b> No.4(4)/2021-ITEA<br/>'
+            '<b>2. Total Project Cost:</b> Rs. {:,.2f}<br/>'
+            '<b>3. Sanctioned/Revised:</b> Rs. /-<br/>'
+            '<b>4. Date of Commencement:</b> {}<br/>'
+            '<b>5. Statement of Expenditure</b>'.format(
+              sum(budget.values()),
+              project.get('start_date', 'N/A')
+            )),
+            P('<b>6. Grant Received in each year:</b><br/>'
+          'a) 1st Payment : Rs. 88,01,000/-<br/>'
+          'b) 2nd Payment : Rs. 12,50,000/-<br/>'
+          'c) 3rd Payment : Rs. 19,18,071/-<br/>'
+          'd) Total : Rs. {:,.2f}<br/>'
+          'e) Interest : Rs. 0/-'.format(
+              data["grants_received"]["total"]
+          ))
+            ]
         ]
         
-        details_table = Table(details_data, colWidths=[2*inch, 2.5*inch, 2*inch])
+        details_table = Table(
+            details_data,
+            colWidths=[3.8*inch, 3.8*inch]  # two equal logical blocks
+            )
+
         details_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
+
         
         story.append(details_table)
         story.append(Spacer(1, 0.2*inch))
@@ -284,89 +308,146 @@ class UCPDFGenerator:
         story.append(Paragraph(f'Expected completion: {project.get("end_date", "N/A")}', normal_style))
         
         # Signatures
-        story.append(Spacer(1, 0.3*inch))
-        sig_table = UCPDFGenerator._create_signature_table()
-        story.append(sig_table)
+        story.append(
+        KeepTogether([
+                Spacer(1, 0.25 * inch),
+                UCPDFGenerator._create_signature_table()
+            ])
+        )
     
     @staticmethod
     def _create_grants_position_table(data: Dict[str, Any]) -> Table:
-        """Create grants position table - properly sized for PDF"""
-        
+        """Create grants position table - matching GFR 12-A format"""
+
         grants = data['grants_received']
         expenditure = data['expenditure']
         opening = data['opening_balance']
         project = data['project']
         total_available = opening + grants['total']
+
+        header_style = ParagraphStyle(
+            name='UCHeader',
+            fontName='Helvetica-Bold',
+            fontSize=7.5,
+            leading=9,
+            alignment=TA_CENTER,
+            wordWrap='CJK',
+        )
+        def H(text):
+            return Paragraph(text, header_style)
         
-        # Simplified structure - 3 rows with proper widths
         table_data = [
-            # Row 1: Headers
-            [
-                'Unspent Balances',
-                'Interest Earned',
-                'Interest Deposited',
-                'Sanction no.',
-                'Date',
-                'Amount',
-                'Total Available',
-                'Expenditure',
-                'Closing Balance'
-            ],
-            # Row 2: Column numbers
-            ['1', '2', '3', '4(i)', '4(ii)', '4(iii)', '5', '6', '7'],
-            # Row 3: Data
-            [
-                UCPDFGenerator._format_currency(opening).replace('Rs. ', ''),
-                '0.00',
-                '0.00',
-                str(project.get('sanctioned_number', 'N/A')),
-                str(project.get('start_date', 'N/A')),
-                UCPDFGenerator._format_currency(grants['total']).replace('Rs. ', ''),
-                UCPDFGenerator._format_currency(total_available).replace('Rs. ', ''),
-                UCPDFGenerator._format_currency(expenditure['total']).replace('Rs. ', ''),
-                UCPDFGenerator._format_currency(data['closing_balance']).replace('Rs. ', '')
-            ]
+        [
+        H(
+            'Unspent Balances of Grants received<br/>'
+            'in previous years<br/>'
+            '(figure as at Sl. No. 7 (iii))'
+        ),
+        H(
+            'Interest Earned<br/>'
+            '(thereon)'
+        ),
+        H(
+            'Interest deposited back<br/>'
+            'to the Government'
+        ),
+        H('Grant received during the year'),
+        '',
+        '',
+        H(
+            'Total available funds<br/>'
+            '(1 + 2 − 3 + 4)'
+        ),
+        H(
+            'Expenditure<br/>'
+            'incurred'
+        ),
+        H(
+            'Closing Balances<br/>'
+            '(5 − 6)'
+        )
+        ],
+        [
+        '1', '2', '3',
+        'Sanction no. (i)',
+        'Date (ii)',
+        'Amount (iii)',
+        '5', '6', '7'
+        ],
+        [
+        f'{opening:,.2f}',
+        '0.00',
+        '0.00',
+        str(project.get('sanctioned_number', 'N/A')),
+        str(project.get('start_date', 'N/A')),
+        f'{grants["total"]:,.2f}',
+        f'{total_available:,.2f}',
+        f'{expenditure["total"]:,.2f}',
+        f'{data["closing_balance"]:,.2f}',
         ]
-        
-        # Proper column widths - total should be ~7 inches for A4
+        ]
+
+        # Column widths
         col_widths = [
-            0.7*inch,   # Unspent
-            0.6*inch,   # Interest Earned
-            0.7*inch,   # Interest Deposited
-            0.7*inch,   # Sanction no
-            0.8*inch,   # Date
-            0.9*inch,   # Amount
-            0.8*inch,   # Total Available
-            0.8*inch,   # Expenditure
-            0.8*inch    # Closing
+        1.1*inch,    # Unspent Balances
+        0.75*inch,   # Interest Earned
+        0.90*inch,   # Interest Deposited
+        0.85*inch,   # Sanction no
+        0.75*inch,   # Date
+        0.80*inch,   # Amount
+        0.90*inch,   # Total Available
+        0.85*inch,   # Expenditure
+        0.75*inch    # Closing
         ]
-        
-        table = Table(table_data, colWidths=col_widths)
+
+        row_heights = [
+        1.0 * inch,   
+        0.45 * inch,
+        0.45 * inch
+        ]
+
+        table = Table(table_data, colWidths=col_widths, rowHeights=row_heights, repeatRows=2)
         table.setStyle(TableStyle([
-            # Font
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            
-            # Headers bold
-            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
-            
-            # Background colors
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('BACKGROUND', (0, 1), (-1, 1), colors.whitesmoke),
-            
-            # Grid
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            
-            # Alignment
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            
-            # Word wrap
-            ('WORDWRAP', (0, 0), (-1, -1), True),
-        ]))
+        # Font - SMALLER to fit in boxes
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),    # Headers 6pt
+        ('FONTSIZE', (0, 1), (-1, 1), 7),    # Column numbers 7pt
+        ('FONTSIZE', (0, 2), (-1, 2), 7),    # Data 7pt
         
-        return table
+        # Headers bold
+        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+        
+        # Background colors
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.whitesmoke),
+        
+        # Grid
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        
+        # Merge cells for "Grant received during the year" header
+        ('SPAN', (3, 0), (5, 0)),
+        
+        # Alignment
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('VALIGN', (0, 0), (-1, 0), 'TOP'),
+        ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+
+        
+        # Right align numbers in data row
+        ('ALIGN', (0, 2), (2, 2), 'RIGHT'),
+        ('ALIGN', (5, 2), (-1, 2), 'RIGHT'),
+        ('ALIGN', (3, 2), (4, 2), 'CENTER'),
+        
+        # Word wrap and SMALLER padding
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
     
+        return table
+
     @staticmethod
     def _create_component_breakdown_table(expenditure: Dict[str, Any]) -> Table:
         """Create component breakdown table using EXPENDITURE data"""

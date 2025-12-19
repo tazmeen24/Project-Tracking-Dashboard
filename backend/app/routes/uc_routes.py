@@ -59,14 +59,11 @@ async def generate_uc(
     - **format**: Output format ("docx" or "pdf")
     """
     try:
-        print(f"🔍 DEBUG: Generating UC for project {request.project_id}, FY {request.financial_year}")
         conn = get_db_connection()
         uc_service = UCService(conn)
         
-        print(f"🔍 DEBUG: Getting UC data...")
         # Get UC data
         uc_data = uc_service.get_uc_data(request.project_id, request.financial_year)
-        print(f"🔍 DEBUG: UC data received: {uc_data.keys() if uc_data else 'None'}")
         
         # Generate document
         if request.format.lower() == "pdf":
@@ -90,12 +87,8 @@ async def generate_uc(
         )
     
     except ValueError as e:
-        print(f"❌ ValueError: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        print(f"❌ Exception: {str(e)}")  
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error generating UC: {str(e)}")
 
 
