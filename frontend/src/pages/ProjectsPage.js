@@ -574,11 +574,11 @@ const ProjectsPage = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAddFund(project);
+                              navigate(`/projects/${project.project_id}/installments`)
                             }}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-medium rounded transition-colors"
                           >
-                            + Fund
+                            + Installments
                           </button>
                           <button
                             onClick={(e) => {

@@ -26,3 +26,10 @@ def validate_foreign_key(table: str, column: str, value: int, conn):
         cur.execute(f"SELECT 1 FROM {table} WHERE {column} = %s", (value,))
         if not cur.fetchone():
             raise HTTPException(status_code=400, detail=f"Invalid {column}: {value} does not exist in {table}")
+        
+def get_db():
+    conn = get_db_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()

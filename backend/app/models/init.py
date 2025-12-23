@@ -36,6 +36,7 @@ from .funding_agency import (
     FundingAgencyFullResponse
 )
 from .reports_models import ReportLog
+from .installment import ProjectInstallment
 
 __all__ = [
     "Token", "TokenData", "User", "UserInDB", "UserCreate",
@@ -49,5 +50,5 @@ __all__ = [
     "BudgetExpenditureCreate", "BudgetExpenditureUpdate",
     "FundingAgencyCreate", "FundingAgencyUpdate", "FundingAgencyResponse",
     "FundingAgencyDetailsCreate", "FundingAgencyDetailsUpdate", 
-    "FundingAgencyDetailsResponse", "FundingAgencyFullResponse", "ReportLog"
+    "FundingAgencyDetailsResponse", "FundingAgencyFullResponse", "ReportLog", "ProjectInstallment"
 ]

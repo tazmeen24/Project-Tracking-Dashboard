@@ -34,7 +34,7 @@ const ProjectUCsPage = () => {
       setError(null);
 
       // Fetch project details
-      const projectData = await projectService.getProjectById(projectId);
+      const projectData = await projectService.getProject(projectId);
       setProject(projectData);
 
       // Fetch UCs for this project
