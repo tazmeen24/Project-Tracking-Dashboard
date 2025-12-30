@@ -2,15 +2,23 @@
 import React, { useState, useContext } from "react";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import { Moon, Sun, LogOut, User } from "lucide-react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import Sidebar from "../common/Sidebar";
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
   const { theme, toggleTheme } = useContext(ThemeContext);
+
+  const handleLogout = () => {
+    // Confirm logout
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+      // The logout function in AuthContext will handle the redirect
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -45,7 +53,8 @@ const Layout = () => {
                 {/* Dark Mode Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 transition"
+                  className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                  aria-label="Toggle theme"
                 >
                   {theme === "light" ? (
                     <Moon className="w-5 h-5 text-slate-800" />
@@ -54,10 +63,11 @@ const Layout = () => {
                   )}
                 </button>
 
-                {/* Logout */}
+                {/* Logout Button */}
                 <button
-                  onClick={logout}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                  aria-label="Logout"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
