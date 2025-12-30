@@ -17,6 +17,8 @@ import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import projectService from "../services/projectService";
 import { useProject } from "../contexts/ProjectContext";
+import AddFundingAgencyModal from "../components/common/AddFundingAgencyModal";
+import AddTechnicalGroupModal from "../components/common/AddTechnicalGroupModal";
 
 const BUDGET_HEADS = [
   { key: "manpower", label: "Manpower", hasBreakdown: true },
@@ -53,6 +55,8 @@ const AddEditProjectPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showAddAgencyModal, setShowAddAgencyModal] = useState(false);
+  const [showAddGroupModal, setShowAddGroupModal] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -105,6 +109,13 @@ const AddEditProjectPage = () => {
     refreshFundingAgencies();
     refreshTechnicalGroups();
   }, [refreshFundingAgencies, refreshTechnicalGroups]);
+
+  useEffect(() => {
+  console.log('🔍 Modal state changed:', {
+    showAddAgencyModal,
+    showAddGroupModal
+  });
+}, [showAddAgencyModal, showAddGroupModal]);
 
   // Load project data AFTER dropdown data is available (if editing)
   useEffect(() => {
@@ -168,6 +179,29 @@ const AddEditProjectPage = () => {
       setLoadingProjectData(false);
     }
   };
+
+  // Add handlers for successful creation:
+const handleAgencyCreated = async (newAgency) => {
+  // Refresh the agencies list
+  await refreshFundingAgencies();
+  
+  // Auto-select the newly created agency
+  setFormData((prev) => ({
+    ...prev,
+    funding_agency_id: String(newAgency.agency_id),
+  }));
+};
+
+const handleGroupCreated = async (newGroup) => {
+  // Refresh the groups list
+  await refreshTechnicalGroups();
+  
+  // Auto-select the newly created group
+  setFormData((prev) => ({
+    ...prev,
+    technical_group_id: String(newGroup.group_id),
+  }));
+};
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -562,6 +596,8 @@ const AddEditProjectPage = () => {
               handleChange={handleInputChange}
               fundingAgencies={fundingAgencies}
               technicalGroups={technicalGroups}
+              onAddAgency={() => setShowAddAgencyModal(true)}
+              onAddGroup={() => setShowAddGroupModal(true)}
             />
           )}
 
@@ -668,6 +704,19 @@ const AddEditProjectPage = () => {
           )}
         </div>
       </form>
+
+      <AddFundingAgencyModal
+      isOpen={showAddAgencyModal}
+      onClose={() => setShowAddAgencyModal(false)}
+      onSuccess={handleAgencyCreated}
+    />
+    
+    <AddTechnicalGroupModal
+      isOpen={showAddGroupModal}
+      onClose={() => setShowAddGroupModal(false)}
+      onSuccess={handleGroupCreated}
+    />
+
     </div>
   );
 };
@@ -679,6 +728,8 @@ const Step1ProjectMetadata = ({
   handleChange,
   fundingAgencies,
   technicalGroups,
+  onAddAgency,
+  onAddGroup,
 }) => (
   <div className="space-y-6">
     <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Project Metadata</h2>
@@ -758,49 +809,75 @@ const Step1ProjectMetadata = ({
       )}
 
     <div className="grid grid-cols-2 gap-6">
+      {/* Technical Group with Add New button */}
       <div>
         <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
           Technical Group / Department <span className="text-red-500 dark:text-red-400">*</span>
         </label>
-        <select
-          value={formData.technical_group_id}
-          onChange={(e) => {
-            handleChange("technical_group_id", e.target.value);
-          }}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
-        >
-          <option value="">Select a group...</option>
-          {technicalGroups.map((group) => {
-            return (
+        <div className="flex gap-2">
+          <select
+            value={formData.technical_group_id}
+            onChange={(e) => handleChange("technical_group_id", e.target.value)}
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
+          >
+            <option value="">Select a group...</option>
+            {technicalGroups.map((group) => (
               <option key={group.group_id} value={group.group_id}>
                 {group.group_name || group.name}
               </option>
-            );
-          })}
-        </select>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAddGroup}
+            className="px-3"
+            title="Add new technical group"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
         {errors.technical_group_id && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.technical_group_id}</p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            {errors.technical_group_id}
+          </p>
         )}
       </div>
 
+      {/* Funding Agency with Add New button */}
       <div>
         <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
           Funding Agency <span className="text-red-500 dark:text-red-400">*</span>
         </label>
-        <select
-          value={formData.funding_agency_id}
-          onChange={(e) => handleChange("funding_agency_id", e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
-        >
-          <option value="">Select an agency...</option>
-          {fundingAgencies.map((agency) => (
-            <option key={agency.agency_id} value={agency.agency_id}>
-              {agency.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={formData.funding_agency_id}
+            onChange={(e) => handleChange("funding_agency_id", e.target.value)}
+            className="flex-1 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
+          >
+            <option value="">Select an agency...</option>
+            {fundingAgencies.map((agency) => (
+              <option key={agency.agency_id} value={agency.agency_id}>
+                {agency.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAddAgency}
+            className="px-3"
+            title="Add new funding agency"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
         {errors.funding_agency_id && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.funding_agency_id}</p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            {errors.funding_agency_id}
+          </p>
         )}
       </div>
     </div>
@@ -1696,6 +1773,7 @@ const Step6Review = ({
       </div>
     </div>
   );
+
 };
 
 export default AddEditProjectPage;

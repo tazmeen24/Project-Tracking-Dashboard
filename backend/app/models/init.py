@@ -26,7 +26,7 @@ from .expenditure import (
     BudgetExpenditureCreate,
     BudgetExpenditureUpdate
 )
-from .funding_agency import (
+from .funding_agency_details import (
     FundingAgencyCreate,
     FundingAgencyUpdate,
     FundingAgencyResponse,

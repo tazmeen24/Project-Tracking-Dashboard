@@ -431,7 +431,7 @@ const EditFundModal = ({ isOpen, onClose, project, fund, onSuccess }) => {
   };
   const fetchApprovedBreakdown = async () => {
     try {
-      // ✅ Use projectService methods
+      //  Use projectService methods
       const [manpowerRes, equipmentRes] = await Promise.all([
         projectService.getManpowerBreakdown(project.project_id),
         projectService.getEquipmentBreakdown(project.project_id),
@@ -577,7 +577,7 @@ const EditFundModal = ({ isOpen, onClose, project, fund, onSuccess }) => {
     setLoading(true);
     try {
       const totalAmount = calculateTotalAmount();
-      // ✅ Use projectService to update funds received
+      //  Use projectService to update funds received
       const fundData = {
         amount: totalAmount,
         date_received: formData.date_received,

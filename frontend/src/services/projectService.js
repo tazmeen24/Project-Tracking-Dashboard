@@ -1,12 +1,6 @@
 // services/projectService.js
-/**
- * Project Service - API client for project management
- * 
- * FIXED: All endpoints now match the corrected backend routes
- * - Updated all resource paths to match backend structure
- * - Added missing CRUD methods
- * - Fixed path patterns (/{resource}/project/{id} instead of /projects/{id}/{resource})
- */
+// Project Service - API client for project management
+
 
 import api from './api';
 
@@ -19,16 +13,6 @@ const projectService = {
       return response; 
     } catch (error) {
       console.error('Error fetching projects:', error);
-      throw error;
-    }
-  },
-
-  getProject: async (projectId) => {
-    try {
-      const response = await api.get(`/api/projects/${projectId}`);
-      return response;
-    } catch (error) {
-      console.error('Error fetching project:', error);
       throw error;
     }
   },
@@ -235,7 +219,7 @@ const projectService = {
    * NOTE: Backend only provides GET all endpoint, no CRUD operations
    */
   async getAllTechnicalGroups() {
-    return api.get('/projects/technical-groups');
+    return api.get('/technical-groups');
   },
 
   // NOTE: The following methods are kept for backward compatibility,
@@ -251,33 +235,18 @@ const projectService = {
     return api.get(`/technical-groups/${groupId}`);
   },
 
-  /**
-   * Create technical group
-   * WARNING: This endpoint may not exist in backend
-   * @param {Object} groupData - Group data
-   */
-  async createTechnicalGroup(groupData) {
-    return api.post('/technical-groups', groupData);
-  },
+// Update these methods in projectService.js:
+async createTechnicalGroup(groupData) {
+  return api.post('/api/technical-groups', groupData);  // Add /projects prefix
+},
 
-  /**
-   * Update technical group
-   * WARNING: This endpoint may not exist in backend
-   * @param {number} groupId - Group ID
-   * @param {Object} groupData - Updated group data
-   */
-  async updateTechnicalGroup(groupId, groupData) {
-    return api.put(`/technical-groups/${groupId}`, groupData);
-  },
+async updateTechnicalGroup(groupId, groupData) {
+  return api.put(`/technical-groups/${groupId}`, groupData);
+},
 
-  /**
-   * Delete technical group
-   * WARNING: This endpoint may not exist in backend
-   * @param {number} groupId - Group ID
-   */
-  async deleteTechnicalGroup(groupId) {
-    return api.delete(`/technical-groups/${groupId}`);
-  },
+async deleteTechnicalGroup(groupId) {
+  return api.delete(`technical-groups/${groupId}`);
+},
 
   // ==================== BUDGET ALLOCATIONS ====================
   

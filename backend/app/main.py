@@ -21,7 +21,9 @@ from .routes import (
     financial_summary,
     analytics,
     uc_routes,
-    installment_routes  # ADD THIS
+    installment_routes,
+    technical_groups,
+    funding_agency,
 )
 from .database import get_db_connection
 from .auth import get_current_user
@@ -59,9 +61,11 @@ app.include_router(agency_details.router)
 app.include_router(financial_summary.router)
 app.include_router(analytics.router)
 app.include_router(uc_routes.router)
-app.include_router(installment_routes.router)  # ADD THIS
+app.include_router(installment_routes.router)  
+app.include_router(technical_groups.router, prefix="/api")
+app.include_router(funding_agency.router)
 
-# ADD THIS PROJECT-LEVEL ENDPOINT
+
 @app.get("/api/projects/{project_id}/installments")
 def get_project_installments(
     project_id: int,

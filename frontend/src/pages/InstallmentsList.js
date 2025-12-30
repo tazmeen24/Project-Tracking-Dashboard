@@ -1,11 +1,19 @@
 // pages/InstallmentsList.js
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Edit, Trash2, FileText, Calendar, DollarSign, CheckCircle } from 'lucide-react';
-import projectService from '../services/projectService';
-import installmentService from '../services/installmentService';
-import Button from '../components/common/Button';
-import { formatCurrency } from '../utils/helpers';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Plus,
+  ArrowLeft,
+  Edit,
+  Trash2,
+  FileText,
+  DollarSign,
+  CheckCircle,
+} from "lucide-react";
+import projectService from "../services/projectService";
+import installmentService from "../services/installmentService";
+import Button from "../components/common/Button";
+import { formatCurrency } from "../utils/helpers";
 
 const InstallmentsList = () => {
   const { projectId } = useParams();
@@ -20,33 +28,50 @@ const InstallmentsList = () => {
 
   const fetchData = async () => {
     try {
-      const [projectData, installmentsData] = await Promise.all([
-        projectService.getProject(projectId),
-        installmentService.getInstallments(projectId)
-      ]);
-      setProject(projectData);
+      const [projectData, installmentsData, budgetAllocations] =
+        await Promise.all([
+          projectService.getProject(projectId),
+          installmentService.getInstallments(projectId),
+          projectService.getBudgetAllocations(projectId),
+        ]);
+
+      // Calculate total allocation from budget allocations
+      const totalAllocation = budgetAllocations.reduce(
+        (sum, allocation) => sum + parseFloat(allocation.allocated_amount || 0),
+        0
+      );
+
+      // Add total_allocation to project data
+      setProject({ ...projectData, total_allocation: totalAllocation });
       setInstallments(installmentsData);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (installmentId) => {
-    if (window.confirm('Are you sure? This will delete the installment and all associated funds.')) {
+    if (
+      window.confirm(
+        "Are you sure? This will delete the installment and all associated funds."
+      )
+    ) {
       try {
         await installmentService.deleteInstallment(installmentId);
         fetchData();
       } catch (error) {
-        console.error('Failed to delete:', error);
-        alert('Failed to delete installment');
+        console.error("Failed to delete:", error);
+        alert("Failed to delete installment");
       }
     }
   };
 
   const getTotalReceived = () => {
-    return installments.reduce((sum, inst) => sum + parseFloat(inst.total_amount || 0), 0);
+    return installments.reduce(
+      (sum, inst) => sum + parseFloat(inst.total_amount || 0),
+      0
+    );
   };
 
   if (loading) {
@@ -139,9 +164,12 @@ const InstallmentsList = () => {
             </span>
           </div>
           <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-            {project?.total_allocation 
-              ? ((getTotalReceived() / project.total_allocation) * 100).toFixed(1)
-              : 0}%
+            {project?.total_allocation
+              ? ((getTotalReceived() / project.total_allocation) * 100).toFixed(
+                  1
+                )
+              : 0}
+            %
           </p>
         </div>
       </div>
@@ -155,7 +183,11 @@ const InstallmentsList = () => {
                 key={installment.installment_id}
                 installment={installment}
                 projectId={projectId}
-                onEdit={() => navigate(`/projects/${projectId}/installments/${installment.installment_id}/edit`)}
+                onEdit={() =>
+                  navigate(
+                    `/projects/${projectId}/installments/${installment.installment_id}/edit`
+                  )
+                }
                 onDelete={() => handleDelete(installment.installment_id)}
               />
             ))}
@@ -172,7 +204,9 @@ const InstallmentsList = () => {
               Add your first installment to start tracking funds received
             </p>
             <Button
-              onClick={() => navigate(`/projects/${projectId}/installments/new`)}
+              onClick={() =>
+                navigate(`/projects/${projectId}/installments/new`)
+              }
               icon={Plus}
             >
               Add First Installment
@@ -208,33 +242,47 @@ const InstallmentCard = ({ installment, projectId, onEdit, onDelete }) => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Sanction Date</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Sanction Date
+              </span>
               <p className="text-sm font-medium text-slate-900 dark:text-white mt-1">
-                {new Date(installment.sanction_date).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+                {new Date(installment.sanction_date).toLocaleDateString(
+                  "en-GB",
+                  {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  }
+                )}
               </p>
             </div>
             <div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Date Received</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Date Received
+              </span>
               <p className="text-sm font-medium text-slate-900 dark:text-white mt-1">
-                {new Date(installment.date_received).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+                {new Date(installment.date_received).toLocaleDateString(
+                  "en-GB",
+                  {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  }
+                )}
               </p>
             </div>
             <div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Total Amount</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Total Amount
+              </span>
               <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                 {formatCurrency(installment.total_amount)}
               </p>
             </div>
             <div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Fund Allocations</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Fund Allocations
+              </span>
               <p className="text-sm font-medium text-slate-900 dark:text-white mt-1">
                 {installment.funds_count || 0} heads
               </p>
@@ -244,7 +292,8 @@ const InstallmentCard = ({ installment, projectId, onEdit, onDelete }) => {
           {installment.remarks && (
             <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                <span className="font-medium">Remarks:</span> {installment.remarks}
+                <span className="font-medium">Remarks:</span>{" "}
+                {installment.remarks}
               </p>
             </div>
           )}
@@ -255,14 +304,18 @@ const InstallmentCard = ({ installment, projectId, onEdit, onDelete }) => {
               onClick={() => setExpanded(!expanded)}
               className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
             >
-              {expanded ? '− Hide' : '+ Show'} fund allocations ({installment.funds_count})
+              {expanded ? "− Hide" : "+ Show"} fund allocations (
+              {installment.funds_count})
             </button>
           )}
 
           {expanded && installment.fund_allocations && (
             <div className="mt-4 space-y-2">
               {installment.fund_allocations.map((fund, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                <div
+                  key={idx}
+                  className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg"
+                >
                   <div>
                     <span className="text-sm font-medium text-slate-900 dark:text-white capitalize">
                       {fund.head}

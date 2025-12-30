@@ -1,4 +1,3 @@
-# backend/app/services/uc_generator_pdf.py
 """
 Utilization Certificate (UC) PDF Generator
 Generates GFR 12-A format UC as PDF using ReportLab
@@ -257,24 +256,30 @@ class UCPDFGenerator:
         def P(text):
             return Paragraph(text, normal_style)
 
+        # Build installments list from actual data
+        installments = data.get('grants_received', {}).get('installments', [])
+        installments_text = ''
+        for i, inst in enumerate(installments, 1):
+            amount = inst.get('amount', 0)
+            installments_text += f'{chr(96+i)}) {UCPDFGenerator._ordinal(i)} Payment : Rs. {amount:,.2f}/-<br/>'
+        
+        # Add total and interest
+        total_grants = data["grants_received"]["total"]
+        installments_text += f'd) Total : Rs. {total_grants:,.2f}<br/>'
+        installments_text += 'e) Interest : Rs. 0/-'
+
         details_data = [
         [
-            P('<b>1. Sanction Letter No:</b> No.4(4)/2021-ITEA<br/>'
+            P('<b>1. Sanction Letter No:</b> {}<br/>'
             '<b>2. Total Project Cost:</b> Rs. {:,.2f}<br/>'
             '<b>3. Sanctioned/Revised:</b> Rs. /-<br/>'
             '<b>4. Date of Commencement:</b> {}<br/>'
             '<b>5. Statement of Expenditure</b>'.format(
+              project.get('sanctioned_number', 'N/A'),
               sum(budget.values()),
               project.get('start_date', 'N/A')
             )),
-            P('<b>6. Grant Received in each year:</b><br/>'
-          'a) 1st Payment : Rs. 88,01,000/-<br/>'
-          'b) 2nd Payment : Rs. 12,50,000/-<br/>'
-          'c) 3rd Payment : Rs. 19,18,071/-<br/>'
-          'd) Total : Rs. {:,.2f}<br/>'
-          'e) Interest : Rs. 0/-'.format(
-              data["grants_received"]["total"]
-          ))
+            P('<b>6. Grant Received in each year:</b><br/>' + installments_text)
             ]
         ]
         
@@ -571,6 +576,15 @@ class UCPDFGenerator:
         ]))
         
         return table
+    
+    @staticmethod
+    def _ordinal(n: int) -> str:
+        """Convert number to ordinal (1st, 2nd, 3rd, etc.)"""
+        if 10 <= n % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f'{n}{suffix}'
     
     @staticmethod
     def _format_currency(amount: float) -> str:

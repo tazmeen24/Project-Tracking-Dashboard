@@ -32,8 +32,6 @@ const ProjectDetailsFullPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  console.log('🔍 ProjectDetailsFullPage mounted with projectId:', projectId);
-
   // Use selectedProject directly from context
   const { selectedProject, fetchProjectById, loading, error } = useProject();
   const [expanded, setExpanded] = useState({
@@ -773,6 +771,13 @@ const ProjectDetailsFullPage = () => {
             sectionKey="funds"
           >
             <div className="mt-6 space-y-8">
+              {/* DEBUG: Log manpower funds to console */}
+              {console.log("All funds:", project.funds)}
+              {console.log(
+                "Manpower funds:",
+                project.funds.filter((f) => f.head === "manpower")
+              )}
+
               {/* FUNDS MANPOWER BREAKDOWN */}
               {project.funds.some((f) => f.head === "manpower") && (
                 <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
@@ -805,25 +810,47 @@ const ProjectDetailsFullPage = () => {
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                       {project.funds
                         .filter((f) => f.head === "manpower")
-                        .flatMap(
-                          (fund) =>
-                            // If breakdown exists and is an array, map each item
-                            fund.breakdown &&
-                            Array.isArray(fund.breakdown) &&
-                            fund.breakdown.length > 0
-                              ? fund.breakdown.map((item) => ({
-                                  fund_id: fund.fund_id,
-                                  received_date: fund.received_date,
-                                  ...item,
-                                  // Calculate amount if not present
-                                  amount:
-                                    item.total_amount ||
-                                    item.salary_per_month *
-                                      item.months *
-                                      item.num_personnel,
-                                }))
-                              : [] // Skip if no breakdown
-                        )
+                        .flatMap((fund) => {
+                          // Handle different breakdown structures
+                          if (!fund.breakdown) {
+                            console.warn(
+                              "No breakdown found for fund:",
+                              fund.fund_id
+                            );
+                            return [];
+                          }
+
+                          // If breakdown is already an array, use it directly
+                          if (Array.isArray(fund.breakdown)) {
+                            return fund.breakdown.map((item) => ({
+                              fund_id: fund.fund_id,
+                              received_date: fund.received_date,
+                              ...item,
+                              // Calculate amount if not present
+                              amount:
+                                item.total_amount ||
+                                item.amount ||
+                                item.salary_per_month *
+                                  item.months *
+                                  item.num_personnel,
+                            }));
+                          }
+
+                          // If breakdown is an object (single item), wrap it in an array
+                          return [
+                            {
+                              fund_id: fund.fund_id,
+                              received_date: fund.received_date,
+                              ...fund.breakdown,
+                              amount:
+                                fund.breakdown.total_amount ||
+                                fund.breakdown.amount ||
+                                fund.breakdown.salary_per_month *
+                                  fund.breakdown.months *
+                                  fund.breakdown.num_personnel,
+                            },
+                          ];
+                        })
                         .map((item, idx) => (
                           <tr
                             key={`${item.fund_id}-${item.breakdown_id || idx}`}
@@ -838,19 +865,42 @@ const ProjectDetailsFullPage = () => {
                               {item.role}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              ₹{item.salary_per_month.toLocaleString("en-IN")}
+                              ₹
+                              {item.salary_per_month?.toLocaleString("en-IN") ||
+                                "N/A"}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {item.months}
+                              {item.months || "N/A"}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {item.num_personnel}
+                              {item.num_personnel || "N/A"}
                             </td>
                             <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                              ₹{item.amount.toLocaleString("en-IN")}
+                              ₹{item.amount?.toLocaleString("en-IN") || "N/A"}
                             </td>
                           </tr>
                         ))}
+
+                      {/* Show message if no breakdown items found */}
+                      {project.funds
+                        .filter((f) => f.head === "manpower")
+                        .flatMap((fund) =>
+                          Array.isArray(fund.breakdown)
+                            ? fund.breakdown
+                            : fund.breakdown
+                            ? [fund.breakdown]
+                            : []
+                        ).length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
+                          >
+                            No manpower breakdown details available
+                          </td>
+                        </tr>
+                      )}
+
                       <tr className="bg-purple-50 dark:bg-purple-900/30 font-bold">
                         <td
                           colSpan={5}
@@ -862,7 +912,7 @@ const ProjectDetailsFullPage = () => {
                           ₹
                           {project.funds
                             .filter((f) => f.head === "manpower")
-                            .reduce((sum, f) => sum + f.amount, 0)
+                            .reduce((sum, f) => sum + (f.amount || 0), 0)
                             .toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -911,17 +961,19 @@ const ProjectDetailsFullPage = () => {
                               )}
                             </td>
                             <td className="px-4 py-3 font-medium">
-                              {fund.breakdown.item_name}
+                              {fund.breakdown?.item_name || "N/A"}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {fund.breakdown.quantity}
+                              {fund.breakdown?.quantity || "N/A"}
                             </td>
                             <td className="px-4 py-3 text-center">
                               ₹
-                              {fund.breakdown.unit_cost.toLocaleString("en-IN")}
+                              {fund.breakdown?.unit_cost?.toLocaleString(
+                                "en-IN"
+                              ) || "N/A"}
                             </td>
                             <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                              ₹{fund.amount.toLocaleString("en-IN")}
+                              ₹{fund.amount?.toLocaleString("en-IN") || "N/A"}
                             </td>
                           </tr>
                         ))}
@@ -936,7 +988,7 @@ const ProjectDetailsFullPage = () => {
                           ₹
                           {project.funds
                             .filter((f) => f.head === "equipment")
-                            .reduce((s, f) => s + f.amount, 0)
+                            .reduce((s, f) => s + (f.amount || 0), 0)
                             .toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -1022,7 +1074,7 @@ const ProjectDetailsFullPage = () => {
               })}
 
               {/* TOTAL FUNDS RECEIVED */}
-              <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-6 border border-orange-200 dark:border-orange-800 mt-10">
+              <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-6 border border-orange-200 dark:border-orange-800">
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="font-bold text-orange-900 dark:text-orange-300 text-lg">
