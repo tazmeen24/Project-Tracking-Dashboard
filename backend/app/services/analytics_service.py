@@ -166,7 +166,7 @@ class AnalyticsService:
             traceback.print_exc()
             funds_utilization_rate = 0.0
         
-        # Average Time to First Funds - FIXED: Use AGE function instead of direct subtraction
+        # Average Time to First Funds - Use AGE function instead of direct subtraction
         time_to_funds_query = """
         SELECT 
             AVG(EXTRACT(DAY FROM AGE(fr.date_received, p.start_date))) as avg_days
@@ -306,7 +306,7 @@ class AnalyticsService:
         """Get projects with low funds balance"""
         cursor = self.conn.cursor()
         
-        # FIXED: Changed to use principal_investigator column from investigators table
+        # Changed to use principal_investigator column from investigators table
         query = """
         WITH project_budgets AS (
             SELECT 

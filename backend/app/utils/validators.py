@@ -2,7 +2,6 @@
 """
 Validators for budget, funds, and expenditure operations
 
-FIXED: 
 - validate_expenditure_against_budget: Now uses auto-calculated total_cost columns
 - validate_manpower_salary_against_breakdown: Handles multiple entries, allows range
 - Improved error messages throughout
@@ -17,7 +16,7 @@ def validate_expenditure_against_budget(project_id: int, head: str, new_amount: 
     """
     Check if adding new expenditure exceeds budget allocation
     
-    FIXED: Now correctly uses auto-calculated total_cost columns from manpower/equipment tables
+    Now correctly uses auto-calculated total_cost columns from manpower/equipment tables
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # Get budget allocation for this head

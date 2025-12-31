@@ -889,7 +889,7 @@ const AddExpenditureModal = ({ isOpen, onClose, project, onSuccess }) => {
     return newErrors.length === 0;
   };
 
-  // ✅ CRITICAL FIX: Route to correct endpoints based on head type
+  // Route to correct endpoints based on head type
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors([]);

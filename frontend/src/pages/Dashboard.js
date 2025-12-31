@@ -1,22 +1,22 @@
 // pages/Dashboard.js - IMPROVED DARK MODE
 /**
- * FIXED:
+ *  :
  * - Enhanced dark mode compatibility
  * - Consistent color scheme across light and dark modes
  * - Improved text visibility in both modes
  */
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useProject } from '../contexts/ProjectContext';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useProject } from "../contexts/ProjectContext";
 import {
   TrendingUp,
   FolderOpen,
   CheckCircle2,
   Calendar,
   DollarSign,
-} from 'lucide-react';
-import Card from '../components/common/Card';
-import { formatCurrency, getProjectStatus } from '../utils/helpers';
+} from "lucide-react";
+import Card from "../components/common/Card";
+import { formatCurrency, getProjectStatus } from "../utils/helpers";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,55 +31,59 @@ const Dashboard = () => {
 
   const stats = [
     {
-      label: 'Total Budget',
+      label: "Total Budget",
       value: formatCurrency(dashboardStats?.totalAllocation ?? 0),
-      change: 'Approved budget',
+      change: "Approved budget",
       icon: DollarSign,
-      trend: 'neutral',
-      color: 'blue',
+      trend: "neutral",
+      color: "blue",
     },
     {
-      label: 'Funds Received',
+      label: "Funds Received",
       value: formatCurrency(dashboardStats?.totalFunds ?? 0),
-      change: 'Total received',
+      change: "Total received",
       icon: CheckCircle2,
-      trend: 'up',
-      color: 'emerald',
+      trend: "up",
+      color: "emerald",
     },
     {
-      label: 'Total Expenditure',
+      label: "Total Expenditure",
       value: formatCurrency(dashboardStats?.totalExpenditure ?? 0),
-      change: 'Total spent',
+      change: "Total spent",
       icon: TrendingUp,
-      trend: 'neutral',
-      color: 'indigo',
+      trend: "neutral",
+      color: "indigo",
     },
     {
-      label: 'Funds Balance',
+      label: "Funds Balance",
       value: formatCurrency(
-        (dashboardStats?.totalFunds ?? 0) - (dashboardStats?.totalExpenditure ?? 0)
+        (dashboardStats?.totalFunds ?? 0) -
+          (dashboardStats?.totalExpenditure ?? 0)
       ),
-      change: 'Available funds',
+      change: "Available funds",
       icon: FolderOpen,
-      trend: 'neutral',
-      color: 'purple',
+      trend: "neutral",
+      color: "purple",
     },
     {
-      label: 'Budget Balance',
+      label: "Budget Balance",
       value: formatCurrency(dashboardStats?.balance ?? 0),
-      change: 'Remaining budget',
+      change: "Remaining budget",
       icon: Calendar,
-      trend: 'neutral',
-      color: 'amber',
+      trend: "neutral",
+      color: "amber",
     },
   ];
 
   const colorClasses = {
-    blue: 'from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700',
-    emerald: 'from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700',
-    indigo: 'from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700',
-    purple: 'from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700',
-    amber: 'from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700',
+    blue: "from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700",
+    emerald:
+      "from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700",
+    indigo:
+      "from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700",
+    purple:
+      "from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700",
+    amber: "from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700",
   };
 
   if (loading) {
@@ -87,7 +91,9 @@ const Dashboard = () => {
       <div className="flex items-center justify-center h-96">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 dark:border-slate-100"></div>
-          <span className="text-slate-700 dark:text-slate-300 font-medium text-lg">Loading dashboard...</span>
+          <span className="text-slate-700 dark:text-slate-300 font-medium text-lg">
+            Loading dashboard...
+          </span>
         </div>
       </div>
     );
@@ -97,7 +103,9 @@ const Dashboard = () => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">Dashboard</h1>
+        <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+          Dashboard
+        </h1>
         <p className="text-slate-600 dark:text-slate-400 text-lg">
           Welcome back! Here's an overview of your projects and finances.
         </p>
@@ -137,7 +145,9 @@ const Dashboard = () => {
                 {stat.value}
               </div>
               <div className="text-sm flex items-center gap-1 text-slate-600 dark:text-slate-400">
-                {stat.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+                {stat.trend === "up" && (
+                  <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                )}
                 {stat.change}
               </div>
             </div>
@@ -148,9 +158,11 @@ const Dashboard = () => {
       {/* Recent Projects */}
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Recent Projects</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Recent Projects
+          </h2>
           <button
-            onClick={() => navigate('/projects')}
+            onClick={() => navigate("/projects")}
             className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
           >
             View all →
@@ -173,13 +185,13 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                        {project.title || 'Untitled Project'}
+                        {project.title || "Untitled Project"}
                       </h3>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          getProjectStatus(project) === 'Active'
-                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300'
+                          getProjectStatus(project) === "Active"
+                            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300"
+                            : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300"
                         }`}
                       >
                         {getProjectStatus(project)}
@@ -190,13 +202,15 @@ const Dashboard = () => {
                         <Calendar className="w-4 h-4" />
                         {project.start_date
                           ? new Date(project.start_date).toLocaleDateString()
-                          : 'No date'}
+                          : "No date"}
                       </span>
-                      <span>{project.project_no || '—'}</span>
+                      <span>{project.project_no || "—"}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Total Allocation</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+                      Total Allocation
+                    </div>
                     <div className="text-xl font-bold text-slate-900 dark:text-white">
                       {formatCurrency(project.total_allocation || 0)}
                     </div>
@@ -207,7 +221,9 @@ const Dashboard = () => {
           ) : (
             <Card className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
               <FolderOpen className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-600 dark:text-slate-400">No projects yet. Create your first project!</p>
+              <p className="text-slate-600 dark:text-slate-400">
+                No projects yet. Create your first project!
+              </p>
             </Card>
           )}
         </div>

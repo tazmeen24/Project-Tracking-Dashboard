@@ -62,10 +62,8 @@ const UCCreatePage = () => {
       setSuccess(null);
 
       const projectId = project.project_id || project.id;
-      console.log('📥 Generating UC...', { projectId, financialYear, format });
       
       const blob = await ucService.generateUC(projectId, financialYear, format);
-      console.log('📥 Received blob:', blob instanceof Blob, blob);
       
       if (!(blob instanceof Blob)) {
         throw new Error('Invalid response format - expected file data');

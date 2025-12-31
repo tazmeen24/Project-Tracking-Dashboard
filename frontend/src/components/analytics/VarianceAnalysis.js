@@ -21,9 +21,7 @@ const VarianceAnalysis = () => {
   const fetchData = async (projectId = null) => {
     try {
       setLoading(true);
-      console.log('Fetching variance data for project:', projectId);
       const result = await analyticsService.getVarianceAnalysis(projectId);
-      console.log('Received variance data:', result);
       setData(result);
       setError(null);
     } catch (err) {

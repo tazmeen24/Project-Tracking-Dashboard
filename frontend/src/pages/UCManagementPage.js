@@ -3,15 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileCheck,
-  Download,
   Eye,
   CheckCircle,
   Clock,
   AlertCircle,
   Plus,
   ArrowLeft,
-  FileText,
-  Calendar
+  FileText
 } from 'lucide-react';
 import projectService from '../services/projectService';
 import ucService from '../services/ucService';
@@ -19,11 +17,8 @@ import ucService from '../services/ucService';
 const UCManagementPage = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
-  const [ucs, setUcs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedView, setSelectedView] = useState('all'); // 'all', 'by-project'
-  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -72,7 +67,6 @@ const UCManagementPage = () => {
         }
       }
 
-      console.log('📊 Fetched projects:', projectList.length, projectList);
       setProjects(projectList);
 
     } catch (err) {

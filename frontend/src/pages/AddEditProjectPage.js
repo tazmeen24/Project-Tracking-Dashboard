@@ -111,7 +111,7 @@ const AddEditProjectPage = () => {
   }, [refreshFundingAgencies, refreshTechnicalGroups]);
 
   useEffect(() => {
-  console.log('🔍 Modal state changed:', {
+  console.log(' Modal state changed:', {
     showAddAgencyModal,
     showAddGroupModal
   });

@@ -18,16 +18,11 @@ const reportService = {
       }
     } = options;
 
-    console.log('=== Report Generation Request ===');
-    console.log('Project ID:', projectId);
-    console.log('Report Type:', reportType);
-    console.log('Format:', format);
-    console.log('Include Sections:', includeSections);
 
     try {
       const token = authService.getToken();
       
-      // CRITICAL FIX: Send as JSON body, NOT query parameters
+      // Send as JSON body, NOT query parameters
       const response = await fetch(
         `${API_BASE_URL}/api/projects/${projectId}/reports/generate`,
         {
@@ -65,8 +60,6 @@ const reportService = {
         }
       }
 
-      console.log('Report generated successfully:', filename);
-      console.log('Blob size:', blob.size);
 
       return {
         blob: blob,
@@ -79,7 +72,6 @@ const reportService = {
   },
 
   downloadReport: (blob, filename) => {
-    console.log('Downloading report:', filename);
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

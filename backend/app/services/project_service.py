@@ -2,7 +2,7 @@
 Project Service
 Handles all business logic related to projects
 
-FIXED: Aligned with actual database schema (db.sql)
+ Aligned with actual database schema (db.sql)
 - Uses budget_allocation (not budget_allocations)
 - Uses budget_expenditure (not expenditures)
 - Uses investigators table (not project fields)

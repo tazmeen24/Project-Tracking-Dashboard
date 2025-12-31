@@ -2,7 +2,7 @@
 Expenditure Service
 Handles all business logic related to expenditures across different heads
 
-FIXED: Completely rewritten to match actual database schema
+ Completely rewritten to match actual database schema
 - manpower table: Uses role, salary_per_month, months, date_incurred (NOT name, date_of_joining/leaving)
 - equipment table: Uses name, purchase_date, quantity, unit_cost (NOT vendor, invoice details)
 - budget_expenditure table: For consumables, contingency, travel & training, overhead

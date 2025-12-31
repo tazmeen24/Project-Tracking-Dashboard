@@ -2,7 +2,7 @@
 Funds Service
 Handles all business logic related to funds received, budget allocations, and breakdowns
 
-FIXED: Aligned with actual database schema (db.sql)
+ Aligned with actual database schema (db.sql)
 - Uses budget_allocation (not budget_allocations)
 - Removed non-existent audit columns
 - Fixed allocation_id references in breakdowns

@@ -177,7 +177,6 @@ const ProjectFinancialsPage = () => {
   };
 
   const openEditFundModal = async (fund) => {
-    console.log("OPEN EDIT FUND MODAL", fund);
     
     // For manpower and equipment, fetch breakdown if not cached
     if ((fund.head === "manpower" || fund.head === "equipment") && !breakdownCache[fund.fund_id]) {
@@ -203,7 +202,6 @@ const ProjectFinancialsPage = () => {
   };
 
   const openEditExpenditureModal = (exp) => {
-    console.log("OPEN EDIT EXPENDITURE MODAL", exp);
     setEditExpenditureModal({ isOpen: true, expenditure: exp });
   };
 
@@ -1040,7 +1038,7 @@ const EditFundModal = ({ isOpen, onClose, project, fund, onSuccess }) => {
     </Modal>
   );
 };
-// ✅ Edit Expenditure Modal Component with proper routing to correct endpoints and populated data (single entry edit)
+//  Edit Expenditure Modal Component with proper routing to correct endpoints and populated data (single entry edit)
 const EditExpenditureModal = ({
   isOpen,
   onClose,
@@ -1189,7 +1187,7 @@ const EditExpenditureModal = ({
     setErrors(newErrors);
     return newErrors.length === 0;
   };
-  // ✅ CRITICAL: Route to correct update endpoints based on head type
+  //  Route to correct update endpoints based on head type
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors([]);

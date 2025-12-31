@@ -771,12 +771,6 @@ const ProjectDetailsFullPage = () => {
             sectionKey="funds"
           >
             <div className="mt-6 space-y-8">
-              {/* DEBUG: Log manpower funds to console */}
-              {console.log("All funds:", project.funds)}
-              {console.log(
-                "Manpower funds:",
-                project.funds.filter((f) => f.head === "manpower")
-              )}
 
               {/* FUNDS MANPOWER BREAKDOWN */}
               {project.funds.some((f) => f.head === "manpower") && (

@@ -319,7 +319,7 @@ class ReportService:
         return categories
     
     def _get_funds_received_with_breakdowns(self, cursor, project_id: int) -> Dict[str, list]:
-        """Get all funds received with detailed breakdowns for manpower and equipment - FIXED CALCULATIONS"""
+        """Get all funds received with detailed breakdowns for manpower and equipment -  CALCULATIONS"""
         
         funds_by_head = {
             'manpower': [],
@@ -1045,7 +1045,7 @@ class PDFReportGenerator:
     
     @staticmethod
     def _build_funds_received_breakdown(data: Dict[str, list]) -> str:
-        """Build detailed Funds Received section with breakdowns - FIXED CALCULATIONS"""
+        """Build detailed Funds Received section with breakdowns - CALCULATIONS"""
         
         html = '<div class="section"><h2>Funds Received</h2>'
         

@@ -2,7 +2,7 @@
 Dashboard Service
 Handles all business logic related to dashboard analytics and reporting
 
-FIXED: Updated all table names to match actual schema:
+ Updated all table names to match actual schema:
 - budget_allocations → budget_allocation
 - expenditures → manpower, equipment, budget_expenditure
 """
@@ -47,7 +47,7 @@ class DashboardService:
             """)
             completed_projects = cur.fetchone()['total']
             
-            # Get total budget allocated - FIXED: budget_allocation not budget_allocations
+            # Get total budget allocated - budget_allocation not budget_allocations
             cur.execute("""
                 SELECT COALESCE(SUM(allocated_amount), 0) as total 
                 FROM budget_allocation
@@ -61,7 +61,7 @@ class DashboardService:
             """)
             total_funds = float(cur.fetchone()['total'])
             
-            # Get total expenditure - FIXED: Calculate from 3 tables
+            # Get total expenditure - Calculate from 3 tables
             cur.execute("""
                 SELECT 
                     COALESCE((SELECT SUM(total_cost) FROM manpower), 0) +

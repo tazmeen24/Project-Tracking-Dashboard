@@ -5,7 +5,7 @@ import api from './api';
 /**
  * Finance Service - Standalone
  * Handles all finance-related API calls with proper URL encoding
- * FIXED: Added encodeURIComponent() for head parameter to handle "travel & training"
+ *  Added encodeURIComponent() for head parameter to handle "travel & training"
  */
 
 const financeService = {
@@ -101,7 +101,7 @@ const financeService = {
   /**
    * Get financial details for a specific budget head
    * Fetches both funds and expenditures for the head
-   * CRITICAL FIX: Uses encodeURIComponent for head parameter
+   * Uses encodeURIComponent for head parameter
    * @param {number} projectId - Project ID
    * @param {string} head - Budget head name (e.g., "travel & training")
    * @returns {Promise<Object>} Funds and expenditures for the head
@@ -110,7 +110,7 @@ const financeService = {
     try {
       let funds, expenditures;
 
-      // CRITICAL: URL-encode the head parameter to handle "travel & training"
+      // URL-encode the head parameter to handle "travel & training"
       const encodedHead = encodeURIComponent(head);
 
       if (head === 'manpower') {

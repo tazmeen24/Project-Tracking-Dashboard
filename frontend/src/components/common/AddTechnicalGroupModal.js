@@ -34,13 +34,11 @@ const handleSubmit = async (e) => {
 
   setLoading(true);
   try {
-    console.log('Sending to backend:', { name: formData.name.trim() });
     
     const result = await projectService.createTechnicalGroup({
       name: formData.name.trim(),
     });
     
-    console.log('Backend response:', result); // ADD THIS LINE
     
     setFormData({ name: "" });
     setErrors({});
