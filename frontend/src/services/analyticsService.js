@@ -3,7 +3,7 @@
  * Complete API client for all analytics endpoints (Phase 1 + Phase 2)
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import api from './api';
 
 class AnalyticsService {
   // =========================================================================
@@ -11,58 +11,23 @@ class AnalyticsService {
   // =========================================================================
 
   async getPortfolioHealth() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/portfolio-health`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching portfolio health:', error);
-      throw error;
-    }
+    return api.get('/api/analytics/portfolio-health');
   }
 
   async getKPIs() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/kpis`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching KPIs:', error);
-      throw error;
-    }
+    return api.get('/api/analytics/kpis');
   }
 
   async getCashFlow(months = 12) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/cash-flow?months=${months}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching cash flow:', error);
-      throw error;
-    }
+    return api.get(`/api/analytics/cash-flow?months=${months}`);
   }
 
   async getProjectsAtRisk(threshold = 20) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/projects-at-risk?threshold=${threshold}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching projects at risk:', error);
-      throw error;
-    }
+    return api.get(`/api/analytics/projects-at-risk?threshold=${threshold}`);
   }
 
   async getCategoryDistribution() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/category-distribution`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching category distribution:', error);
-      throw error;
-    }
+    return api.get('/api/analytics/category-distribution');
   }
 
   // =========================================================================
@@ -70,55 +35,36 @@ class AnalyticsService {
   // =========================================================================
 
   async getBurnRateAnalysis() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/burn-rate`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching burn rate analysis:', error);
-      throw error;
-    }
+    return api.get('/api/analytics/burn-rate');
   }
 
   async getVarianceAnalysis(projectId = null) {
-    try {
-      const url = projectId 
-        ? `${API_BASE_URL}/api/analytics/variance-analysis?project_id=${projectId}`
-        : `${API_BASE_URL}/api/analytics/variance-analysis`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching variance analysis:', error);
-      throw error;
-    }
+    const url = projectId 
+      ? `/api/analytics/variance-analysis?project_id=${projectId}`
+      : '/api/analytics/variance-analysis';
+    return api.get(url);
   }
 
   async getFYComparison(years = 3) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/fy-comparison?years=${years}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching FY comparison:', error);
-      throw error;
-    }
+    return api.get(`/api/analytics/fy-comparison?years=${years}`);
   }
 
   async getSpendingTrends(months = 12) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/trends?months=${months}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching spending trends:', error);
-      throw error;
-    }
+    return api.get(`/api/analytics/trends?months=${months}`);
   }
 
   async exportToExcel(exportType = 'summary') {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/export/excel?export_type=${exportType}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${api.baseURL}/api/analytics/export/excel?export_type=${exportType}`,
+        {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        }
+      );
+      
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
       const blob = await response.blob();
@@ -139,14 +85,7 @@ class AnalyticsService {
   }
 
   async healthCheck() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/health`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error in health check:', error);
-      throw error;
-    }
+    return api.get('/api/analytics/health');
   }
 }
 

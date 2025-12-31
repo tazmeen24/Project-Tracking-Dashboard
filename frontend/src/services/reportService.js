@@ -1,7 +1,6 @@
 // frontend/src/services/reportService.js
+import api from './api';
 import authService from './authService';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const reportService = {
   generateReport: async (projectId, options = {}) => {
@@ -18,13 +17,11 @@ const reportService = {
       }
     } = options;
 
-
     try {
       const token = authService.getToken();
       
-      // Send as JSON body, NOT query parameters
       const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/reports/generate`,
+        `${api.baseURL}/api/projects/${projectId}/reports/generate`,
         {
           method: 'POST',
           headers: {
@@ -46,10 +43,7 @@ const reportService = {
         throw new Error(error.detail || 'Failed to generate report');
       }
 
-      // Get blob from response
       const blob = await response.blob();
-
-      // Extract filename from headers
       const contentDisposition = response.headers.get('content-disposition');
       let filename = `Project_${projectId}_Report.${format}`;
       
@@ -59,7 +53,6 @@ const reportService = {
           filename = filenameMatch[1];
         }
       }
-
 
       return {
         blob: blob,
@@ -87,7 +80,7 @@ const reportService = {
       const token = authService.getToken();
       
       const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/reports/history?limit=${limit}`,
+        `${api.baseURL}/api/projects/${projectId}/reports/history?limit=${limit}`,
         {
           method: 'GET',
           headers: {

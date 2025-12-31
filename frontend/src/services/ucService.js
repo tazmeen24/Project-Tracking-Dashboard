@@ -2,8 +2,6 @@
 import api from './api';
 import authService from './authService';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
 const ucService = {
   /**
    * Generate UC document
@@ -12,7 +10,7 @@ const ucService = {
     try {
       const token = authService.getToken();
       
-      const response = await fetch(`${API_BASE_URL}/api/uc/generate`, {
+      const response = await fetch(`${api.baseURL}/api/uc/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +38,6 @@ const ucService = {
       throw error;
     }
   },
-
   /**
    * Create UC record in database
    */

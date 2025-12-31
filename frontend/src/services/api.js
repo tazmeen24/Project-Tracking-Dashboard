@@ -1,7 +1,30 @@
 // services/api.js
 import authService from './authService';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Detect if running in Electron
+const isElectron = () => {
+  return navigator.userAgent.toLowerCase().indexOf('electron') > -1;
+};
+
+// Get API base URL based on environment
+const getApiBaseUrl = () => {
+  // Check if running in Electron
+  if (isElectron()) {
+    return 'http://127.0.0.1:8787';
+  }
+  
+  // Check if window.electron exists (more reliable)
+  if (window.electron && window.electron.getApiUrl) {
+    return window.electron.getApiUrl();
+  }
+  
+  // Browser/Development - use environment variable or default
+  return process.env.REACT_APP_API_URL || 'http://localhost:8000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 const api = {
   baseURL: API_BASE_URL,
