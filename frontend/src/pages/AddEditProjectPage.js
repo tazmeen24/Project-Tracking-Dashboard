@@ -111,16 +111,20 @@ const AddEditProjectPage = () => {
   }, [refreshFundingAgencies, refreshTechnicalGroups]);
 
   useEffect(() => {
-  console.log(' Modal state changed:', {
-    showAddAgencyModal,
-    showAddGroupModal
-  });
-}, [showAddAgencyModal, showAddGroupModal]);
+    console.log(" Modal state changed:", {
+      showAddAgencyModal,
+      showAddGroupModal,
+    });
+  }, [showAddAgencyModal, showAddGroupModal]);
 
   // Load project data AFTER dropdown data is available (if editing)
   useEffect(() => {
-    const shouldLoad = isEditMode && projectId && technicalGroups.length > 0 && fundingAgencies.length > 0;
-    
+    const shouldLoad =
+      isEditMode &&
+      projectId &&
+      technicalGroups.length > 0 &&
+      fundingAgencies.length > 0;
+
     if (shouldLoad) {
       loadProjectData();
     }
@@ -130,11 +134,19 @@ const AddEditProjectPage = () => {
     setLoadingProjectData(true);
     try {
       const project = await projectService.getProject(projectId);
-      
-      const techGroupIdString = project.technical_group_id ? String(project.technical_group_id) : "";
-      const fundingAgencyIdString = project.funding_agency_id ? String(project.funding_agency_id) : "";
-      const techGroupExists = technicalGroups.find(g => g.group_id === project.technical_group_id);
-      const fundingAgencyExists = fundingAgencies.find(a => a.agency_id === project.funding_agency_id);
+
+      const techGroupIdString = project.technical_group_id
+        ? String(project.technical_group_id)
+        : "";
+      const fundingAgencyIdString = project.funding_agency_id
+        ? String(project.funding_agency_id)
+        : "";
+      const techGroupExists = technicalGroups.find(
+        (g) => g.group_id === project.technical_group_id
+      );
+      const fundingAgencyExists = fundingAgencies.find(
+        (a) => a.agency_id === project.funding_agency_id
+      );
 
       setFormData({
         project_no: project.project_no || "",
@@ -164,16 +176,16 @@ const AddEditProjectPage = () => {
         end_date: project.end_date || "",
         manpower_allocation: Number(project.manpower_allocation) || 0,
         equipment_allocation: Number(project.equipment_allocation) || 0,
-        travel_training_allocation: Number(project.travel_training_allocation) || 0,
+        travel_training_allocation:
+          Number(project.travel_training_allocation) || 0,
         consumables_allocation: Number(project.consumables_allocation) || 0,
         contingency_allocation: Number(project.contingency_allocation) || 0,
         overhead_allocation: Number(project.overhead_allocation) || 0,
         manpower_breakdown: project.manpower_breakdown || [],
         equipment_breakdown: project.equipment_breakdown || [],
       });
-      
     } catch (error) {
-      console.error('❌ FAILED TO LOAD PROJECT:', error);
+      console.error("❌ FAILED TO LOAD PROJECT:", error);
       setErrors({ submit: "Failed to load project data" });
     } finally {
       setLoadingProjectData(false);
@@ -181,27 +193,27 @@ const AddEditProjectPage = () => {
   };
 
   // Add handlers for successful creation:
-const handleAgencyCreated = async (newAgency) => {
-  // Refresh the agencies list
-  await refreshFundingAgencies();
-  
-  // Auto-select the newly created agency
-  setFormData((prev) => ({
-    ...prev,
-    funding_agency_id: String(newAgency.agency_id),
-  }));
-};
+  const handleAgencyCreated = async (newAgency) => {
+    // Refresh the agencies list
+    await refreshFundingAgencies();
 
-const handleGroupCreated = async (newGroup) => {
-  // Refresh the groups list
-  await refreshTechnicalGroups();
-  
-  // Auto-select the newly created group
-  setFormData((prev) => ({
-    ...prev,
-    technical_group_id: String(newGroup.group_id),
-  }));
-};
+    // Auto-select the newly created agency
+    setFormData((prev) => ({
+      ...prev,
+      funding_agency_id: String(newAgency.agency_id),
+    }));
+  };
+
+  const handleGroupCreated = async (newGroup) => {
+    // Refresh the groups list
+    await refreshTechnicalGroups();
+
+    // Auto-select the newly created group
+    setFormData((prev) => ({
+      ...prev,
+      technical_group_id: String(newGroup.group_id),
+    }));
+  };
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -230,42 +242,60 @@ const handleGroupCreated = async (newGroup) => {
     const newErrors = {};
 
     if (step === 1) {
-      if (!formData.project_no) newErrors.project_no = "Project number is required";
+      if (!formData.project_no)
+        newErrors.project_no = "Project number is required";
       if (!formData.title) newErrors.title = "Project title is required";
-      if (!formData.technical_group_id) newErrors.technical_group_id = "Technical group is required";
-      if (!formData.funding_agency_id) newErrors.funding_agency_id = "Funding agency is required";
-      if (formData.project_category === "sponsored" && formData.project_type === "PFMS" && !formData.pfms_id) {
+      if (!formData.technical_group_id)
+        newErrors.technical_group_id = "Technical group is required";
+      if (!formData.funding_agency_id)
+        newErrors.funding_agency_id = "Funding agency is required";
+      if (
+        formData.project_category === "sponsored" &&
+        formData.project_type === "PFMS" &&
+        !formData.pfms_id
+      ) {
         newErrors.pfms_id = "PFMS ID is required for PFMS projects";
       }
     }
 
     if (step === 2) {
-      if (!formData.contact_person) newErrors.contact_person = "Contact person is required";
+      if (!formData.contact_person)
+        newErrors.contact_person = "Contact person is required";
       if (formData.contact_mobile) {
         const cleaned = formData.contact_mobile.replace(/\D/g, "");
-        if (cleaned.length < 10) newErrors.contact_mobile = "Mobile number must be at least 10 digits";
+        if (cleaned.length < 10)
+          newErrors.contact_mobile = "Mobile number must be at least 10 digits";
       }
-      if (formData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
+      if (
+        formData.contact_email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)
+      ) {
         newErrors.contact_email = "Invalid email format";
       }
     }
 
     if (step === 3) {
-      if (!formData.principal_investigator) newErrors.principal_investigator = "Principal investigator is required";
+      if (!formData.principal_investigator)
+        newErrors.principal_investigator = "Principal investigator is required";
       if (!formData.pi_email) newErrors.pi_email = "PI email is required";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.pi_email)) {
         newErrors.pi_email = "Invalid email format";
       }
       if (!formData.pi_mobile) newErrors.pi_mobile = "PI mobile is required";
       const piCleaned = formData.pi_mobile.replace(/\D/g, "");
-      if (piCleaned.length < 10) newErrors.pi_mobile = "Mobile number must be at least 10 digits";
+      if (piCleaned.length < 10)
+        newErrors.pi_mobile = "Mobile number must be at least 10 digits";
 
-      if (formData.co_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.co_email)) {
+      if (
+        formData.co_email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.co_email)
+      ) {
         newErrors.co_email = "Invalid email format";
       }
       if (formData.co_mobile) {
         const coCleaned = formData.co_mobile.replace(/\D/g, "");
-        if (coCleaned.length < 10) newErrors.co_mobile = "Mobile number must be at least 10 digits";
+        if (coCleaned.length < 10)
+          newErrors.co_mobile = "Mobile number must be at least 10 digits";
       }
     }
 
@@ -278,10 +308,27 @@ const handleGroupCreated = async (newGroup) => {
   };
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length));
+  if (validateStep(currentStep)) {
+    // If moving to final step (Step 6), validate ALL previous steps
+    if (currentStep === 5) {
+      let allValid = true;
+      for (let step = 1; step <= 5; step++) {
+        if (!validateStep(step)) {
+          allValid = false;
+          setErrors(prev => ({
+            ...prev,
+            submit: `Please complete Step ${step} correctly`
+          }));
+          setCurrentStep(step);
+          return;
+        }
+      }
+      if (!allValid) return;
     }
-  };
+    
+    setCurrentStep((prev) => Math.min(prev + 1, STEPS.length));
+  }
+};
 
   const handlePrevious = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -295,112 +342,132 @@ const handleGroupCreated = async (newGroup) => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Safety check: only submit if on the final review step
-  if (currentStep !== STEPS.length) {
-    console.warn('Form submission attempted from non-final step');
-    return;
-  }
-  
-  if (!validateStep(5)) return;
+    if (e) e.preventDefault();
 
-  setLoading(true);
-  try {
-    const projectData = {
-      project_no: formData.project_no,
-      title: formData.title,
-      alias: formData.alias || null,
-      project_category: formData.project_category,
-      project_type: formData.project_type,
-      pfms_id: formData.pfms_id || null,
-      funding_agency_id: parseInt(formData.funding_agency_id),
-      technical_group_id: parseInt(formData.technical_group_id),
-      principal_investigator: formData.principal_investigator,
-      pi_email: formData.pi_email,
-      pi_mobile: formData.pi_mobile,
-      co_investigator: formData.co_investigator || null,
-      co_email: formData.co_email || null,
-      co_mobile: formData.co_mobile || null,
-      start_date: formData.start_date,
-      end_date: formData.end_date || null,
-      manpower_allocation: getTotalManpowerAllocation(),
-      equipment_allocation: getTotalEquipmentAllocation(),
-      travel_training_allocation: parseFloat(formData.travel_training_allocation) || 0,
-      consumables_allocation: parseFloat(formData.consumables_allocation) || 0,
-      contingency_allocation: parseFloat(formData.contingency_allocation) || 0,
-      overhead_allocation: parseFloat(formData.overhead_allocation) || 0,
-      manpower_breakdown: formData.manpower_breakdown.map((item) => ({
-        role: item.role,
-        salary_per_month: item.salary_per_month,
-        months: item.months,
-        num_personnel: item.num_personnel,
-        qualification: item.qualification || null,
-        experience_required: item.experience_required || null,
-      })),
-      equipment_breakdown: formData.equipment_breakdown.map((item) => ({
-        item_name: item.item_name,
-        quantity: item.quantity,
-        unit_cost: item.unit_cost,
-        description: item.description || null,
-        product_website: item.product_website || null,
-      })),
-    };
-
-    let createdProjectId;
-
-    if (isEditMode) {
-      await projectService.updateProject(projectId, projectData);
-      createdProjectId = projectId;
-      
-      // Update funding agency details for this project
-      if (formData.contact_person) {
-        await projectService.updateFundingAgencyDetails({
-          project_id: createdProjectId, // Link to project, not just agency
-          agency_id: parseInt(formData.funding_agency_id),
-          contact_person: formData.contact_person,
-          designation: formData.contact_designation || null,
-          mobile: formData.contact_mobile || null,
-          email: formData.contact_email || null,
-          sanctioned_number: formData.sanctioned_number || null,
-          scheme: formData.funding_scheme || null,
-          cna_sub_agency: formData.cna_sub_agency || null,
-          bank_name: formData.bank_name || null,
-          bank_account_no: formData.bank_account_no || null,
-        });
-      }
-    } else {
-      // Create project and get the new project ID
-      const result = await projectService.createProject(projectData);
-      createdProjectId = result.project_id; // Assuming API returns the created project ID
-
-      // Create funding agency details linked to this specific project
-      if (formData.contact_person) {
-        await projectService.createFundingAgencyDetails({
-          project_id: createdProjectId, // Link to the newly created project
-          agency_id: parseInt(formData.funding_agency_id),
-          contact_person: formData.contact_person,
-          designation: formData.contact_designation || null,
-          mobile: formData.contact_mobile || null,
-          email: formData.contact_email || null,
-          sanctioned_number: formData.sanctioned_number || null,
-          scheme: formData.funding_scheme || null,
-          cna_sub_agency: formData.cna_sub_agency || null,
-          bank_name: formData.bank_name || null,
-          bank_account_no: formData.bank_account_no || null,
-        });
-      }
+    // Safety check: only submit if on the final review step
+    if (currentStep !== STEPS.length) {
+      console.warn("Form submission attempted from non-final step");
+      return;
     }
 
-    await refreshProjects();
-    navigate("/projects");
-  } catch (error) {
-    console.error("Error saving project:", error);
-    setErrors({ submit: error.message || "Failed to save project" });
-  } finally {
-    setLoading(false);
+    let allValid = true;
+  for (let step = 1; step <= 5; step++) {
+    if (!validateStep(step)) {
+      allValid = false;
+      // Navigate to the first invalid step
+      setCurrentStep(step);
+      break;
+    }
   }
-};
+  
+  if (!allValid) {
+    // Show error message
+    setErrors(prev => ({
+      ...prev,
+      submit: "Please fix all validation errors before submitting"
+    }));
+    return;
+  }
+
+    setLoading(true);
+    try {
+      const projectData = {
+        project_no: formData.project_no,
+        title: formData.title,
+        alias: formData.alias || null,
+        project_category: formData.project_category,
+        project_type: formData.project_type,
+        pfms_id: formData.pfms_id || null,
+        funding_agency_id: parseInt(formData.funding_agency_id),
+        technical_group_id: parseInt(formData.technical_group_id),
+        principal_investigator: formData.principal_investigator,
+        pi_email: formData.pi_email,
+        pi_mobile: formData.pi_mobile,
+        co_investigator: formData.co_investigator || null,
+        co_email: formData.co_email || null,
+        co_mobile: formData.co_mobile || null,
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        manpower_allocation: getTotalManpowerAllocation(),
+        equipment_allocation: getTotalEquipmentAllocation(),
+        travel_training_allocation:
+          parseFloat(formData.travel_training_allocation) || 0,
+        consumables_allocation:
+          parseFloat(formData.consumables_allocation) || 0,
+        contingency_allocation:
+          parseFloat(formData.contingency_allocation) || 0,
+        overhead_allocation: parseFloat(formData.overhead_allocation) || 0,
+        manpower_breakdown: formData.manpower_breakdown.map((item) => ({
+          role: item.role,
+          salary_per_month: item.salary_per_month,
+          months: item.months,
+          num_personnel: item.num_personnel,
+          qualification: item.qualification || null,
+          experience_required: item.experience_required || null,
+        })),
+        equipment_breakdown: formData.equipment_breakdown.map((item) => ({
+          item_name: item.item_name,
+          quantity: item.quantity,
+          unit_cost: item.unit_cost,
+          description: item.description || null,
+          product_website: item.product_website || null,
+        })),
+      };
+
+      let createdProjectId;
+
+      if (isEditMode) {
+        await projectService.updateProject(projectId, projectData);
+        createdProjectId = projectId;
+
+        // Update funding agency details for this project
+        if (formData.contact_person) {
+          await projectService.updateFundingAgencyDetails({
+            project_id: createdProjectId, // Link to project, not just agency
+            agency_id: parseInt(formData.funding_agency_id),
+            contact_person: formData.contact_person,
+            designation: formData.contact_designation || null,
+            mobile: formData.contact_mobile || null,
+            email: formData.contact_email || null,
+            sanctioned_number: formData.sanctioned_number || null,
+            scheme: formData.funding_scheme || null,
+            cna_sub_agency: formData.cna_sub_agency || null,
+            bank_name: formData.bank_name || null,
+            bank_account_no: formData.bank_account_no || null,
+          });
+        }
+      } else {
+        // Create project and get the new project ID
+        const result = await projectService.createProject(projectData);
+        createdProjectId = result.project_id; // Assuming API returns the created project ID
+
+        // Create funding agency details linked to this specific project
+        if (formData.contact_person) {
+          await projectService.createFundingAgencyDetails({
+            project_id: createdProjectId, // Link to the newly created project
+            agency_id: parseInt(formData.funding_agency_id),
+            contact_person: formData.contact_person,
+            designation: formData.contact_designation || null,
+            mobile: formData.contact_mobile || null,
+            email: formData.contact_email || null,
+            sanctioned_number: formData.sanctioned_number || null,
+            scheme: formData.funding_scheme || null,
+            cna_sub_agency: formData.cna_sub_agency || null,
+            bank_name: formData.bank_name || null,
+            bank_account_no: formData.bank_account_no || null,
+          });
+        }
+      }
+
+      await refreshProjects();
+      navigate("/projects");
+    } catch (error) {
+      console.error("Error saving project:", error);
+      setErrors({ submit: error.message || "Failed to save project" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Manpower breakdown functions
   const addManpowerRow = () => {
@@ -467,7 +534,9 @@ const handleGroupCreated = async (newGroup) => {
   const removeEquipmentRow = (index) => {
     setFormData((prev) => ({
       ...prev,
-      equipment_breakdown: prev.equipment_breakdown.filter((_, i) => i !== index),
+      equipment_breakdown: prev.equipment_breakdown.filter(
+        (_, i) => i !== index
+      ),
     }));
   };
 
@@ -506,7 +575,9 @@ const handleGroupCreated = async (newGroup) => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-300">Loading project data...</p>
+          <p className="text-slate-600 dark:text-slate-300">
+            Loading project data...
+          </p>
         </div>
       </div>
     );
@@ -539,54 +610,66 @@ const handleGroupCreated = async (newGroup) => {
       </div>
 
       {/* Progress Steps */}
-<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
-  <div className="flex items-center justify-between">
-    {STEPS.map((step, index) => (
-      <React.Fragment key={step.id}>
-        <button
-          type="button"  // ← ADD THIS!
-          onClick={() => handleStepClick(step.id)}
-          disabled={step.id > currentStep}
-          className={`flex items-center gap-3 transition-all ${
-            step.id <= currentStep ? "cursor-pointer hover:scale-105" : "cursor-not-allowed opacity-50"
-          }`}
-        >
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
-              currentStep === step.id
-                ? "bg-blue-600 dark:bg-blue-500 text-white shadow-lg scale-110"
-                : currentStep > step.id
-                ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
-                : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
-            }`}
-          >
-            {currentStep > step.id ? <Check className="w-5 h-5" /> : step.icon}
-          </div>
-          <div className="hidden md:block text-left">
-            <div
-              className={`text-sm font-semibold ${
-                currentStep >= step.id ? "text-slate-900 dark:text-slate-100" : "text-slate-400 dark:text-slate-500"
-              }`}
-            >
-              {step.title}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">Step {step.id}</div>
-          </div>
-        </button>
-        {index < STEPS.length - 1 && (
-          <div
-            className={`flex-1 h-1 mx-4 rounded ${
-              currentStep > step.id ? "bg-emerald-200 dark:bg-emerald-800" : "bg-slate-200 dark:bg-slate-700"
-            }`}
-          />
-        )}
-      </React.Fragment>
-    ))}
-  </div>
-</div>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+        <div className="flex items-center justify-between">
+          {STEPS.map((step, index) => (
+            <React.Fragment key={step.id}>
+              <button
+                type="button" // ← ADD THIS!
+                onClick={() => handleStepClick(step.id)}
+                disabled={step.id > currentStep}
+                className={`flex items-center gap-3 transition-all ${
+                  step.id <= currentStep
+                    ? "cursor-pointer hover:scale-105"
+                    : "cursor-not-allowed opacity-50"
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
+                    currentStep === step.id
+                      ? "bg-blue-600 dark:bg-blue-500 text-white shadow-lg scale-110"
+                      : currentStep > step.id
+                      ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {currentStep > step.id ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    step.icon
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <div
+                    className={`text-sm font-semibold ${
+                      currentStep >= step.id
+                        ? "text-slate-900 dark:text-slate-100"
+                        : "text-slate-400 dark:text-slate-500"
+                    }`}
+                  >
+                    {step.title}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Step {step.id}
+                  </div>
+                </div>
+              </button>
+              {index < STEPS.length - 1 && (
+                <div
+                  className={`flex-1 h-1 mx-4 rounded ${
+                    currentStep > step.id
+                      ? "bg-emerald-200 dark:bg-emerald-800"
+                      : "bg-slate-200 dark:bg-slate-700"
+                  }`}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
 
       {/* Form Content */}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => e.preventDefault()}>
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mb-6">
           {/* Step 1: Project Metadata */}
           {currentStep === 1 && (
@@ -698,7 +781,12 @@ const handleGroupCreated = async (newGroup) => {
               Next Step
             </Button>
           ) : (
-            <Button type="submit" loading={loading} icon={Save}>
+            <Button
+              type="button" 
+              onClick={handleSubmit} 
+              loading={loading}
+              icon={Save}
+            >
               {isEditMode ? "Update Project" : "Create Project"}
             </Button>
           )}
@@ -706,17 +794,16 @@ const handleGroupCreated = async (newGroup) => {
       </form>
 
       <AddFundingAgencyModal
-      isOpen={showAddAgencyModal}
-      onClose={() => setShowAddAgencyModal(false)}
-      onSuccess={handleAgencyCreated}
-    />
-    
-    <AddTechnicalGroupModal
-      isOpen={showAddGroupModal}
-      onClose={() => setShowAddGroupModal(false)}
-      onSuccess={handleGroupCreated}
-    />
+        isOpen={showAddAgencyModal}
+        onClose={() => setShowAddAgencyModal(false)}
+        onSuccess={handleAgencyCreated}
+      />
 
+      <AddTechnicalGroupModal
+        isOpen={showAddGroupModal}
+        onClose={() => setShowAddGroupModal(false)}
+        onSuccess={handleGroupCreated}
+      />
     </div>
   );
 };
@@ -732,7 +819,9 @@ const Step1ProjectMetadata = ({
   onAddGroup,
 }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Project Metadata</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+      Project Metadata
+    </h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -763,7 +852,8 @@ const Step1ProjectMetadata = ({
     <div className="grid grid-cols-2 gap-6">
       <div>
         <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
-          Project Category <span className="text-red-500 dark:text-red-400">*</span>
+          Project Category{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={formData.project_category}
@@ -812,7 +902,8 @@ const Step1ProjectMetadata = ({
       {/* Technical Group with Add New button */}
       <div>
         <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
-          Technical Group / Department <span className="text-red-500 dark:text-red-400">*</span>
+          Technical Group / Department{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <div className="flex gap-2">
           <select
@@ -848,7 +939,8 @@ const Step1ProjectMetadata = ({
       {/* Funding Agency with Add New button */}
       <div>
         <label className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
-          Funding Agency <span className="text-red-500 dark:text-red-400">*</span>
+          Funding Agency{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <div className="flex gap-2">
           <select
@@ -884,13 +976,11 @@ const Step1ProjectMetadata = ({
   </div>
 );
 
-const Step2FundingAgency = ({
-  formData,
-  errors,
-  handleChange,
-}) => (
+const Step2FundingAgency = ({ formData, errors, handleChange }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Funding Agency Details</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+      Funding Agency Details
+    </h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -966,21 +1056,23 @@ const Step2FundingAgency = ({
   </div>
 );
 
-const Step3Investigators = ({
-  formData,
-  errors,
-  handleChange,
-}) => (
+const Step3Investigators = ({ formData, errors, handleChange }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Investigators</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+      Investigators
+    </h2>
 
     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 mb-6 border border-slate-200 dark:border-slate-600">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Principal Investigator</h3>
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        Principal Investigator
+      </h3>
       <div className="grid grid-cols-3 gap-4">
         <Input
           label="Name"
           value={formData.principal_investigator}
-          onChange={(e) => handleChange("principal_investigator", e.target.value)}
+          onChange={(e) =>
+            handleChange("principal_investigator", e.target.value)
+          }
           error={errors.principal_investigator}
           required
           placeholder="Full name"
@@ -1006,7 +1098,9 @@ const Step3Investigators = ({
     </div>
 
     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Co-Investigator (Optional)</h3>
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        Co-Investigator (Optional)
+      </h3>
       <div className="grid grid-cols-3 gap-4">
         <Input
           label="Name"
@@ -1034,13 +1128,11 @@ const Step3Investigators = ({
   </div>
 );
 
-const Step4Timeline = ({
-  formData,
-  errors,
-  handleChange,
-}) => (
+const Step4Timeline = ({ formData, errors, handleChange }) => (
   <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Timeline</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+      Timeline
+    </h2>
 
     <div className="grid grid-cols-2 gap-6">
       <Input
@@ -1062,10 +1154,12 @@ const Step4Timeline = ({
     {formData.start_date && formData.end_date && (
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl">
         <p className="text-sm text-blue-800 dark:text-blue-300">
-          Project Duration: {Math.ceil(
+          Project Duration:{" "}
+          {Math.ceil(
             (new Date(formData.end_date) - new Date(formData.start_date)) /
               (1000 * 60 * 60 * 24 * 30)
-          )} months
+          )}{" "}
+          months
         </p>
       </div>
     )}
@@ -1081,18 +1175,27 @@ const Step5BudgetSetup = ({
   totalBudget,
 }) => (
   <div className="space-y-8">
-    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Budget Setup</h2>
+    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+      Budget Setup
+    </h2>
 
     {/* Manpower */}
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">1. Manpower</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            1. Manpower
+          </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Personnel breakdown with qualifications & experience
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={manpower.add} icon={Plus}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={manpower.add}
+          icon={Plus}
+        >
           Add Row
         </Button>
       </div>
@@ -1158,7 +1261,11 @@ const Step5BudgetSetup = ({
                     type="number"
                     value={row.months}
                     onChange={(e) =>
-                      manpower.update(index, "months", parseInt(e.target.value) || 1)
+                      manpower.update(
+                        index,
+                        "months",
+                        parseInt(e.target.value) || 1
+                      )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
                   />
@@ -1205,7 +1312,11 @@ const Step5BudgetSetup = ({
                   <textarea
                     value={row.experience_required || ""}
                     onChange={(e) =>
-                      manpower.update(index, "experience_required", e.target.value)
+                      manpower.update(
+                        index,
+                        "experience_required",
+                        e.target.value
+                      )
                     }
                     placeholder="e.g., 5+ years in full-stack development..."
                     rows="2"
@@ -1237,12 +1348,19 @@ const Step5BudgetSetup = ({
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">2. Equipment</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            2. Equipment
+          </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Equipment and instruments (with description & product links)
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={equipment.add} icon={Plus}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={equipment.add}
+          icon={Plus}
+        >
           Add Row
         </Button>
       </div>
@@ -1291,7 +1409,11 @@ const Step5BudgetSetup = ({
                     type="number"
                     value={row.quantity}
                     onChange={(e) =>
-                      equipment.update(index, "quantity", parseInt(e.target.value) || 1)
+                      equipment.update(
+                        index,
+                        "quantity",
+                        parseInt(e.target.value) || 1
+                      )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
                   />
@@ -1351,7 +1473,8 @@ const Step5BudgetSetup = ({
               {/* Total */}
               <div className="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-3 py-2 rounded-lg">
                 <p className="text-sm font-semibold text-green-900 dark:text-green-300">
-                  Total: ₹{equipment.calculateTotal(row).toLocaleString("en-IN")}
+                  Total: ₹
+                  {equipment.calculateTotal(row).toLocaleString("en-IN")}
                 </p>
               </div>
             </div>
@@ -1373,7 +1496,9 @@ const Step5BudgetSetup = ({
         label="3. Travel & Training"
         type="number"
         value={formData.travel_training_allocation}
-        onChange={(e) => handleChange("travel_training_allocation", e.target.value)}
+        onChange={(e) =>
+          handleChange("travel_training_allocation", e.target.value)
+        }
         placeholder="0"
       />
       <Input
@@ -1402,7 +1527,9 @@ const Step5BudgetSetup = ({
     {/* Total Budget */}
     <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 text-white p-6 rounded-2xl shadow-lg">
       <p className="text-sm opacity-90 mb-1">Total Approved Budget</p>
-      <p className="text-4xl font-bold">₹{totalBudget.toLocaleString("en-IN")}</p>
+      <p className="text-4xl font-bold">
+        ₹{totalBudget.toLocaleString("en-IN")}
+      </p>
     </div>
   </div>
 );
@@ -1448,43 +1575,65 @@ const Step6Review = ({
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Project Number:</span>
-            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.project_no}</p>
+            <span className="text-slate-600 dark:text-slate-400">
+              Project Number:
+            </span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
+              {formData.project_no}
+            </p>
           </div>
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Project Title:</span>
-            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.title}</p>
+            <span className="text-slate-600 dark:text-slate-400">
+              Project Title:
+            </span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
+              {formData.title}
+            </p>
           </div>
           {formData.alias && (
             <div className="col-span-2">
               <span className="text-slate-600 dark:text-slate-400">Alias:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.alias}</p>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.alias}
+              </p>
             </div>
           )}
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Category:</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              Category:
+            </span>
             <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">
               {formData.project_category}
             </p>
           </div>
           <div>
             <span className="text-slate-600 dark:text-slate-400">Type:</span>
-            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.project_type}</p>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
+              {formData.project_type}
+            </p>
           </div>
           {formData.pfms_id && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">PFMS ID:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pfms_id}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                PFMS ID:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.pfms_id}
+              </p>
             </div>
           )}
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Technical Group:</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              Technical Group:
+            </span>
             <p className="font-medium text-slate-900 dark:text-slate-100">
               {selectedGroup?.name || "N/A"}
             </p>
           </div>
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Funding Agency:</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              Funding Agency:
+            </span>
             <p className="font-medium text-slate-900 dark:text-slate-100">
               {selectedAgency?.name || "N/A"}
             </p>
@@ -1510,31 +1659,47 @@ const Step6Review = ({
         <div className="grid grid-cols-2 gap-4 text-sm">
           {formData.funding_scheme && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Scheme:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.funding_scheme}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                Scheme:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.funding_scheme}
+              </p>
             </div>
           )}
           {formData.cna_sub_agency && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">CNA Sub-Agency:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.cna_sub_agency}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                CNA Sub-Agency:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.cna_sub_agency}
+              </p>
             </div>
           )}
           {formData.sanctioned_number && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Sanctioned Number:</span>
+              <span className="text-slate-600 dark:text-slate-400">
+                Sanctioned Number:
+              </span>
               <p className="font-medium text-slate-900 dark:text-slate-100">
                 {formData.sanctioned_number}
               </p>
             </div>
           )}
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Contact Person:</span>
-            <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_person}</p>
+            <span className="text-slate-600 dark:text-slate-400">
+              Contact Person:
+            </span>
+            <p className="font-medium text-slate-900 dark:text-slate-100">
+              {formData.contact_person}
+            </p>
           </div>
           {formData.contact_designation && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Designation:</span>
+              <span className="text-slate-600 dark:text-slate-400">
+                Designation:
+              </span>
               <p className="font-medium text-slate-900 dark:text-slate-100">
                 {formData.contact_designation}
               </p>
@@ -1542,26 +1707,40 @@ const Step6Review = ({
           )}
           {formData.contact_mobile && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_mobile}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                Mobile:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.contact_mobile}
+              </p>
             </div>
           )}
           {formData.contact_email && (
             <div>
               <span className="text-slate-600 dark:text-slate-400">Email:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.contact_email}</p>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.contact_email}
+              </p>
             </div>
           )}
           {formData.bank_name && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Bank Name:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.bank_name}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                Bank Name:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.bank_name}
+              </p>
             </div>
           )}
           {formData.bank_account_no && (
             <div>
-              <span className="text-slate-600 dark:text-slate-400">Account Number:</span>
-              <p className="font-medium text-slate-900 dark:text-slate-100">{formData.bank_account_no}</p>
+              <span className="text-slate-600 dark:text-slate-400">
+                Account Number:
+              </span>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {formData.bank_account_no}
+              </p>
             </div>
           )}
         </div>
@@ -1570,7 +1749,9 @@ const Step6Review = ({
       {/* Investigators */}
       <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">3. Investigators</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            3. Investigators
+          </h3>
           <button
             type="button"
             onClick={() => onEditStep(3)}
@@ -1587,18 +1768,28 @@ const Step6Review = ({
             </h4>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Name:</span>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Name:
+                </span>
                 <p className="font-medium text-slate-900 dark:text-slate-100">
                   {formData.principal_investigator}
                 </p>
               </div>
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Email:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pi_email}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Email:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  {formData.pi_email}
+                </p>
               </div>
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">{formData.pi_mobile}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Mobile:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  {formData.pi_mobile}
+                </p>
               </div>
             </div>
           </div>
@@ -1609,19 +1800,25 @@ const Step6Review = ({
               </h4>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-slate-600 dark:text-slate-400">Name:</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Name:
+                  </span>
                   <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_investigator}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-600 dark:text-slate-400">Email:</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Email:
+                  </span>
                   <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_email || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-600 dark:text-slate-400">Mobile:</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Mobile:
+                  </span>
                   <p className="font-medium text-slate-900 dark:text-slate-100">
                     {formData.co_mobile || "N/A"}
                   </p>
@@ -1635,7 +1832,9 @@ const Step6Review = ({
       {/* Timeline */}
       <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">4. Timeline</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            4. Timeline
+          </h3>
           <button
             type="button"
             onClick={() => onEditStep(4)}
@@ -1647,7 +1846,9 @@ const Step6Review = ({
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-600 dark:text-slate-400">Start Date:</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              Start Date:
+            </span>
             <p className="font-medium text-slate-900 dark:text-slate-100">
               {formData.start_date
                 ? new Date(formData.start_date).toLocaleDateString("en-IN")
@@ -1655,7 +1856,9 @@ const Step6Review = ({
             </p>
           </div>
           <div>
-            <span className="text-slate-600 dark:text-slate-400">End Date:</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              End Date:
+            </span>
             <p className="font-medium text-slate-900 dark:text-slate-100">
               {formData.end_date
                 ? new Date(formData.end_date).toLocaleDateString("en-IN")
@@ -1664,10 +1867,13 @@ const Step6Review = ({
           </div>
           {formData.start_date && formData.end_date && (
             <div className="col-span-2">
-              <span className="text-slate-600 dark:text-slate-400">Duration:</span>
+              <span className="text-slate-600 dark:text-slate-400">
+                Duration:
+              </span>
               <p className="font-medium text-slate-900 dark:text-slate-100">
                 {Math.ceil(
-                  (new Date(formData.end_date) - new Date(formData.start_date)) /
+                  (new Date(formData.end_date) -
+                    new Date(formData.start_date)) /
                     (1000 * 60 * 60 * 24 * 30)
                 )}{" "}
                 months
@@ -1680,7 +1886,9 @@ const Step6Review = ({
       {/* Budget Summary */}
       <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">5. Budget Summary</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            5. Budget Summary
+          </h3>
           <button
             type="button"
             onClick={() => onEditStep(5)}
@@ -1693,72 +1901,163 @@ const Step6Review = ({
         <div className="space-y-6 text-sm">
           {/* Manpower Breakdown */}
           <div>
-            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Manpower</h4>
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Manpower
+            </h4>
             {formData.manpower_breakdown.length > 0 ? (
               <div className="space-y-4">
                 {formData.manpower_breakdown.map((row, index) => (
-                  <div key={index} className="border-b border-slate-200 dark:border-slate-600 pb-2">
-                    <p className="font-medium text-slate-900 dark:text-slate-100">Position #{index + 1}: {row.role}</p>
-                    <p className="text-slate-600 dark:text-slate-400">Salary/Month: ₹{row.salary_per_month.toLocaleString("en-IN")}</p>
-                    <p className="text-slate-600 dark:text-slate-400">Months: {row.months}</p>
-                    <p className="text-slate-600 dark:text-slate-400">Personnel: {row.num_personnel}</p>
-                    {row.qualification && <p className="text-slate-600 dark:text-slate-400">Qualification: {row.qualification}</p>}
-                    {row.experience_required && <p className="text-slate-600 dark:text-slate-400">Experience: {row.experience_required}</p>}
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">Total: ₹{calculateManpowerTotal(row).toLocaleString("en-IN")}</p>
+                  <div
+                    key={index}
+                    className="border-b border-slate-200 dark:border-slate-600 pb-2"
+                  >
+                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                      Position #{index + 1}: {row.role}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Salary/Month: ₹
+                      {row.salary_per_month.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Months: {row.months}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Personnel: {row.num_personnel}
+                    </p>
+                    {row.qualification && (
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Qualification: {row.qualification}
+                      </p>
+                    )}
+                    {row.experience_required && (
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Experience: {row.experience_required}
+                      </p>
+                    )}
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                      Total: ₹
+                      {calculateManpowerTotal(row).toLocaleString("en-IN")}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600 dark:text-slate-400">No manpower breakdown provided</p>
+              <p className="text-slate-600 dark:text-slate-400">
+                No manpower breakdown provided
+              </p>
             )}
-            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">Total Manpower: ₹{getTotalManpowerAllocation().toLocaleString("en-IN")}</p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
+              Total Manpower: ₹
+              {getTotalManpowerAllocation().toLocaleString("en-IN")}
+            </p>
           </div>
 
           {/* Equipment Breakdown */}
           <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
-            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Equipment</h4>
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Equipment
+            </h4>
             {formData.equipment_breakdown.length > 0 ? (
               <div className="space-y-4">
                 {formData.equipment_breakdown.map((row, index) => (
-                  <div key={index} className="border-b border-slate-200 dark:border-slate-600 pb-2">
-                    <p className="font-medium text-slate-900 dark:text-slate-100">Equipment #{index + 1}: {row.item_name}</p>
-                    <p className="text-slate-600 dark:text-slate-400">Quantity: {row.quantity}</p>
-                    <p className="text-slate-600 dark:text-slate-400">Unit Cost: ₹{row.unit_cost.toLocaleString("en-IN")}</p>
-                    {row.description && <p className="text-slate-600 dark:text-slate-400">Description: {row.description}</p>}
-                    {row.product_website && (
+                  <div
+                    key={index}
+                    className="border-b border-slate-200 dark:border-slate-600 pb-2"
+                  >
+                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                      Equipment #{index + 1}: {row.item_name}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Quantity: {row.quantity}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Unit Cost: ₹{row.unit_cost.toLocaleString("en-IN")}
+                    </p>
+                    {row.description && (
                       <p className="text-slate-600 dark:text-slate-400">
-                        Website: <a href={row.product_website} className="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">{row.product_website}</a>
+                        Description: {row.description}
                       </p>
                     )}
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">Total: ₹{calculateEquipmentTotal(row).toLocaleString("en-IN")}</p>
+                    {row.product_website && (
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Website:{" "}
+                        <a
+                          href={row.product_website}
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {row.product_website}
+                        </a>
+                      </p>
+                    )}
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                      Total: ₹
+                      {calculateEquipmentTotal(row).toLocaleString("en-IN")}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600 dark:text-slate-400">No equipment breakdown provided</p>
+              <p className="text-slate-600 dark:text-slate-400">
+                No equipment breakdown provided
+              </p>
             )}
-            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">Total Equipment: ₹{getTotalEquipmentAllocation().toLocaleString("en-IN")}</p>
+            <p className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
+              Total Equipment: ₹
+              {getTotalEquipmentAllocation().toLocaleString("en-IN")}
+            </p>
           </div>
 
           {/* Other Budget Heads */}
           <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
-            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Other Allocations</h4>
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Other Allocations
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Travel & Training:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.travel_training_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Travel & Training:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  ₹
+                  {(
+                    parseFloat(formData.travel_training_allocation) || 0
+                  ).toLocaleString("en-IN")}
+                </p>
               </div>
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Consumables:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.consumables_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Consumables:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  ₹
+                  {(
+                    parseFloat(formData.consumables_allocation) || 0
+                  ).toLocaleString("en-IN")}
+                </p>
               </div>
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Contingency:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.contingency_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Contingency:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  ₹
+                  {(
+                    parseFloat(formData.contingency_allocation) || 0
+                  ).toLocaleString("en-IN")}
+                </p>
               </div>
               <div>
-                <span className="text-slate-600 dark:text-slate-400">Overhead:</span>
-                <p className="font-medium text-slate-900 dark:text-slate-100">₹{(parseFloat(formData.overhead_allocation) || 0).toLocaleString("en-IN")}</p>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Overhead:
+                </span>
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  ₹
+                  {(
+                    parseFloat(formData.overhead_allocation) || 0
+                  ).toLocaleString("en-IN")}
+                </p>
               </div>
             </div>
           </div>
@@ -1773,7 +2072,6 @@ const Step6Review = ({
       </div>
     </div>
   );
-
 };
 
 export default AddEditProjectPage;

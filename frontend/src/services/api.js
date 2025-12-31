@@ -10,7 +10,7 @@ const isElectron = () => {
 const getApiBaseUrl = () => {
   // Check if running in Electron
   if (isElectron()) {
-    return 'http://127.0.0.1:8787';
+    return 'http://127.0.0.1:8000';
   }
   
   // Check if window.electron exists (more reliable)
