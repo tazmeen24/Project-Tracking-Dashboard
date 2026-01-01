@@ -46,6 +46,7 @@ origins = [
     
     # Render production 
     "https://project-tracking-dashboard-frontend-1.onrender.com",
+    "https://project-tracking-frontend.onrender.com",
 ]
 
 app.add_middleware(
