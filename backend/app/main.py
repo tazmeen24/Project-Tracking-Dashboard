@@ -45,8 +45,7 @@ origins = [
     "http://127.0.0.1:5173",
     
     # Render production 
-    "https://project-tracking-frontend.onrender.com",
-    "https://your-frontend-app.onrender.com",  
+    "https://project-tracking-dashboard-frontend-1.onrender.com",
 ]
 
 app.add_middleware(
