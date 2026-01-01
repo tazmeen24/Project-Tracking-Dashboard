@@ -18,16 +18,9 @@ from ..services.auth_service import AuthService
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-# Database connection helper
 def get_db_connection():
     try:
-        conn = psycopg2.connect(
-            host=settings.DB_HOST,
-            database=settings.DB_NAME,
-            user=settings.DB_USER,
-            password=settings.DB_PASSWORD,
-            port=settings.DB_PORT
-        )
+        conn = psycopg2.connect(settings.DATABASE_URL)
         return conn
     except Exception as e:
         raise HTTPException(

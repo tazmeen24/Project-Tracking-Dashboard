@@ -1,4 +1,4 @@
-# app/main.py
+# backend/app/main.py
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg2.extras import RealDictCursor
@@ -36,10 +36,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+#  PRODUCTION-READY CORS Configuration
+origins = [
+    # Local development
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    
+    # Render production 
+    "https://project-tracking-frontend.onrender.com",
+    "https://your-frontend-app.onrender.com",  
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000", "http://127.0.0.1:8000",],  
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

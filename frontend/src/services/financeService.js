@@ -166,18 +166,8 @@ const financeService = {
    * @returns {Promise<Object>} Updated fund
    */
   updateFund: async (fundId, updateData) => {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:8000/funds/received/${fundId}`, {
-      method: 'PUT',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updateData)
-    });
-    if (!response.ok) throw new Error('Failed to update fund');
-    return response.json();
-  },
+  return api.put(`/funds/received/${fundId}`, updateData);
+},
 
   /**
    * Delete fund received record
@@ -204,10 +194,7 @@ const financeService = {
           ? `/funds/breakdown/manpower/${item.breakdown_id}`
           : `/funds/breakdown/equipment/${item.breakdown_id}`;
         
-        await fetch(`http://localhost:8000${endpoint}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        await api.delete(endpoint);
       }
     }
   },

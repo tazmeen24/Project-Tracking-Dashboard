@@ -16,22 +16,16 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")  # Updated tokenUrl
 
-# Database connection
-DB_CONFIG = {
-    "host": settings.DB_HOST,
-    "database": settings.DB_NAME,
-    "user": settings.DB_USER,
-    "password": settings.DB_PASSWORD,
-    "port": settings.DB_PORT,
-}
-
 def get_db_connection():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(settings.DATABASE_URL)
         return conn
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database connection failed: {str(e)}"
+        )
+    
 # Models
 class Token(BaseModel):
     access_token: str
