@@ -91,8 +91,13 @@ const ProjectsPage = () => {
     return project.total_funds_received || 0;
   };
 
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+
   const projectList = Array.isArray(projects) ? projects : [];
-  
+
   // Filter logic
   const filteredProjects = projectList.filter((project) => {
     const matchesSearch =
@@ -159,7 +164,7 @@ const ProjectsPage = () => {
         await projectService.deleteProject(project.project_id);
         refreshProjects();
       } catch (error) {
-        console.error('Delete error:', error);
+        console.error("Delete error:", error);
         alert("Failed to delete project");
       }
     }
@@ -190,7 +195,9 @@ const ProjectsPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600 dark:text-slate-400">Loading projects...</div>
+        <div className="text-slate-600 dark:text-slate-400">
+          Loading projects...
+        </div>
       </div>
     );
   }
@@ -200,7 +207,9 @@ const ProjectsPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Projects</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Projects
+          </h1>
           <p className="text-slate-600 dark:text-slate-300 mt-1">
             Manage and track all research projects
           </p>
@@ -520,7 +529,9 @@ const ProjectsPage = () => {
                               }
                             )}
                           </div>
-                          <div className="text-slate-600 dark:text-slate-400">to</div>
+                          <div className="text-slate-600 dark:text-slate-400">
+                            to
+                          </div>
                           <div className="text-slate-900 dark:text-white">
                             {project.end_date
                               ? new Date(project.end_date).toLocaleDateString(
@@ -572,7 +583,9 @@ const ProjectsPage = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/projects/${project.project_id}/installments`)
+                              navigate(
+                                `/projects/${project.project_id}/installments`
+                              );
                             }}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-medium rounded transition-colors"
                           >
@@ -592,19 +605,32 @@ const ProjectsPage = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+
+                                const rect =
+                                  e.currentTarget.getBoundingClientRect();
+
+                                setDropdownPosition({
+                                  top: rect.top,
+                                  left: rect.left - 170, // opens to the LEFT
+                                });
+
                                 setOpenDropdown(
                                   openDropdown === project.project_id
                                     ? null
                                     : project.project_id
                                 );
                               }}
-                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                            </button>
+                            ></button>
 
                             {openDropdown === project.project_id && (
-                              <div className="absolute right-full mr-2 top-0 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+                              <div
+                                className="fixed w-40 bg-white dark:bg-slate-800 rounded-lg shadow-xl
+               border border-slate-200 dark:border-slate-700 py-1 z-[9999]"
+                                style={{
+                                  top: dropdownPosition.top,
+                                  left: dropdownPosition.left,
+                                }}
+                              >
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
