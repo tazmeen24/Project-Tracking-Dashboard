@@ -117,6 +117,11 @@ const AddEditProjectPage = () => {
     });
   }, [showAddAgencyModal, showAddGroupModal]);
 
+  const defaultBudget = BUDGET_HEADS.reduce((acc, head) => {
+  acc[head.key] = 0; 
+  return acc;
+}, {});
+
   // Load project data AFTER dropdown data is available (if editing)
   useEffect(() => {
     const shouldLoad =

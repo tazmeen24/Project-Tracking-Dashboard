@@ -396,7 +396,7 @@ const ProjectsPage = () => {
       </div>
 
       {/* Projects Table */}
-      <div className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+      <div className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50/80 dark:bg-slate-900/30 border-b border-slate-200/50 dark:border-slate-700/50">
@@ -604,7 +604,7 @@ const ProjectsPage = () => {
                             </button>
 
                             {openDropdown === project.project_id && (
-                              <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+                              <div className="absolute right-full mr-2 top-0 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
