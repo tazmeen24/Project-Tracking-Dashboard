@@ -21,46 +21,35 @@ class ReportService:
         
         # Get project basic info
         cursor.execute("""
-SELECT
-    p.*,
-    i.principal_investigator AS pi_name,
-    i.pi_email,
-    i.pi_mobile,
-    i.co_investigator,
-    i.co_email,
-    i.co_mobile,
-
-    fa.name AS funding_agency_name,
-    fa.address AS funding_agency_address,
-
-    fad.contact_person AS agency_contact_person,
-    fad.designation AS agency_designation,
-    fad.email AS agency_email,
-    fad.mobile AS agency_mobile,
-    fad.sanctioned_number AS agency_sanctioned_number,
-    fad.scheme AS agency_scheme,
-    fad.cna_sub_agency AS agency_cna_sub_agency,
-    fad.bank_name AS agency_bank_name,
-    fad.bank_account_no AS agency_bank_account_no,
-
-    tg.name AS technical_group_name
-
-FROM projects p
-LEFT JOIN investigators i
-    ON p.project_id = i.project_id
-
-LEFT JOIN funding_agencies fa
-    ON p.funding_agency_id = fa.agency_id
-
-LEFT JOIN funding_agency_details fad
-    ON fad.project_id = p.project_id
-    AND fad.agency_id = fa.agency_id
-
-LEFT JOIN technical_groups tg
-    ON p.technical_group_id = tg.group_id
-
-WHERE p.project_id = ?
-""", (project_id,))
+            SELECT 
+            p.*,
+            i.principal_investigator as pi_name,
+            i.pi_email,
+            i.pi_mobile,
+            i.co_investigator,
+            i.co_email,
+            i.co_mobile,
+            fa.name as funding_agency_name,
+            fa.address as funding_agency_address,
+            fad.contact_person as agency_contact_person,
+            fad.designation as agency_designation,
+            fad.email as agency_email,
+            fad.mobile as agency_mobile,
+            fad.sanctioned_number as agency_sanctioned_number,
+            fad.scheme as agency_scheme,
+            fad.cna_sub_agency as agency_cna_sub_agency,
+            fad.bank_name as agency_bank_name,
+            fad.bank_account_no as agency_bank_account_no,
+            tg.name as technical_group_name
+        FROM projects p
+        LEFT JOIN investigators i ON p.project_id = i.project_id
+        LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
+        LEFT JOIN funding_agency_details fad
+            ON fad.project_id = p.project_id
+            AND fad.agency_id = fa.agency_id
+        LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
+        WHERE p.project_id = %s
+        """, (project_id,))
         project = cursor.fetchone()
         
         if not project:

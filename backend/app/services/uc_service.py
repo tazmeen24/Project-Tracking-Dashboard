@@ -114,7 +114,7 @@ class UCService:
                 i.pi_mobile
             FROM projects p
             LEFT JOIN funding_agencies fa ON p.funding_agency_id = fa.agency_id
-            LEFT JOIN funding_agency_details fad ON p.project_id = fad.project_id AND fad.agency_id = fa.agency_id
+            LEFT JOIN funding_agency_details fad ON p.project_id = fad.project_id
             LEFT JOIN technical_groups tg ON p.technical_group_id = tg.group_id
             LEFT JOIN investigators i ON p.project_id = i.project_id
             WHERE p.project_id = %s
