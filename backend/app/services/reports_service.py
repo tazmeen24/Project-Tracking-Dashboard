@@ -221,7 +221,8 @@ class ReportService:
                 FROM funds_received
                 WHERE project_id = %s
                 GROUP BY head
-            ) fr_sum ON LOWER(TRIM(ba.head)) = fr_sum.head
+            ) fr_sum 
+            ON LOWER(TRIM(ba.head)) = fr_sum.head
             LEFT JOIN (
                 SELECT head, SUM(total_spent) as total_spent
                 FROM (
