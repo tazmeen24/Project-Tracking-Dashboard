@@ -5,7 +5,7 @@ It allows organizations to manage research or institutional projects - including
 
 # Features
 
-# 🔹 Backend (FastAPI)
+#  Backend (FastAPI)
 
 - User authentication with JWT tokens (`/token`).
 - Role-based access control (Admin/User).
@@ -17,7 +17,7 @@ It allows organizations to manage research or institutional projects - including
   - Dashboard statistics and analytics.
   - Technical group and funding agency management.
 
-# 🔹 Frontend (React)
+#  Frontend (React)
 
 - Secure login with token-based authentication.
 - Dynamic project list with filters, sorting, and status tracking.
@@ -35,13 +35,6 @@ Layer | Technology
 |Authentication | JWT (OAuth2PasswordBearer)
 |Config | `.env` with python-dotenv & pydantic-settings
 
-# Installation & Setup
-# Prerequisites:
-
-- Python 3.9+
-- PostgreSQL
-
-# Create virtual environment
 
 python -m venv venv
 source venv/bin/activate # On Windows: venv\Scripts\activate
