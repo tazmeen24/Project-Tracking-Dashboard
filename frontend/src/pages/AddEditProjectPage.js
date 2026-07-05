@@ -427,19 +427,21 @@ const AddEditProjectPage = () => {
 
         // Update funding agency details for this project
         if (formData.contact_person) {
-          await projectService.updateFundingAgencyDetails({
-            project_id: createdProjectId, // Link to project, not just agency
-            agency_id: parseInt(formData.funding_agency_id),
-            contact_person: formData.contact_person,
-            designation: formData.contact_designation || null,
-            mobile: formData.contact_mobile || null,
-            email: formData.contact_email || null,
-            sanctioned_number: formData.sanctioned_number || null,
-            scheme: formData.funding_scheme || null,
-            cna_sub_agency: formData.cna_sub_agency || null,
-            bank_name: formData.bank_name || null,
-            bank_account_no: formData.bank_account_no || null,
-          });
+          await projectService.updateFundingAgencyDetails(
+            parseInt(formData.funding_agency_id),
+            {
+              project_id: createdProjectId,
+              contact_person: formData.contact_person,
+              designation: formData.contact_designation || null,
+              mobile: formData.contact_mobile || null,
+              email: formData.contact_email || null,
+              sanctioned_number: formData.sanctioned_number || null,
+              scheme: formData.funding_scheme || null,
+              cna_sub_agency: formData.cna_sub_agency || null,
+              bank_name: formData.bank_name || null,
+              bank_account_no: formData.bank_account_no || null,
+            }
+          );
         }
       } else {
         // Create project and get the new project ID
