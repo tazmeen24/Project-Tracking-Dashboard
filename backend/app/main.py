@@ -38,20 +38,13 @@ app = FastAPI(
 
 #  PRODUCTION-READY CORS Configuration
 origins = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    
-    # Render production 
-    "https://project-tracking-dashboard-frontend-1.onrender.com",
-    "https://project-tracking-frontend.onrender.com",
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "https://project-tracking-dashboard-three.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origin_regex=r"https://project-tracking-dashboard.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
