@@ -43,9 +43,16 @@ origins = [
     "https://fundtrackr.vercel.app",
 ]
 
+origins = [
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "https://project-tracking-dashboard-three.vercel.app",
+    "https://fundtrackr.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://project-tracking-dashboard.*\.vercel\.app",
+    allow_origins=origins,
+    allow_origin_regex=r"https://fundtrackr.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
