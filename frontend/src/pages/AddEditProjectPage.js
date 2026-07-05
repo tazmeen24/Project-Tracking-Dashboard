@@ -424,45 +424,33 @@ const AddEditProjectPage = () => {
       if (isEditMode) {
         await projectService.updateProject(projectId, projectData);
         createdProjectId = projectId;
-
-        // Update funding agency details for this project
-        if (formData.contact_person) {
-          await projectService.updateFundingAgencyDetails(
-            parseInt(formData.funding_agency_id),
-            {
-              project_id: createdProjectId,
-              contact_person: formData.contact_person,
-              designation: formData.contact_designation || null,
-              mobile: formData.contact_mobile || null,
-              email: formData.contact_email || null,
-              sanctioned_number: formData.sanctioned_number || null,
-              scheme: formData.funding_scheme || null,
-              cna_sub_agency: formData.cna_sub_agency || null,
-              bank_name: formData.bank_name || null,
-              bank_account_no: formData.bank_account_no || null,
-            }
-          );
-        }
       } else {
-        // Create project and get the new project ID
         const result = await projectService.createProject(projectData);
-        createdProjectId = result.project_id; // Assuming API returns the created project ID
+        createdProjectId = result.project_id;
+      }
 
-        // Create funding agency details linked to this specific project
-        if (formData.contact_person) {
-          await projectService.createFundingAgencyDetails({
-            project_id: createdProjectId, // Link to the newly created project
-            agency_id: parseInt(formData.funding_agency_id),
-            contact_person: formData.contact_person,
-            designation: formData.contact_designation || null,
-            mobile: formData.contact_mobile || null,
-            email: formData.contact_email || null,
-            sanctioned_number: formData.sanctioned_number || null,
-            scheme: formData.funding_scheme || null,
-            cna_sub_agency: formData.cna_sub_agency || null,
-            bank_name: formData.bank_name || null,
-            bank_account_no: formData.bank_account_no || null,
-          });
+      // Agency details: existence-based, independent of isEditMode
+      if (formData.contact_person) {
+        const agencyIdInt = parseInt(formData.funding_agency_id);
+        const detailsPayload = {
+          project_id: createdProjectId,
+          agency_id: agencyIdInt,
+          contact_person: formData.contact_person,
+          designation: formData.contact_designation || null,
+          mobile: formData.contact_mobile || null,
+          email: formData.contact_email || null,
+          sanctioned_number: formData.sanctioned_number || null,
+          scheme: formData.funding_scheme || null,
+          cna_sub_agency: formData.cna_sub_agency || null,
+          bank_name: formData.bank_name || null,
+          bank_account_no: formData.bank_account_no || null,
+        };
+
+        try {
+          await projectService.getFundingAgencyDetails(agencyIdInt);
+          await projectService.updateFundingAgencyDetails(agencyIdInt, detailsPayload);
+        } catch (err) {
+          await projectService.createFundingAgencyDetails(detailsPayload);
         }
       }
 
