@@ -66,51 +66,25 @@ async def create_project(project: ProjectCreate):
             # Create/Update funding agency details if provided
             if project.contact_person:
                 cur.execute(
-                    "SELECT id FROM funding_agency_details WHERE agency_id = %s",
-                    (project.funding_agency_id,)
+                    """INSERT INTO funding_agency_details 
+                       (agency_id, project_id, contact_person, designation, mobile, email,
+                        sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        project.funding_agency_id,
+                        project_id,
+                        project.contact_person,
+                        project.contact_designation if project.contact_designation else None,
+                        project.contact_mobile if project.contact_mobile else None,
+                        project.contact_email if project.contact_email else None,
+                        project.sanctioned_number if project.sanctioned_number else None,
+                        project.funding_scheme if project.funding_scheme else None,
+                        project.cna_sub_agency if project.cna_sub_agency else None,
+                        project.bank_name if project.bank_name else None,
+                        project.bank_account_no if project.bank_account_no else None
+                    )
                 )
-                existing_details = cur.fetchone()
-                
-                if existing_details:
-                    cur.execute(
-                        """UPDATE funding_agency_details 
-                           SET contact_person = %s, designation = %s, mobile = %s, email = %s,
-                               sanctioned_number = %s, scheme = %s, cna_sub_agency = %s,
-                               bank_name = %s, bank_account_no = %s
-                           WHERE agency_id = %s""",
-                        (
-                            project.contact_person,
-                            project.contact_designation if project.contact_designation else None,
-                            project.contact_mobile if project.contact_mobile else None,
-                            project.contact_email if project.contact_email else None,
-                            project.sanctioned_number if project.sanctioned_number else None,
-                            project.funding_scheme if project.funding_scheme else None,
-                            project.cna_sub_agency if project.cna_sub_agency else None,
-                            project.bank_name if project.bank_name else None,
-                            project.bank_account_no if project.bank_account_no else None,
-                            project.funding_agency_id
-                        )
-                    )
-                else:
-                    cur.execute(
-                        """INSERT INTO funding_agency_details 
-                           (agency_id, contact_person, designation, mobile, email,
-                            sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (
-                            project.funding_agency_id,
-                            project.contact_person,
-                            project.contact_designation if project.contact_designation else None,
-                            project.contact_mobile if project.contact_mobile else None,
-                            project.contact_email if project.contact_email else None,
-                            project.sanctioned_number if project.sanctioned_number else None,
-                            project.funding_scheme if project.funding_scheme else None,
-                            project.cna_sub_agency if project.cna_sub_agency else None,
-                            project.bank_name if project.bank_name else None,
-                            project.bank_account_no if project.bank_account_no else None
-                        )
-                    )
-            
+
             # Create budget allocations
             budget_heads = [
                 ('manpower', project.manpower_allocation, project.manpower_breakdown),
@@ -390,47 +364,6 @@ async def get_all_technical_groups(
         conn.close()
 
 
-# ==================== TECHNICAL GROUPS ====================
-@router.get("/technical-groups", status_code=status.HTTP_200_OK)
-async def get_all_technical_groups(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    search: Optional[str] = Query(None)
-):
-    """Get all technical groups with pagination"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            where_clause = ""
-            params = []
-            
-            if search:
-                where_clause = "WHERE name ILIKE %s"
-                params.append(f"%{search}%")
-            
-            # Get total count
-            count_query = f"SELECT COUNT(*) as total FROM technical_groups {where_clause}"
-            cur.execute(count_query, params)
-            total_count = cur.fetchone()['total']
-            
-            # Get results - KEY FIX: name as group_name
-            query = f"SELECT group_id, name as group_name, description FROM technical_groups {where_clause} ORDER BY name LIMIT %s OFFSET %s"
-            params.extend([limit, skip])
-            cur.execute(query, params)
-            groups = [dict(row) for row in cur.fetchall()]
-            
-            return {
-                "total": total_count,
-                "skip": skip,
-                "limit": limit,
-                "data": json.loads(json.dumps(groups, cls=DecimalEncoder))
-            }
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    finally:
-        conn.close()
-
-# ==================== READ ONE ====================
 # ==================== READ ONE PROJECT ====================
 @router.get("/{project_id}", status_code=status.HTTP_200_OK)
 async def get_project_by_id(project_id: int):
@@ -481,8 +414,8 @@ async def get_project_by_id(project_id: int):
             # ----------------------------------------------------
             cur.execute("""
                 SELECT * FROM funding_agency_details
-                WHERE agency_id = %s
-            """, (response["funding_agency_id"],))
+                WHERE project_id = %s
+            """, (project_id,))
 
             agency_details = cur.fetchone()
             if agency_details:

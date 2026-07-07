@@ -118,9 +118,9 @@ const AddEditProjectPage = () => {
   }, [showAddAgencyModal, showAddGroupModal]);
 
   const defaultBudget = BUDGET_HEADS.reduce((acc, head) => {
-  acc[head.key] = 0; 
-  return acc;
-}, {});
+    acc[head.key] = 0;
+    return acc;
+  }, {});
 
   // Load project data AFTER dropdown data is available (if editing)
   useEffect(() => {
@@ -147,10 +147,10 @@ const AddEditProjectPage = () => {
         ? String(project.funding_agency_id)
         : "";
       const techGroupExists = technicalGroups.find(
-        (g) => g.group_id === project.technical_group_id
+        (g) => g.group_id === project.technical_group_id,
       );
       const fundingAgencyExists = fundingAgencies.find(
-        (a) => a.agency_id === project.funding_agency_id
+        (a) => a.agency_id === project.funding_agency_id,
       );
 
       setFormData({
@@ -313,27 +313,27 @@ const AddEditProjectPage = () => {
   };
 
   const handleNext = () => {
-  if (validateStep(currentStep)) {
-    // If moving to final step (Step 6), validate ALL previous steps
-    if (currentStep === 5) {
-      let allValid = true;
-      for (let step = 1; step <= 5; step++) {
-        if (!validateStep(step)) {
-          allValid = false;
-          setErrors(prev => ({
-            ...prev,
-            submit: `Please complete Step ${step} correctly`
-          }));
-          setCurrentStep(step);
-          return;
+    if (validateStep(currentStep)) {
+      // If moving to final step (Step 6), validate ALL previous steps
+      if (currentStep === 5) {
+        let allValid = true;
+        for (let step = 1; step <= 5; step++) {
+          if (!validateStep(step)) {
+            allValid = false;
+            setErrors((prev) => ({
+              ...prev,
+              submit: `Please complete Step ${step} correctly`,
+            }));
+            setCurrentStep(step);
+            return;
+          }
         }
+        if (!allValid) return;
       }
-      if (!allValid) return;
+
+      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length));
     }
-    
-    setCurrentStep((prev) => Math.min(prev + 1, STEPS.length));
-  }
-};
+  };
 
   const handlePrevious = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -356,23 +356,23 @@ const AddEditProjectPage = () => {
     }
 
     let allValid = true;
-  for (let step = 1; step <= 5; step++) {
-    if (!validateStep(step)) {
-      allValid = false;
-      // Navigate to the first invalid step
-      setCurrentStep(step);
-      break;
+    for (let step = 1; step <= 5; step++) {
+      if (!validateStep(step)) {
+        allValid = false;
+        // Navigate to the first invalid step
+        setCurrentStep(step);
+        break;
+      }
     }
-  }
-  
-  if (!allValid) {
-    // Show error message
-    setErrors(prev => ({
-      ...prev,
-      submit: "Please fix all validation errors before submitting"
-    }));
-    return;
-  }
+
+    if (!allValid) {
+      // Show error message
+      setErrors((prev) => ({
+        ...prev,
+        submit: "Please fix all validation errors before submitting",
+      }));
+      return;
+    }
 
     setLoading(true);
     try {
@@ -447,8 +447,11 @@ const AddEditProjectPage = () => {
         };
 
         try {
-          await projectService.getFundingAgencyDetails(agencyIdInt);
-          await projectService.updateFundingAgencyDetails(agencyIdInt, detailsPayload);
+          await projectService.getFundingAgencyDetails(createdProjectId);
+          await projectService.updateFundingAgencyDetails(
+            createdProjectId,
+            detailsPayload,
+          );
         } catch (err) {
           await projectService.createFundingAgencyDetails(detailsPayload);
         }
@@ -530,7 +533,7 @@ const AddEditProjectPage = () => {
     setFormData((prev) => ({
       ...prev,
       equipment_breakdown: prev.equipment_breakdown.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     }));
   };
@@ -543,14 +546,14 @@ const AddEditProjectPage = () => {
   const getTotalManpowerAllocation = () => {
     return formData.manpower_breakdown.reduce(
       (sum, row) => sum + calculateManpowerTotal(row),
-      0
+      0,
     );
   };
 
   const getTotalEquipmentAllocation = () => {
     return formData.equipment_breakdown.reduce(
       (sum, row) => sum + calculateEquipmentTotal(row),
-      0
+      0,
     );
   };
 
@@ -624,8 +627,8 @@ const AddEditProjectPage = () => {
                     currentStep === step.id
                       ? "bg-blue-600 dark:bg-blue-500 text-white shadow-lg scale-110"
                       : currentStep > step.id
-                      ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
-                      : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
+                        ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
                   }`}
                 >
                   {currentStep > step.id ? (
@@ -777,8 +780,8 @@ const AddEditProjectPage = () => {
             </Button>
           ) : (
             <Button
-              type="button" 
-              onClick={handleSubmit} 
+              type="button"
+              onClick={handleSubmit}
               loading={loading}
               icon={Save}
             >
@@ -1152,7 +1155,7 @@ const Step4Timeline = ({ formData, errors, handleChange }) => (
           Project Duration:{" "}
           {Math.ceil(
             (new Date(formData.end_date) - new Date(formData.start_date)) /
-              (1000 * 60 * 60 * 24 * 30)
+              (1000 * 60 * 60 * 24 * 30),
           )}{" "}
           months
         </p>
@@ -1242,7 +1245,7 @@ const Step5BudgetSetup = ({
                       manpower.update(
                         index,
                         "salary_per_month",
-                        parseFloat(e.target.value) || 0
+                        parseFloat(e.target.value) || 0,
                       )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
@@ -1259,7 +1262,7 @@ const Step5BudgetSetup = ({
                       manpower.update(
                         index,
                         "months",
-                        parseInt(e.target.value) || 1
+                        parseInt(e.target.value) || 1,
                       )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
@@ -1276,7 +1279,7 @@ const Step5BudgetSetup = ({
                       manpower.update(
                         index,
                         "num_personnel",
-                        parseInt(e.target.value) || 1
+                        parseInt(e.target.value) || 1,
                       )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:outline-none transition-colors"
@@ -1310,7 +1313,7 @@ const Step5BudgetSetup = ({
                       manpower.update(
                         index,
                         "experience_required",
-                        e.target.value
+                        e.target.value,
                       )
                     }
                     placeholder="e.g., 5+ years in full-stack development..."
@@ -1407,7 +1410,7 @@ const Step5BudgetSetup = ({
                       equipment.update(
                         index,
                         "quantity",
-                        parseInt(e.target.value) || 1
+                        parseInt(e.target.value) || 1,
                       )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
@@ -1424,7 +1427,7 @@ const Step5BudgetSetup = ({
                       equipment.update(
                         index,
                         "unit_cost",
-                        parseFloat(e.target.value) || 0
+                        parseFloat(e.target.value) || 0,
                       )
                     }
                     className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-right focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:outline-none transition-colors"
@@ -1541,10 +1544,10 @@ const Step6Review = ({
   onEditStep,
 }) => {
   const selectedAgency = fundingAgencies.find(
-    (a) => a.agency_id === parseInt(formData.funding_agency_id)
+    (a) => a.agency_id === parseInt(formData.funding_agency_id),
   );
   const selectedGroup = technicalGroups.find(
-    (g) => g.group_id === parseInt(formData.technical_group_id)
+    (g) => g.group_id === parseInt(formData.technical_group_id),
   );
 
   return (
@@ -1869,7 +1872,7 @@ const Step6Review = ({
                 {Math.ceil(
                   (new Date(formData.end_date) -
                     new Date(formData.start_date)) /
-                    (1000 * 60 * 60 * 24 * 30)
+                    (1000 * 60 * 60 * 24 * 30),
                 )}{" "}
                 months
               </p>

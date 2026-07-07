@@ -178,10 +178,10 @@ const projectService = {
 
   /**
    * Get funding agency details
-   * @param {number} agencyId - Agency ID
+   * @param {number} projectId - Project ID
    */
-  async getFundingAgencyDetails(agencyId) {
-    return api.get(`/funding-agencies/${agencyId}/details`);
+  async getFundingAgencyDetails(projectId) {
+    return api.get(`/funding-agencies/${projectId}/details`);
   },
 
   /**
@@ -195,19 +195,19 @@ const projectService = {
 
   /**
    * Update funding agency details
-   * @param {number} agencyId - Agency ID
+   * @param {number} projectId - Project ID
    * @param {Object} detailsData - Updated details data
    */
-  async updateFundingAgencyDetails(agencyId, detailsData) {
-    return api.put(`/funding-agencies/${agencyId}/details`, detailsData);
+  async updateFundingAgencyDetails(projectId, detailsData) {
+    return api.put(`/funding-agencies/${projectId}/details`, detailsData);
   },
 
   /**
    * Delete funding agency details
-   * @param {number} agencyId - Agency ID
+   * @param {number} projectId - Project ID
    */
-  async deleteFundingAgencyDetails(agencyId) {
-    return api.delete(`/funding-agencies/${agencyId}/details`);
+  async deleteFundingAgencyDetails(projectId) {
+    return api.delete(`/funding-agencies/${projectId}/details`);
   },
 
   // ==================== TECHNICAL GROUPS ====================

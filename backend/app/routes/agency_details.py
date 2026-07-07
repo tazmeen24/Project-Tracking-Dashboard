@@ -22,6 +22,7 @@ class FundingAgencyUpdate(BaseModel):
     address: Optional[str] = None
 
 class AgencyDetailsCreate(BaseModel):
+    project_id: int
     contact_person: str
     designation: Optional[str] = None
     mobile: Optional[str] = None
@@ -112,7 +113,7 @@ async def get_all_funding_agencies(
 
 @router.get("/{agency_id}", status_code=status.HTTP_200_OK)
 async def get_funding_agency(agency_id: int):
-    """Get a specific funding agency with details"""
+    """Get a specific funding agency, along with the per-project details it has on file"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -125,10 +126,14 @@ async def get_funding_agency(agency_id: int):
             
             response = dict(agency)
             
-            # Get details if exists
-            cur.execute("SELECT * FROM funding_agency_details WHERE agency_id = %s", (agency_id,))
-            details = cur.fetchone()
-            response['details'] = dict(details) if details else None
+            # An agency can have MANY details rows (one per project, since project_id
+            # is the unique key on funding_agency_details) -- so this is now a list,
+            # not a single object.
+            cur.execute(
+                "SELECT * FROM funding_agency_details WHERE agency_id = %s ORDER BY project_id",
+                (agency_id,)
+            )
+            response['project_details'] = [dict(row) for row in cur.fetchall()]
             
             return json.loads(json.dumps(response, cls=DecimalEncoder))
     except HTTPException:
@@ -214,29 +219,48 @@ async def delete_funding_agency(agency_id: int):
 
 
 # ==================== AGENCY DETAILS ====================
+# NOTE: funding_agency_details is keyed 1:1 with project_id (UNIQUE constraint in
+# the DB), not with agency_id. An agency can have MANY details rows (one per
+# project it funds). So GET/PUT/DELETE below are addressed by project_id alone --
+# agency_id is only needed at creation time, and even then it's cross-checked
+# against the project's own funding_agency_id rather than trusted blindly.
 
 @router.post("/{agency_id}/details", status_code=status.HTTP_201_CREATED)
 async def create_funding_agency_details(
     agency_id: int,
     details: AgencyDetailsCreate
 ):
-    """Create agency details"""
+    """Create funding agency details for a project"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             validate_foreign_key("funding_agencies", "agency_id", agency_id, conn)
-            
-            cur.execute("SELECT * FROM funding_agency_details WHERE agency_id = %s", (agency_id,))
+
+            # Confirm the project exists AND is actually funded by this agency,
+            # rather than trusting agency_id and project_id to agree.
+            cur.execute(
+                "SELECT funding_agency_id FROM projects WHERE project_id = %s",
+                (details.project_id,)
+            )
+            project = cur.fetchone()
+            if not project:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                  detail=f"Invalid project_id: {details.project_id} does not exist")
+            if project['funding_agency_id'] != agency_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                  detail="This project's funding agency does not match agency_id in the URL")
+
+            cur.execute("SELECT 1 FROM funding_agency_details WHERE project_id = %s", (details.project_id,))
             if cur.fetchone():
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                  detail="Details already exist. Use PUT to update.")
+                                  detail="Details already exist for this project. Use PUT to update.")
             
             cur.execute(
                 """INSERT INTO funding_agency_details 
-                   (agency_id, contact_person, designation, mobile, email,
+                   (agency_id, project_id, contact_person, designation, mobile, email,
                     sanctioned_number, scheme, cna_sub_agency, bank_name, bank_account_no)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-                (agency_id, details.contact_person, details.designation, details.mobile, details.email,
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (agency_id, details.project_id, details.contact_person, details.designation, details.mobile, details.email,
                  details.sanctioned_number, details.scheme, details.cna_sub_agency, 
                  details.bank_name, details.bank_account_no)
             )
@@ -248,18 +272,21 @@ async def create_funding_agency_details(
         raise
     except Exception as e:
         conn.rollback()
+        if "unique_project_agency_details" in str(e):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                              detail="Details already exist for this project")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     finally:
         conn.close()
 
 
-@router.get("/{agency_id}/details", status_code=status.HTTP_200_OK)
-async def get_funding_agency_details(agency_id: int):
-    """Get agency details"""
+@router.get("/details/{project_id}", status_code=status.HTTP_200_OK)
+async def get_funding_agency_details(project_id: int):
+    """Get funding agency details for a project"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM funding_agency_details WHERE agency_id = %s", (agency_id,))
+            cur.execute("SELECT * FROM funding_agency_details WHERE project_id = %s", (project_id,))
             details = cur.fetchone()
             
             if not details:
@@ -275,16 +302,16 @@ async def get_funding_agency_details(agency_id: int):
         conn.close()
 
 
-@router.put("/{agency_id}/details", status_code=status.HTTP_200_OK)
+@router.put("/details/{project_id}", status_code=status.HTTP_200_OK)
 async def update_funding_agency_details(
-    agency_id: int,
+    project_id: int,
     details: AgencyDetailsUpdate
 ):
-    """Update agency details"""
+    """Update funding agency details for a project"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM funding_agency_details WHERE agency_id = %s", (agency_id,))
+            cur.execute("SELECT 1 FROM funding_agency_details WHERE project_id = %s", (project_id,))
             if not cur.fetchone():
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                   detail="Details not found. Use POST to create.")
@@ -311,8 +338,8 @@ async def update_funding_agency_details(
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
                                   detail="No fields to update")
             
-            values.append(agency_id)
-            query = f"UPDATE funding_agency_details SET {', '.join(update_fields)} WHERE agency_id = %s RETURNING *"
+            values.append(project_id)
+            query = f"UPDATE funding_agency_details SET {', '.join(update_fields)} WHERE project_id = %s RETURNING *"
             
             cur.execute(query, values)
             result = cur.fetchone()
@@ -329,13 +356,16 @@ async def update_funding_agency_details(
         conn.close()
 
 
-@router.delete("/{agency_id}/details", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_funding_agency_details(agency_id: int):
-    """Delete agency details"""
+@router.delete("/details/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_funding_agency_details(project_id: int):
+    """Delete funding agency details for a project"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("DELETE FROM funding_agency_details WHERE agency_id = %s RETURNING *", (agency_id,))
+            cur.execute(
+                "DELETE FROM funding_agency_details WHERE project_id = %s RETURNING *",
+                (project_id,)
+            )
             if not cur.fetchone():
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                                   detail="Agency details not found")
