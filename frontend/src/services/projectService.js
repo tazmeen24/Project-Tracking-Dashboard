@@ -181,7 +181,7 @@ const projectService = {
    * @param {number} projectId - Project ID
    */
   async getFundingAgencyDetails(projectId) {
-    return api.get(`/funding-agencies/${projectId}/details`);
+    return api.get(`/funding-agencies/details/${projectId}`);
   },
 
   /**
@@ -199,7 +199,7 @@ const projectService = {
    * @param {Object} detailsData - Updated details data
    */
   async updateFundingAgencyDetails(projectId, detailsData) {
-    return api.put(`/funding-agencies/${projectId}/details`, detailsData);
+    return api.put(`/funding-agencies/details/${projectId}`, detailsData);
   },
 
   /**
@@ -207,7 +207,7 @@ const projectService = {
    * @param {number} projectId - Project ID
    */
   async deleteFundingAgencyDetails(projectId) {
-    return api.delete(`/funding-agencies/${projectId}/details`);
+    return api.delete(`/funding-agencies/details/${projectId}`);
   },
 
   // ==================== TECHNICAL GROUPS ====================
@@ -307,7 +307,7 @@ const projectService = {
    */
   async getManpowerBreakdown(projectId) {
     return api.get(
-      `/budget/allocation/project/${projectId}/manpower-breakdown`
+      `/budget/allocation/project/${projectId}/manpower-breakdown`,
     );
   },
 
@@ -333,7 +333,7 @@ const projectService = {
    */
   async getEquipmentBreakdown(projectId) {
     return api.get(
-      `/budget/allocation/project/${projectId}/equipment-breakdown`
+      `/budget/allocation/project/${projectId}/equipment-breakdown`,
     );
   },
 
@@ -356,7 +356,7 @@ const projectService = {
   async getManpower(projectId, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     return api.get(
-      `/manpower/project/${projectId}${queryString ? `?${queryString}` : ""}`
+      `/manpower/project/${projectId}${queryString ? `?${queryString}` : ""}`,
     );
   },
 
@@ -428,7 +428,7 @@ const projectService = {
   async getEquipment(projectId, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     return api.get(
-      `/equipment/project/${projectId}${queryString ? `?${queryString}` : ""}`
+      `/equipment/project/${projectId}${queryString ? `?${queryString}` : ""}`,
     );
   },
 
@@ -501,7 +501,7 @@ const projectService = {
     return api.get(
       `/funds/received/project/${projectId}${
         queryString ? `?${queryString}` : ""
-      }`
+      }`,
     );
   },
 
@@ -639,7 +639,7 @@ const projectService = {
   async getExpenditure(projectId, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     return api.get(
-      `/expenditure/project/${projectId}${queryString ? `?${queryString}` : ""}`
+      `/expenditure/project/${projectId}${queryString ? `?${queryString}` : ""}`,
     );
   },
 
